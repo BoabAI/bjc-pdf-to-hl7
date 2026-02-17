@@ -11,7 +11,7 @@ frontend:
         - echo "Created .env.production with APP_PASSWORD"
         - npm run build
   artifacts:
-    baseDirectory: .next
+    baseDirectory: .
     files:
       - '**/*'
   cache:
