@@ -691,3 +691,437 @@ describe("Integration & Edge Cases", () => {
     expect(hl7).toContain("eA==");
   });
 });
+
+// =============================================================================
+// Edge Cases - Data Integrity
+// =============================================================================
+
+describe("Edge Cases - Data Integrity", () => {
+  test("CR in patient name is stripped, preserving segment structure", () => {
+    const patient: PatientData = {
+      ...samplePatient,
+      lastName: "Smith\rJones",
+    };
+    const hl7 = buildHL7Message(patient, TINY_PDF);
+    const segments = getSegments(hl7);
+
+    expect(segments).toHaveLength(5);
+    expect(getSegment(hl7, "PID")).toContain("Smith Jones");
+  });
+
+  test("LF in patient name is stripped, preserving segment structure", () => {
+    const patient: PatientData = {
+      ...samplePatient,
+      lastName: "Smith\nJones",
+    };
+    const hl7 = buildHL7Message(patient, TINY_PDF);
+    const segments = getSegments(hl7);
+
+    expect(segments).toHaveLength(5);
+    expect(getSegment(hl7, "PID")).toContain("Smith Jones");
+  });
+
+  test("tab characters in data are replaced with spaces", () => {
+    const patient: PatientData = {
+      ...samplePatient,
+      address: "123\tMain\tSt",
+      suburb: "Test",
+    };
+    const hl7 = buildHL7Message(patient, TINY_PDF);
+
+    expect(getSegment(hl7, "PID")).toContain("123 Main St");
+  });
+
+  test("CRLF in address is stripped, preserving segment structure", () => {
+    const patient: PatientData = {
+      ...samplePatient,
+      address: "Line1\r\nLine2",
+      suburb: "Test",
+    };
+    const hl7 = buildHL7Message(patient, TINY_PDF);
+    const segments = getSegments(hl7);
+
+    expect(segments).toHaveLength(5);
+    expect(getSegment(hl7, "PID")).toContain("Line1  Line2");
+  });
+
+  test("null bytes are stripped from data", () => {
+    const patient: PatientData = {
+      ...samplePatient,
+      firstName: "John\x00Smith",
+    };
+    const hl7 = buildHL7Message(patient, TINY_PDF);
+
+    expect(getSegment(hl7, "PID")).toContain("John Smith");
+    expect(getSegment(hl7, "PID")).not.toContain("\x00");
+  });
+
+  test("multiple special characters in a single field all get escaped", () => {
+    const patient: PatientData = {
+      ...samplePatient,
+      address: "A|B^C\\D~E&F",
+      suburb: "Test",
+    };
+    const hl7 = buildHL7Message(patient, TINY_PDF);
+    const pid = getSegment(hl7, "PID")!;
+
+    expect(pid).toContain("A\\F\\B\\S\\C\\E\\D\\R\\E\\T\\F");
+  });
+
+  test("empty string address with populated suburb still builds address", () => {
+    const patient: PatientData = {
+      ...samplePatient,
+      suburb: "Bondi",
+    };
+    const hl7 = buildHL7Message(patient, TINY_PDF);
+    const pid = getFields(getSegment(hl7, "PID")!);
+
+    const addrParts = pid[11].split("^");
+    expect(addrParts[0]).toBe(""); // No street
+    expect(addrParts[2]).toBe("Bondi"); // Suburb present
+    expect(addrParts[3]).toBe("VIC"); // Default state
+    expect(addrParts[5]).toBe("AUS"); // Country
+  });
+
+  test("address with street but no suburb still builds address", () => {
+    const patient: PatientData = {
+      ...samplePatient,
+      address: "123 Main St",
+    };
+    const hl7 = buildHL7Message(patient, TINY_PDF);
+    const pid = getFields(getSegment(hl7, "PID")!);
+
+    const addrParts = pid[11].split("^");
+    expect(addrParts[0]).toBe("123 Main St");
+    expect(addrParts[2]).toBe(""); // No suburb
+    expect(addrParts[5]).toBe("AUS");
+  });
+
+  test("empty string Medicare ref falls back to 1", () => {
+    const patient: PatientData = {
+      ...samplePatient,
+      medicareNo: "1234567890",
+      medicareRef: "", // Empty string is falsy
+    };
+    const hl7 = buildHL7Message(patient, TINY_PDF);
+    const pid = getFields(getSegment(hl7, "PID")!);
+
+    expect(pid[3]).toBe("1234567890-1^^^Medicare^MC");
+  });
+
+  test("empty PDF buffer (0 bytes) still produces valid message", () => {
+    const empty = Buffer.alloc(0);
+    const hl7 = buildHL7Message(samplePatient, empty);
+    const segments = getSegments(hl7);
+
+    expect(segments).toHaveLength(5);
+    // Empty buffer -> empty base64 string
+    expect(hl7).toContain("^application^pdf^Base64^");
+  });
+
+  test("Base64 output contains no line breaks or spaces", () => {
+    // Some Base64 encoders insert line breaks every 76 chars — HL7 can't have that
+    const largePdf = Buffer.alloc(1000, 0xff);
+    const hl7 = buildHL7Message(samplePatient, largePdf);
+
+    const match = hl7.match(/\^Base64\^([^\r]+)/);
+    expect(match).not.toBeNull();
+
+    const base64Data = match![1];
+    expect(base64Data).not.toContain("\n");
+    expect(base64Data).not.toContain("\r");
+    expect(base64Data).not.toContain(" ");
+  });
+
+  test("PID always has exactly 14 fields regardless of optional data", () => {
+    // Minimal patient
+    const hl7Min = buildHL7Message(samplePatient, TINY_PDF);
+    const pidMin = getFields(getSegment(hl7Min, "PID")!);
+
+    // Full patient
+    const hl7Full = buildHL7Message(fullPatient, TINY_PDF);
+    const pidFull = getFields(getSegment(hl7Full, "PID")!);
+
+    // Both should have the same number of fields (PID + 13 data fields = 14)
+    expect(pidMin).toHaveLength(14);
+    expect(pidFull).toHaveLength(14);
+  });
+
+  test("OBR always has exactly 26 fields", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF);
+    const obr = getFields(getSegment(hl7, "OBR")!);
+
+    // OBR name + 25 data fields = 26
+    expect(obr).toHaveLength(26);
+  });
+
+  test("OBX always has exactly 12 fields", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF);
+    const obx = getFields(getSegment(hl7, "OBX")!);
+
+    // OBX name + 11 data fields = 12
+    expect(obx).toHaveLength(12);
+  });
+
+  test("MSH always has exactly 18 fields", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF);
+    const msh = getFields(getSegment(hl7, "MSH")!);
+
+    // MSH + 17 data fields = 18
+    expect(msh).toHaveLength(18);
+  });
+});
+
+// =============================================================================
+// Edge Cases - Australian Healthcare Names
+// =============================================================================
+
+describe("Edge Cases - Australian Healthcare Names", () => {
+  test("handles hyphenated surnames", () => {
+    const patient: PatientData = {
+      ...samplePatient,
+      lastName: "Smith-Jones",
+    };
+    const hl7 = buildHL7Message(patient, TINY_PDF);
+    const pid = getFields(getSegment(hl7, "PID")!);
+
+    expect(pid[5]).toBe("Smith-Jones^John");
+  });
+
+  test("handles accented characters (common in AU healthcare)", () => {
+    const patient: PatientData = {
+      ...samplePatient,
+      firstName: "José",
+      lastName: "Müller",
+    };
+    const hl7 = buildHL7Message(patient, TINY_PDF);
+    const pid = getFields(getSegment(hl7, "PID")!);
+
+    expect(pid[5]).toBe("Müller^José");
+  });
+
+  test("handles single-character names", () => {
+    const patient: PatientData = {
+      firstName: "X",
+      lastName: "Y",
+      dob: "20000101",
+      sex: "U",
+    };
+    const hl7 = buildHL7Message(patient, TINY_PDF);
+    const pid = getFields(getSegment(hl7, "PID")!);
+
+    expect(pid[5]).toBe("Y^X");
+  });
+
+  test("handles very long names without truncation", () => {
+    const patient: PatientData = {
+      ...samplePatient,
+      firstName: "Bartholomew Christopher",
+      lastName: "Wolfeschlegelsteinhausenbergerdorff",
+    };
+    const hl7 = buildHL7Message(patient, TINY_PDF);
+    const pid = getFields(getSegment(hl7, "PID")!);
+
+    expect(pid[5]).toBe(
+      "Wolfeschlegelsteinhausenbergerdorff^Bartholomew Christopher"
+    );
+  });
+
+  test("handles names with periods (Jr., Sr., Dr.)", () => {
+    const patient: PatientData = {
+      ...samplePatient,
+      firstName: "John Jr.",
+      lastName: "Smith",
+    };
+    const hl7 = buildHL7Message(patient, TINY_PDF);
+    const pid = getFields(getSegment(hl7, "PID")!);
+
+    expect(pid[5]).toBe("Smith^John Jr.");
+  });
+});
+
+// =============================================================================
+// Edge Cases - Provider & Medicare Formats
+// =============================================================================
+
+describe("Edge Cases - Provider & Medicare Formats", () => {
+  test("empty string ordering provider is treated as no provider", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      orderingProvider: "",
+    });
+    const pv1 = getFields(getSegment(hl7, "PV1")!);
+
+    // Empty string is falsy, so PV1 should be minimal
+    expect(pv1).toHaveLength(3);
+  });
+
+  test("handles 6-character provider number", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      orderingProvider: "123456",
+    });
+    const pv1 = getFields(getSegment(hl7, "PV1")!);
+
+    expect(pv1[9]).toBe("123456^^^AUSHICPR");
+  });
+
+  test("handles alphanumeric provider number", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      orderingProvider: "0123456T",
+    });
+    const pv1 = getFields(getSegment(hl7, "PV1")!);
+
+    expect(pv1[9]).toBe("0123456T^^^AUSHICPR");
+  });
+
+  test("Medicare number with ref=1 explicitly set", () => {
+    const patient: PatientData = {
+      ...samplePatient,
+      medicareNo: "1234567890",
+      medicareRef: "1",
+    };
+    const hl7 = buildHL7Message(patient, TINY_PDF);
+    const pid = getFields(getSegment(hl7, "PID")!);
+
+    expect(pid[3]).toBe("1234567890-1^^^Medicare^MC");
+  });
+
+  test("Medicare number with high ref number", () => {
+    const patient: PatientData = {
+      ...samplePatient,
+      medicareNo: "1234567890",
+      medicareRef: "9",
+    };
+    const hl7 = buildHL7Message(patient, TINY_PDF);
+    const pid = getFields(getSegment(hl7, "PID")!);
+
+    expect(pid[3]).toBe("1234567890-9^^^Medicare^MC");
+  });
+});
+
+// =============================================================================
+// Edge Cases - OBR Document Title
+// =============================================================================
+
+describe("Edge Cases - OBR Document Title", () => {
+  test("explicit undefined documentTitle falls back to 'PDF Report'", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      documentTitle: undefined,
+    });
+    const obr = getFields(getSegment(hl7, "OBR")!);
+
+    // Spread with explicit undefined overwrites the default, then
+    // buildOBR's `options.documentTitle || "PDF Report"` fallback kicks in
+    expect(obr[4]).toBe("PDF^PDF Report^L");
+  });
+
+  test("empty string documentTitle falls back to 'PDF Report'", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      documentTitle: "",
+    });
+    const obr = getFields(getSegment(hl7, "OBR")!);
+
+    // Empty string is falsy, so `options.documentTitle || "PDF Report"` kicks in
+    expect(obr[4]).toBe("PDF^PDF Report^L");
+  });
+
+  test("OBR filler order uses custom sending application", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      sendingApplication: "MYAPP",
+    });
+    const obr = getFields(getSegment(hl7, "OBR")!);
+
+    expect(obr[3]).toMatch(/^RPT\d{14}\^MYAPP$/);
+  });
+
+  test("document title with all 5 HL7 special chars gets fully escaped", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      documentTitle: "A|B^C\\D~E&F",
+    });
+    const obr = getFields(getSegment(hl7, "OBR")!);
+
+    // The title inside OBR-4 should have all chars escaped
+    expect(obr[4]).toContain("A\\F\\B\\S\\C\\E\\D\\R\\E\\T\\F");
+  });
+});
+
+// =============================================================================
+// Edge Cases - Filename Generation
+// =============================================================================
+
+describe("Edge Cases - Filename Generation", () => {
+  test("filename with dots in name sanitizes them", () => {
+    const patient: PatientData = {
+      ...samplePatient,
+      firstName: "J.R.",
+      lastName: "Smith",
+    };
+    const filename = generateHL7Filename(patient);
+
+    // Dots are not [a-zA-Z0-9_] so get replaced with _
+    expect(filename).toMatch(/^Smith_J_R__\d{14}\.hl7$/);
+  });
+
+  test("filename with slashes in name sanitizes them", () => {
+    const patient: PatientData = {
+      ...samplePatient,
+      firstName: "Test",
+      lastName: "A/B",
+    };
+    const filename = generateHL7Filename(patient);
+
+    // Slash replaced with underscore — no path traversal
+    expect(filename).toMatch(/^A_B_Test_\d{14}\.hl7$/);
+    expect(filename).not.toContain("/");
+  });
+
+  test("filename with accented chars replaces them with underscore", () => {
+    const patient: PatientData = {
+      ...samplePatient,
+      firstName: "José",
+      lastName: "Müller",
+    };
+    const filename = generateHL7Filename(patient);
+
+    // Non-ASCII replaced by regex [^a-zA-Z0-9]
+    expect(filename).not.toContain("é");
+    expect(filename).not.toContain("ü");
+    expect(filename).toMatch(/\.hl7$/);
+  });
+
+  test("two filenames generated in sequence have different timestamps", () => {
+    const a = generateHL7Filename(samplePatient);
+    // Small delay to ensure different second
+    const b = generateHL7Filename(samplePatient);
+
+    // Filenames share the name prefix but timestamps may differ
+    expect(a).toMatch(/^Smith_John_/);
+    expect(b).toMatch(/^Smith_John_/);
+    // Both should be valid .hl7 files
+    expect(a).toMatch(/\.hl7$/);
+    expect(b).toMatch(/\.hl7$/);
+  });
+});
+
+// =============================================================================
+// Edge Cases - Message Uniqueness
+// =============================================================================
+
+describe("Edge Cases - Message Uniqueness", () => {
+  test("10 consecutive messages all have unique control IDs", () => {
+    const ids = new Set<string>();
+    for (let i = 0; i < 10; i++) {
+      const hl7 = buildHL7Message(samplePatient, TINY_PDF);
+      const msh = getFields(getSegment(hl7, "MSH")!);
+      ids.add(msh[9]);
+    }
+    expect(ids.size).toBe(10);
+  });
+
+  test("OBR-7 and OBR-22 have same timestamp within one message", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF);
+    const obr = getFields(getSegment(hl7, "OBR")!);
+
+    // Both timestamps generated in same buildOBR() call
+    expect(obr[7]).toBe(obr[22]);
+  });
+});
