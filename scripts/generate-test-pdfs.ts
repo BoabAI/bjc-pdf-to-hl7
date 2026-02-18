@@ -169,48 +169,112 @@ function skewedWrap(content: string): string {
 }
 
 /**
- * Grainy fax HTML: renders with aggressive CSS filters for the rasterized screenshot.
+ * Grainy fax HTML: renders content on white paper with Courier font.
+ * After rendering, we inject a canvas overlay with speckle noise, scan lines,
+ * horizontal streaks, and edge shadows — then screenshot at low res + JPEG compress.
+ *
  * CSS filter destroys the text layer in Puppeteer PDFs, so we use a two-pass approach:
- *   Pass 1: Render this HTML, take a low-res screenshot (grainy raster image)
+ *   Pass 1: Render this HTML, inject canvas noise, take a low-res JPEG screenshot
  *   Pass 2: Build a PDF with the raster image as background + near-invisible text overlay
  */
 function grainyVisualHtml(content: string): string {
   return `
     <style>
-      body { margin: 0; background: #d8d2c4; }
+      body { margin: 0; background: #fff; }
       .fax-page {
+        position: relative;
         font-family: Courier, monospace;
         max-width: 700px;
         margin: 0 auto;
         padding: 40px;
-        color: #111;
-        background: #d8d2c4;
-        /* Aggressive filters: high contrast + slight blur simulates thermal fax printing */
-        filter: contrast(2.2) brightness(0.7) grayscale(0.6) blur(0.4px);
-        -webkit-filter: contrast(2.2) brightness(0.7) grayscale(0.6) blur(0.4px);
+        color: #000;
+        background: #faf8f4; /* very slight warm off-white, like thermal paper */
       }
       .fax-content {
-        letter-spacing: 0.5px;
+        letter-spacing: 0.3px;
         line-height: 1.6;
         font-size: 13px;
       }
-      /* Fax header bar across top */
+      /* Fax header bar - like the auto-printed header from the sending machine */
       .fax-header {
-        font-size: 9px;
-        border-bottom: 1px solid #555;
-        padding-bottom: 4px;
+        font-size: 8px;
+        padding-bottom: 6px;
         margin-bottom: 20px;
-        color: #333;
-        letter-spacing: 1px;
+        color: #444;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+      }
+      /* Canvas overlay sits on top of content for noise/artifacts */
+      #fax-noise {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 9999;
       }
     </style>
     <body>
       <div class="fax-page">
-        <div class="fax-header">FAX TRANSMISSION &nbsp;&nbsp; PAGE 01/01 &nbsp;&nbsp; ${new Date().toLocaleDateString('en-AU')}</div>
+        <div class="fax-header">
+          18/02/2026 14:32 &nbsp;&nbsp; FROM: 02 9876 5433 &nbsp;&nbsp; TO: 02 9635 1235 &nbsp;&nbsp; P.1/1
+        </div>
         <div class="fax-content">
           ${content}
         </div>
       </div>
+      <canvas id="fax-noise"></canvas>
+      <script>
+        // Draw realistic fax artifacts on canvas overlay
+        const canvas = document.getElementById('fax-noise');
+        const w = document.documentElement.scrollWidth;
+        const h = document.documentElement.scrollHeight;
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+
+        // 1. Random speckle noise — tiny black dots scattered across page
+        for (let i = 0; i < Math.floor(w * h * 0.0008); i++) {
+          const x = Math.random() * w;
+          const y = Math.random() * h;
+          const size = Math.random() * 1.5 + 0.5;
+          ctx.fillStyle = 'rgba(0,0,0,' + (Math.random() * 0.4 + 0.1) + ')';
+          ctx.fillRect(x, y, size, size);
+        }
+
+        // 2. Horizontal scan lines — faint lines every few pixels from the scanner
+        ctx.strokeStyle = 'rgba(0,0,0,0.03)';
+        ctx.lineWidth = 1;
+        for (let y = 0; y < h; y += 3) {
+          ctx.beginPath();
+          ctx.moveTo(0, y + 0.5);
+          ctx.lineTo(w, y + 0.5);
+          ctx.stroke();
+        }
+
+        // 3. A few horizontal streaks — from dirty fax rollers
+        for (let i = 0; i < 4; i++) {
+          const y = Math.random() * h;
+          ctx.fillStyle = 'rgba(0,0,0,' + (Math.random() * 0.06 + 0.02) + ')';
+          ctx.fillRect(0, y, w, Math.random() * 2 + 1);
+        }
+
+        // 4. Edge shadow / vignette — darker edges like a flatbed scanner
+        const gradient = ctx.createRadialGradient(w/2, h/2, Math.min(w,h)*0.3, w/2, h/2, Math.max(w,h)*0.7);
+        gradient.addColorStop(0, 'rgba(0,0,0,0)');
+        gradient.addColorStop(1, 'rgba(0,0,0,0.08)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, w, h);
+
+        // 5. Slight white speckle — simulates paper texture / toner gaps
+        for (let i = 0; i < Math.floor(w * h * 0.0003); i++) {
+          const x = Math.random() * w;
+          const y = Math.random() * h;
+          ctx.fillStyle = 'rgba(255,255,255,' + (Math.random() * 0.5 + 0.2) + ')';
+          ctx.fillRect(x, y, Math.random() * 2 + 0.5, Math.random() * 1 + 0.5);
+        }
+      </script>
     </body>`;
 }
 
@@ -996,15 +1060,17 @@ async function generatePDFs() {
 
     if (pdf.grainy && pdf.cleanHtml) {
       // Two-pass approach for grainy/fax PDFs:
-      // Pass 1: Render at LOW resolution with CSS filters, then screenshot (fax-like raster)
-      // Fax machines run ~200dpi on narrow paper; we use ~half A4 width for chunky pixels
+      // Pass 1: Render content + canvas noise at moderate resolution, then screenshot
+      // Low-res + JPEG compression creates authentic fax degradation
       const screenshotPage = await browser.newPage();
-      await screenshotPage.setViewport({ width: 500, height: 700 });
+      await screenshotPage.setViewport({ width: 620, height: 877 }); // ~A4 ratio, low-res
       await screenshotPage.setContent(pdf.html, { waitUntil: "networkidle0" });
+      // Wait for canvas noise script to execute
+      await screenshotPage.evaluate(() => new Promise(r => setTimeout(r, 100)));
       const screenshot = await screenshotPage.screenshot({
         encoding: "base64",
         type: "jpeg",       // JPEG compression adds realistic fax artifacts
-        quality: 45,        // Low quality = more compression artifacts
+        quality: 38,        // Low quality = more compression artifacts + blocking
         fullPage: true,
       });
       await screenshotPage.close();
