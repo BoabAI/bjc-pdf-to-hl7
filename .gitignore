@@ -23,6 +23,7 @@ __pycache__/
 .DS_Store
 *.pem
 Thumbs.db
+.nano-banana-config.json
 
 # Debug
 npm-debug.log*

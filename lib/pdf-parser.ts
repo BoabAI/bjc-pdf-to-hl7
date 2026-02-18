@@ -31,8 +31,8 @@ const CONSENT_FORM_PATTERNS = {
   // Date of Birth - Australian format DD/MM/YYYY
   dob: /Date of Birth\s*\*?\s*\n?\s*(\d{1,2}\/\d{1,2}\/\d{4})/i,
 
-  // Contact
-  mobile: /Mobile Phone\s*\*?\s*\n?\s*([\d\s]{10,12})/i,
+  // Contact (use [\d ] not [\d\s] to avoid matching newlines into next line)
+  mobile: /Mobile Phone\s*\*?\s*\n?\s*([\d ]{10,14})/i,
 
   // Address
   address: /Address\s*\*?\s*\n?\s*(.+?)(?=\n*Postcode|\n*City)/is,
@@ -48,8 +48,9 @@ const CONSENT_FORM_PATTERNS = {
 const REFERRAL_PATTERNS = {
   // RE: FirstName LASTNAME - DOB: DD/MM/YYYY
   // Handles both "RE: Scott LAWLER" and "RE: LAWLER, Scott" formats
+  // Names may contain apostrophes (O'BRIEN) or hyphens (SMITH-JONES)
   patientLine:
-    /RE:\s*(?:([A-Za-z]+)\s+([A-Z][A-Z]+)|([A-Z][A-Z]+),\s*([A-Za-z]+))\s*[-–]\s*DOB:\s*(\d{1,2}\/\d{1,2}\/\d{4})/i,
+    /RE:\s*(?:([A-Za-z][A-Za-z'-]*)\s+([A-Z][A-Z'-]+)|([A-Z][A-Z'-]+),\s*([A-Za-z][A-Za-z'-]*))\s*[-–]\s*DOB:\s*(\d{1,2}\/\d{1,2}\/\d{4})/i,
 
   // Provider No: 457833CF (legally required on Australian medical letters)
   providerNo: /Provider\s*No[:\.]?\s*(\d{6}[A-Z]{2})/i,
@@ -64,8 +65,8 @@ const REFERRAL_PATTERNS = {
 
 // Secondary patterns for referral letters (MEDIUM reliability)
 const REFERRAL_PATTERNS_SECONDARY = {
-  // Phone - try multiple labels
-  phone: /(?:Mobile|Ph|Tel|Phone)[:\s]+(\d[\d\s]{9,14})/i,
+  // Phone - try multiple labels (use [\d ] not [\d\s] to avoid matching newlines)
+  phone: /(?:Mobile|Ph|Tel|Phone)[:\s]+(\d[\d ]{9,14})/i,
 
   // Address line after RE: line (NeuroSpine format)
   // Matches: "104 Stratford Road, TAHMOOR, NSW, 2573"
@@ -75,9 +76,9 @@ const REFERRAL_PATTERNS_SECONDARY = {
 
 // GP/Best Practice referral letter patterns
 const GP_REFERRAL_PATTERNS = {
-  // "re. Mr Tim Ball" or "re. Mrs Jane Smith" - title + name format
-  // Captures: (1) title, (2) first name, (3) last name
-  patientLineWithTitle: /\bre\.?\s+(Mr|Mrs|Miss|Ms|Dr)\s+([A-Za-z]+)\s+([A-Za-z]+)/i,
+  // "re. Mr Tim Ball" or "re. Mrs Jane O'Brien-Smith" - title + name format
+  // Captures: (1) title, (2) first name, (3) last name (may contain apostrophes/hyphens)
+  patientLineWithTitle: /\bre\.?\s+(Mr|Mrs|Miss|Ms|Dr)\s+([A-Za-z]+)\s+([A-Za-z][A-Za-z'-]*[A-Za-z]|[A-Za-z])/i,
 
   // DOB on separate line: "DOB: 18/09/1968"
   dobLine: /\bDOB:\s*(\d{1,2}\/\d{1,2}\/\d{4})/i,
@@ -85,8 +86,8 @@ const GP_REFERRAL_PATTERNS = {
   // Medicare No: 2673291844 (GP letters often include this)
   medicareNo: /Medicare\s*No[:\s]+(\d{10,11})/i,
 
-  // Mobile on separate line: "Mobile: 0468 900 291"
-  mobile: /Mobile:\s*([\d\s]{10,14})/i,
+  // Mobile on separate line: "Mobile: 0468 900 291" (use [\d ] not [\d\s] to avoid newlines)
+  mobile: /Mobile:\s*([\d ]{10,14})/i,
 
   // Multi-line address pattern (GP format)
   // Line 1: "274/4 The Crescent"
@@ -168,8 +169,8 @@ function detectDocumentType(text: string): DocumentType {
 
   if ((hasDearDr || hasDearName) && hasReLine) {
     // Distinguish between specialist and GP referral formats
-    // GP format: "re. Mr Tim Ball" (lowercase re., title + name)
-    const isGPFormat = /\bre\.?\s+(?:Mr|Mrs|Miss|Ms|Dr)\s+[A-Za-z]+\s+[A-Za-z]+/i.test(text);
+    // GP format: "re. Mr Tim Ball" or "re. Mrs Mary O'Brien-Smith" (title + name)
+    const isGPFormat = /\bre\.?\s+(?:Mr|Mrs|Miss|Ms|Dr)\s+[A-Za-z]+\s+[A-Za-z][A-Za-z'-]*/i.test(text);
     // GP format also has Medicare No
     const hasMedicareNo = /Medicare\s*No[:\s]+\d{10,11}/i.test(text);
 
@@ -350,17 +351,39 @@ function extractReferralLetterData(
   }
 
   // Try GP multi-line format if single-line didn't work
+  // GP format: street line followed by "Suburb. Postcode" or "Suburb Postcode"
+  // The address lines appear within the patient details block (between "re." and "Dear")
   if (!address) {
-    // Look for address pattern after patient details
-    // Pattern: street line, then suburb. postcode
-    const gpAddressMatch = text.match(
-      /(?:re\.[^\n]+\n.*?DOB:[^\n]+\n)([^\n]+)\n([A-Za-z\s]+)[.\s]+(\d{4})/is
+    // Extract the patient details block: from "re." line to "Dear" or end of section
+    const reLineIdx = text.search(/\bre\.?\s+/i);
+    const dearIdx = text.indexOf("Dear", reLineIdx > 0 ? reLineIdx : 0);
+    // If no "Dear" found after "re.", search whole text after "re." (limited to ~500 chars)
+    const blockEnd = dearIdx > reLineIdx ? dearIdx : (reLineIdx > 0 ? reLineIdx + 500 : text.length);
+    const patientBlock = reLineIdx >= 0 ? text.substring(reLineIdx, blockEnd) : text;
+
+    // Find "Suburb. Postcode" or "Suburb  Postcode" within patient block
+    const suburbPostcodeMatch = patientBlock.match(
+      /^([A-Za-z][A-Za-z ]+?)[.\s]+(\d{4})\s*$/m
     );
-    if (gpAddressMatch) {
-      address = cleanText(gpAddressMatch[1]);
-      suburb = cleanText(gpAddressMatch[2]);
-      postcode = cleanText(gpAddressMatch[3]);
-      state = inferStateFromPostcode(postcode);
+    if (suburbPostcodeMatch) {
+      const matchIndex = patientBlock.indexOf(suburbPostcodeMatch[0]);
+      // Look for the street address on the line immediately before
+      const textBefore = patientBlock.substring(0, matchIndex);
+      const lines = textBefore.split("\n").map((l) => l.trim()).filter(Boolean);
+      const streetLine = lines[lines.length - 1];
+
+      // Validate: street line should look like an address (starts with number or unit)
+      // and should NOT be a phone number, Medicare, DOB, or other data line
+      if (
+        streetLine &&
+        /^(?:\d|Unit|Apt|Level|Flat|Suite|Lot)/i.test(streetLine) &&
+        !/^(?:Mobile|Phone|Ph|Tel|DOB|Medicare|Dear|re\.|RE:)/i.test(streetLine)
+      ) {
+        address = cleanText(streetLine);
+        suburb = cleanText(suburbPostcodeMatch[1]);
+        postcode = cleanText(suburbPostcodeMatch[2]);
+        state = inferStateFromPostcode(postcode);
+      }
     }
   }
 
