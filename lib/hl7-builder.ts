@@ -47,6 +47,7 @@ const SEGMENT_TERMINATOR = "\r"; // CR only, no LF
  */
 function escapeHL7(value: string): string {
   return value
+    .replace(/[\x00-\x1f\x7f]/g, " ") // Strip control characters (CR, LF, tabs, etc.) — these break HL7 segment structure
     .replace(/\\/g, "\\E\\") // Escape character first
     .replace(/\|/g, "\\F\\") // Field separator
     .replace(/\^/g, "\\S\\") // Component separator
