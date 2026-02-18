@@ -58,8 +58,8 @@ bun.lockb
 *.test.pdf
 
 # Patient PDFs (may contain real patient data)
-docs/input PDF/*.pdf
-!docs/input PDF/Referral_dummy.pdf
+docs/input PDF/**/*.pdf
+!docs/input PDF/originals/Referral_dummy.pdf
 
 # Supabase local
 supabase/.temp/

@@ -4,7 +4,7 @@ import { join } from "path";
 import { extractPatientData, formatExtractedData } from "./pdf-parser";
 
 // =============================================================================
-// Test PDF Paths
+// Test PDF Paths (nested directory structure)
 // =============================================================================
 
 const PDF_DIR = join(import.meta.dir, "../docs/input PDF");
@@ -12,38 +12,60 @@ const PDF_DIR = join(import.meta.dir, "../docs/input PDF");
 // Original real-world PDFs
 const CONSENT_FORM_PATH = join(
   PDF_DIR,
-  "Patient_Information_and_Consent_Form_2025-12-10T14-09-58_29503708_0 (1).pdf"
+  "originals/Patient_Information_and_Consent_Form_2025-12-10T14-09-58_29503708_0 (1).pdf"
 );
-const REFERRAL_DUMMY_PATH = join(PDF_DIR, "Referral_dummy.pdf");
-const GP_REFERRAL_PATH = join(PDF_DIR, "BP2026012137327.pdf");
+const REFERRAL_DUMMY_PATH = join(PDF_DIR, "originals/Referral_dummy.pdf");
+const GP_REFERRAL_PATH = join(PDF_DIR, "originals/BP2026012137327.pdf");
 
 // Generated test PDFs - Specialist Referrals
-const TEST_SPECIALIST = join(PDF_DIR, "test_specialist_referral.pdf");
-const TEST_SPECIALIST_REVERSE = join(PDF_DIR, "test_specialist_referral_reverse_name.pdf");
+const TEST_SPECIALIST = join(PDF_DIR, "specialist-referrals/test_specialist_referral.pdf");
+const TEST_SPECIALIST_REVERSE = join(PDF_DIR, "specialist-referrals/test_specialist_referral_reverse_name.pdf");
 
 // Generated test PDFs - GP Referrals
-const TEST_GP = join(PDF_DIR, "test_gp_referral.pdf");
-const TEST_GP_MALE = join(PDF_DIR, "test_gp_referral_male.pdf");
-const TEST_GP_MISS = join(PDF_DIR, "test_gp_referral_miss.pdf");
+const TEST_GP = join(PDF_DIR, "gp-referrals/test_gp_referral.pdf");
+const TEST_GP_MALE = join(PDF_DIR, "gp-referrals/test_gp_referral_male.pdf");
+const TEST_GP_MISS = join(PDF_DIR, "gp-referrals/test_gp_referral_miss.pdf");
 
 // Generated test PDFs - Consent Forms
-const TEST_CONSENT = join(PDF_DIR, "test_consent_form.pdf");
-const TEST_CONSENT_FEMALE = join(PDF_DIR, "test_consent_form_female.pdf");
+const TEST_CONSENT = join(PDF_DIR, "consent-forms/test_consent_form.pdf");
+const TEST_CONSENT_FEMALE = join(PDF_DIR, "consent-forms/test_consent_form_female.pdf");
 
-// Generated test PDFs - Edge Cases
-const TEST_EDGE_MINIMAL = join(PDF_DIR, "test_edge_minimal_referral.pdf");
-const TEST_EDGE_SPECIAL_CHARS = join(PDF_DIR, "test_edge_special_chars.pdf");
-const TEST_EDGE_SINGLE_DIGIT_DATES = join(PDF_DIR, "test_edge_single_digit_dates.pdf");
-const TEST_EDGE_QLD = join(PDF_DIR, "test_edge_qld_patient.pdf");
-const TEST_EDGE_VIC = join(PDF_DIR, "test_edge_vic_patient.pdf");
-const TEST_EDGE_WA = join(PDF_DIR, "test_edge_wa_patient.pdf");
-const TEST_EDGE_SA = join(PDF_DIR, "test_edge_sa_patient.pdf");
-const TEST_EDGE_TAS = join(PDF_DIR, "test_edge_tas_patient.pdf");
-const TEST_EDGE_NT = join(PDF_DIR, "test_edge_nt_patient.pdf");
-const TEST_EDGE_NO_MEDICARE = join(PDF_DIR, "test_edge_no_medicare.pdf");
-const TEST_EDGE_EMPTY = join(PDF_DIR, "test_edge_empty.pdf");
-const TEST_EDGE_LONG_NAMES = join(PDF_DIR, "test_edge_long_names.pdf");
-const TEST_EDGE_DEAR_NAME = join(PDF_DIR, "test_edge_dear_name.pdf");
+// Generated test PDFs - Edge Cases (Minimal)
+const TEST_EDGE_MINIMAL = join(PDF_DIR, "edge-cases/minimal/test_edge_minimal_referral.pdf");
+const TEST_EDGE_SPECIAL_CHARS = join(PDF_DIR, "edge-cases/minimal/test_edge_special_chars.pdf");
+const TEST_EDGE_SINGLE_DIGIT_DATES = join(PDF_DIR, "edge-cases/minimal/test_edge_single_digit_dates.pdf");
+const TEST_EDGE_NO_MEDICARE = join(PDF_DIR, "edge-cases/minimal/test_edge_no_medicare.pdf");
+const TEST_EDGE_EMPTY = join(PDF_DIR, "edge-cases/minimal/test_edge_empty.pdf");
+const TEST_EDGE_LONG_NAMES = join(PDF_DIR, "edge-cases/minimal/test_edge_long_names.pdf");
+const TEST_EDGE_DEAR_NAME = join(PDF_DIR, "edge-cases/minimal/test_edge_dear_name.pdf");
+
+// Generated test PDFs - Edge Cases (States)
+const TEST_EDGE_QLD = join(PDF_DIR, "edge-cases/states/test_edge_qld_patient.pdf");
+const TEST_EDGE_VIC = join(PDF_DIR, "edge-cases/states/test_edge_vic_patient.pdf");
+const TEST_EDGE_WA = join(PDF_DIR, "edge-cases/states/test_edge_wa_patient.pdf");
+const TEST_EDGE_SA = join(PDF_DIR, "edge-cases/states/test_edge_sa_patient.pdf");
+const TEST_EDGE_TAS = join(PDF_DIR, "edge-cases/states/test_edge_tas_patient.pdf");
+const TEST_EDGE_NT = join(PDF_DIR, "edge-cases/states/test_edge_nt_patient.pdf");
+
+// Generated test PDFs - Skewed (scanned documents)
+const TEST_SKEWED_SPECIALIST = join(PDF_DIR, "edge-cases/skewed/test_skewed_specialist.pdf");
+const TEST_SKEWED_GP = join(PDF_DIR, "edge-cases/skewed/test_skewed_gp_referral.pdf");
+const TEST_SKEWED_CONSENT = join(PDF_DIR, "edge-cases/skewed/test_skewed_consent.pdf");
+
+// Generated test PDFs - Grainy (fax-like)
+const TEST_GRAINY_SPECIALIST = join(PDF_DIR, "edge-cases/grainy/test_grainy_specialist.pdf");
+const TEST_GRAINY_GP = join(PDF_DIR, "edge-cases/grainy/test_grainy_gp_referral.pdf");
+const TEST_GRAINY_CONSENT = join(PDF_DIR, "edge-cases/grainy/test_grainy_consent.pdf");
+
+// Generated test PDFs - Multicultural Names
+const TEST_MULTI_VIETNAMESE = join(PDF_DIR, "edge-cases/multicultural/test_multicultural_vietnamese.pdf");
+const TEST_MULTI_CHINESE = join(PDF_DIR, "edge-cases/multicultural/test_multicultural_chinese.pdf");
+const TEST_MULTI_ARABIC = join(PDF_DIR, "edge-cases/multicultural/test_multicultural_arabic.pdf");
+const TEST_MULTI_INDIAN = join(PDF_DIR, "edge-cases/multicultural/test_multicultural_indian.pdf");
+const TEST_MULTI_GREEK = join(PDF_DIR, "edge-cases/multicultural/test_multicultural_greek.pdf");
+const TEST_MULTI_PACIFIC = join(PDF_DIR, "edge-cases/multicultural/test_multicultural_pacific_islander.pdf");
+const TEST_MULTI_KOREAN = join(PDF_DIR, "edge-cases/multicultural/test_multicultural_korean.pdf");
+const TEST_MULTI_LEBANESE = join(PDF_DIR, "edge-cases/multicultural/test_multicultural_lebanese.pdf");
 
 // =============================================================================
 // Document Type Detection
@@ -743,6 +765,178 @@ describe("Address Extraction - GP Referrals (Regression)", () => {
     const result = await extractPatientData(readFileSync(TEST_EDGE_DEAR_NAME));
     expect(result.data.address).toBe("9 Circular Quay");
     expect(result.data.suburb).toBe("The Rocks");
+  });
+});
+
+// =============================================================================
+// Skewed Documents (Scanned at angle)
+// =============================================================================
+
+describe("Skewed Documents - Scanned at Angle", () => {
+  test("extracts specialist referral from skewed PDF", async () => {
+    const result = await extractPatientData(readFileSync(TEST_SKEWED_SPECIALIST));
+    expect(result.success).toBe(true);
+    expect(result.data.firstName).toBe("Michael");
+    expect(result.data.lastName).toBe("CHEN");
+    expect(result.data.dob).toBe("19680612");
+    expect(result.data.phone).toBe("0433111222");
+  });
+
+  test("extracts GP referral from skewed PDF", async () => {
+    const result = await extractPatientData(readFileSync(TEST_SKEWED_GP));
+    expect(result.success).toBe(true);
+    expect(result.data.firstName).toBe("Angela");
+    expect(result.data.lastName).toBe("Morris");
+    expect(result.data.dob).toBe("19760520");
+    expect(result.data.phone).toBe("0444555666");
+  });
+
+  test("extracts consent form from skewed PDF", async () => {
+    const result = await extractPatientData(readFileSync(TEST_SKEWED_CONSENT));
+    expect(result.success).toBe(true);
+    expect(result.data.firstName).toBe("Margaret");
+    expect(result.data.lastName).toBe("Fletcher");
+    expect(result.data.dob).toBe("19520328");
+    expect(result.data.sex).toBe("F");
+  });
+});
+
+// =============================================================================
+// Grainy / Fax-like Documents
+// =============================================================================
+
+describe("Grainy Documents - Fax-like Quality", () => {
+  test("extracts specialist referral from grainy PDF", async () => {
+    const result = await extractPatientData(readFileSync(TEST_GRAINY_SPECIALIST));
+    expect(result.success).toBe(true);
+    expect(result.data.firstName).toBe("Rachel");
+    expect(result.data.lastName).toBe("GREEN");
+    expect(result.data.dob).toBe("19910907");
+    expect(result.data.phone).toBe("0422888999");
+  });
+
+  test("extracts GP referral from grainy PDF", async () => {
+    const result = await extractPatientData(readFileSync(TEST_GRAINY_GP));
+    expect(result.success).toBe(true);
+    expect(result.data.firstName).toBe("Graham");
+    expect(result.data.lastName).toBe("Harris");
+    expect(result.data.dob).toBe("19580115");
+    expect(result.data.phone).toBe("0466777888");
+  });
+
+  test("extracts consent form from grainy PDF", async () => {
+    const result = await extractPatientData(readFileSync(TEST_GRAINY_CONSENT));
+    expect(result.success).toBe(true);
+    expect(result.data.firstName).toBe("Kevin");
+    expect(result.data.lastName).toBe("Tran");
+    expect(result.data.dob).toBe("19851122");
+  });
+});
+
+// =============================================================================
+// Multicultural Names
+// =============================================================================
+
+describe("Multicultural Names - Vietnamese", () => {
+  test("extracts Mai Nguyen", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MULTI_VIETNAMESE));
+    expect(result.success).toBe(true);
+    expect(result.data.firstName).toBe("Mai");
+    expect(result.data.lastName).toBe("Nguyen");
+    expect(result.data.sex).toBe("F");
+  });
+
+  test("extracts address in Cabramatta", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MULTI_VIETNAMESE));
+    expect(result.data.suburb).toBe("Cabramatta");
+    expect(result.data.postcode).toBe("2166");
+  });
+});
+
+describe("Multicultural Names - Chinese", () => {
+  test("extracts Wei ZHANG (specialist format)", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MULTI_CHINESE));
+    expect(result.success).toBe(true);
+    expect(result.data.firstName).toBe("Wei");
+    expect(result.data.lastName).toBe("ZHANG");
+    expect(result.data.dob).toBe("19651014");
+  });
+});
+
+describe("Multicultural Names - Arabic (hyphenated)", () => {
+  test("extracts Mohammed Al-Rashidi", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MULTI_ARABIC));
+    expect(result.success).toBe(true);
+    expect(result.data.firstName).toBe("Mohammed");
+    expect(result.data.lastName).toBe("Al-Rashidi");
+  });
+
+  test("extracts address in Auburn", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MULTI_ARABIC));
+    expect(result.data.suburb).toBe("Auburn");
+    expect(result.data.postcode).toBe("2144");
+  });
+});
+
+describe("Multicultural Names - Indian (consent form)", () => {
+  test("extracts Rajesh Patel from consent form", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MULTI_INDIAN));
+    expect(result.success).toBe(true);
+    expect(result.data.firstName).toBe("Rajesh");
+    expect(result.data.lastName).toBe("Patel");
+    expect(result.data.sex).toBe("M");
+  });
+
+  test("extracts Medicare", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MULTI_INDIAN));
+    expect(result.data.medicareNo).toBe("4321098765");
+    expect(result.data.medicareRef).toBe("1");
+  });
+});
+
+describe("Multicultural Names - Greek", () => {
+  test("extracts Eleni Papadopoulos", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MULTI_GREEK));
+    expect(result.success).toBe(true);
+    expect(result.data.firstName).toBe("Eleni");
+    expect(result.data.lastName).toBe("Papadopoulos");
+    expect(result.data.sex).toBe("F");
+  });
+});
+
+describe("Multicultural Names - Pacific Islander (Tongan)", () => {
+  test("extracts Sione TUPOU (specialist format)", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MULTI_PACIFIC));
+    expect(result.success).toBe(true);
+    expect(result.data.firstName).toBe("Sione");
+    expect(result.data.lastName).toBe("TUPOU");
+    expect(result.data.dob).toBe("19900803");
+  });
+});
+
+describe("Multicultural Names - Korean", () => {
+  test("extracts Jiyeon Kim", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MULTI_KOREAN));
+    expect(result.success).toBe(true);
+    expect(result.data.firstName).toBe("Jiyeon");
+    expect(result.data.lastName).toBe("Kim");
+    expect(result.data.sex).toBe("F");
+  });
+});
+
+describe("Multicultural Names - Lebanese (hyphenated)", () => {
+  test("extracts Layla El-Masri", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MULTI_LEBANESE));
+    expect(result.success).toBe(true);
+    expect(result.data.firstName).toBe("Layla");
+    expect(result.data.lastName).toBe("El-Masri");
+    expect(result.data.sex).toBe("F");
+  });
+
+  test("extracts address in Punchbowl", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MULTI_LEBANESE));
+    expect(result.data.suburb).toBe("Punchbowl");
+    expect(result.data.postcode).toBe("2196");
   });
 });
 

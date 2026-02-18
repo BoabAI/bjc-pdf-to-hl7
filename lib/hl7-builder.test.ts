@@ -9,7 +9,7 @@ import {
 
 const TEST_PDF_PATH = join(
   import.meta.dir,
-  "../docs/input PDF/Patient_Information_and_Consent_Form_2025-12-10T14-09-58_29503708_0 (1).pdf"
+  "../docs/input PDF/originals/Patient_Information_and_Consent_Form_2025-12-10T14-09-58_29503708_0 (1).pdf"
 );
 
 // Use a tiny buffer for most tests (faster, no file I/O dependency)

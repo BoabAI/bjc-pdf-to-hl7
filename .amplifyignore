@@ -33,7 +33,7 @@ node_modules
 /coverage
 
 # Patient PDFs (may contain real patient data)
-docs/input PDF/*.pdf
+docs/input PDF/**/*.pdf
 
 # Scripts (dev tools, not needed in build)
 /scripts/

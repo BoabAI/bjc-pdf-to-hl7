@@ -127,7 +127,7 @@ describe("POST /api/convert - Input Validation", () => {
 
 describe("POST /api/convert - Successful Conversion", () => {
   test("converts specialist referral to HL7", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "test_specialist_referral.pdf"));
+    const req = createConvertRequest(join(PDF_DIR, "specialist-referrals/test_specialist_referral.pdf"));
     const response = await POST(req);
     const data = await response.json();
 
@@ -142,7 +142,7 @@ describe("POST /api/convert - Successful Conversion", () => {
   });
 
   test("converts GP referral to HL7", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "test_gp_referral.pdf"));
+    const req = createConvertRequest(join(PDF_DIR, "gp-referrals/test_gp_referral.pdf"));
     const response = await POST(req);
     const data = await response.json();
 
@@ -154,7 +154,7 @@ describe("POST /api/convert - Successful Conversion", () => {
   });
 
   test("converts consent form to HL7", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "test_consent_form.pdf"));
+    const req = createConvertRequest(join(PDF_DIR, "consent-forms/test_consent_form.pdf"));
     const response = await POST(req);
     const data = await response.json();
 
@@ -165,7 +165,7 @@ describe("POST /api/convert - Successful Conversion", () => {
   });
 
   test("HL7 content contains embedded PDF as Base64", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "test_specialist_referral.pdf"));
+    const req = createConvertRequest(join(PDF_DIR, "specialist-referrals/test_specialist_referral.pdf"));
     const response = await POST(req);
     const data = await response.json();
 
@@ -173,7 +173,7 @@ describe("POST /api/convert - Successful Conversion", () => {
   });
 
   test("HL7 uses CR-only terminators", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "test_specialist_referral.pdf"));
+    const req = createConvertRequest(join(PDF_DIR, "specialist-referrals/test_specialist_referral.pdf"));
     const response = await POST(req);
     const data = await response.json();
 
@@ -182,7 +182,7 @@ describe("POST /api/convert - Successful Conversion", () => {
   });
 
   test("returns warnings array", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "test_specialist_referral.pdf"));
+    const req = createConvertRequest(join(PDF_DIR, "specialist-referrals/test_specialist_referral.pdf"));
     const response = await POST(req);
     const data = await response.json();
 
@@ -196,7 +196,7 @@ describe("POST /api/convert - Successful Conversion", () => {
 
 describe("POST /api/convert - Detect Only Mode", () => {
   test("returns only document type for specialist referral", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "test_specialist_referral.pdf"), {
+    const req = createConvertRequest(join(PDF_DIR, "specialist-referrals/test_specialist_referral.pdf"), {
       detectOnly: true,
     });
     const response = await POST(req);
@@ -211,7 +211,7 @@ describe("POST /api/convert - Detect Only Mode", () => {
   });
 
   test("returns gp_referral for GP referral", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "test_gp_referral.pdf"), {
+    const req = createConvertRequest(join(PDF_DIR, "gp-referrals/test_gp_referral.pdf"), {
       detectOnly: true,
     });
     const response = await POST(req);
@@ -221,7 +221,7 @@ describe("POST /api/convert - Detect Only Mode", () => {
   });
 
   test("returns consent_form for consent form", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "test_consent_form.pdf"), {
+    const req = createConvertRequest(join(PDF_DIR, "consent-forms/test_consent_form.pdf"), {
       detectOnly: true,
     });
     const response = await POST(req);
@@ -237,7 +237,7 @@ describe("POST /api/convert - Detect Only Mode", () => {
 
 describe("POST /api/convert - Document Type Override", () => {
   test("forces consent_form document type", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "test_specialist_referral.pdf"), {
+    const req = createConvertRequest(join(PDF_DIR, "specialist-referrals/test_specialist_referral.pdf"), {
       detectOnly: true,
       documentType: "consent_form",
     });
@@ -248,7 +248,7 @@ describe("POST /api/convert - Document Type Override", () => {
   });
 
   test("forces gp_referral document type", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "test_specialist_referral.pdf"), {
+    const req = createConvertRequest(join(PDF_DIR, "specialist-referrals/test_specialist_referral.pdf"), {
       detectOnly: true,
       documentType: "gp_referral",
     });
@@ -259,7 +259,7 @@ describe("POST /api/convert - Document Type Override", () => {
   });
 
   test("ignores invalid document type (falls back to auto)", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "test_specialist_referral.pdf"), {
+    const req = createConvertRequest(join(PDF_DIR, "specialist-referrals/test_specialist_referral.pdf"), {
       detectOnly: true,
       documentType: "invalid_type",
     });
@@ -277,7 +277,7 @@ describe("POST /api/convert - Document Type Override", () => {
 
 describe("POST /api/convert - Genie Options", () => {
   test("defaults to auto-file (OBR-25 = F)", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "test_specialist_referral.pdf"));
+    const req = createConvertRequest(join(PDF_DIR, "specialist-referrals/test_specialist_referral.pdf"));
     const response = await POST(req);
     const data = await response.json();
 
@@ -288,7 +288,7 @@ describe("POST /api/convert - Genie Options", () => {
   });
 
   test("sets Preliminary when autoFile=false (OBR-25 = P)", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "test_specialist_referral.pdf"), {
+    const req = createConvertRequest(join(PDF_DIR, "specialist-referrals/test_specialist_referral.pdf"), {
       autoFile: "false",
     });
     const response = await POST(req);
@@ -300,7 +300,7 @@ describe("POST /api/convert - Genie Options", () => {
   });
 
   test("includes ordering provider in PV1-9", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "test_specialist_referral.pdf"), {
+    const req = createConvertRequest(join(PDF_DIR, "specialist-referrals/test_specialist_referral.pdf"), {
       orderingProvider: "457833CF",
     });
     const response = await POST(req);
@@ -311,7 +311,7 @@ describe("POST /api/convert - Genie Options", () => {
   });
 
   test("omits ordering provider when not specified", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "test_specialist_referral.pdf"));
+    const req = createConvertRequest(join(PDF_DIR, "specialist-referrals/test_specialist_referral.pdf"));
     const response = await POST(req);
     const data = await response.json();
 
@@ -320,7 +320,7 @@ describe("POST /api/convert - Genie Options", () => {
   });
 
   test("uses filename (sans .pdf) as document title", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "test_specialist_referral.pdf"), {
+    const req = createConvertRequest(join(PDF_DIR, "specialist-referrals/test_specialist_referral.pdf"), {
       filename: "Specialist_Referral_Dr_Chen.pdf",
     });
     const response = await POST(req);
@@ -332,25 +332,39 @@ describe("POST /api/convert - Genie Options", () => {
 });
 
 // =============================================================================
-// POST - End-to-End with All Document Types
+// POST - End-to-End with All Document Types (including new categories)
 // =============================================================================
 
 describe("POST /api/convert - End-to-End All Types", () => {
   const testCases = [
-    { file: "test_specialist_referral.pdf", name: "WILLIAMS", first: "Emma" },
-    { file: "test_specialist_referral_reverse_name.pdf", name: "JOHNSON", first: "Robert" },
-    { file: "test_gp_referral.pdf", name: "Thompson", first: "Sarah" },
-    { file: "test_gp_referral_male.pdf", name: "O'Connor", first: "David" },
-    { file: "test_gp_referral_miss.pdf", name: "Khan", first: "Aisha" },
-    { file: "test_consent_form.pdf", name: "Patterson", first: "James" },
-    { file: "test_consent_form_female.pdf", name: "Sharma", first: "Priya" },
-    { file: "test_edge_special_chars.pdf", name: "O'Brien-Smith", first: "Mary" },
-    { file: "test_edge_qld_patient.pdf", name: "Brown", first: "Lisa" },
-    { file: "test_edge_nt_patient.pdf", name: "Cooper", first: "Daniel" },
+    { file: "specialist-referrals/test_specialist_referral.pdf", name: "WILLIAMS", first: "Emma" },
+    { file: "specialist-referrals/test_specialist_referral_reverse_name.pdf", name: "JOHNSON", first: "Robert" },
+    { file: "gp-referrals/test_gp_referral.pdf", name: "Thompson", first: "Sarah" },
+    { file: "gp-referrals/test_gp_referral_male.pdf", name: "O'Connor", first: "David" },
+    { file: "gp-referrals/test_gp_referral_miss.pdf", name: "Khan", first: "Aisha" },
+    { file: "consent-forms/test_consent_form.pdf", name: "Patterson", first: "James" },
+    { file: "consent-forms/test_consent_form_female.pdf", name: "Sharma", first: "Priya" },
+    { file: "edge-cases/minimal/test_edge_special_chars.pdf", name: "O'Brien-Smith", first: "Mary" },
+    { file: "edge-cases/states/test_edge_qld_patient.pdf", name: "Brown", first: "Lisa" },
+    { file: "edge-cases/states/test_edge_nt_patient.pdf", name: "Cooper", first: "Daniel" },
+    // Skewed documents
+    { file: "edge-cases/skewed/test_skewed_specialist.pdf", name: "CHEN", first: "Michael" },
+    { file: "edge-cases/skewed/test_skewed_gp_referral.pdf", name: "Morris", first: "Angela" },
+    // Grainy documents
+    { file: "edge-cases/grainy/test_grainy_specialist.pdf", name: "GREEN", first: "Rachel" },
+    { file: "edge-cases/grainy/test_grainy_gp_referral.pdf", name: "Harris", first: "Graham" },
+    // Multicultural names
+    { file: "edge-cases/multicultural/test_multicultural_vietnamese.pdf", name: "Nguyen", first: "Mai" },
+    { file: "edge-cases/multicultural/test_multicultural_chinese.pdf", name: "ZHANG", first: "Wei" },
+    { file: "edge-cases/multicultural/test_multicultural_arabic.pdf", name: "Al-Rashidi", first: "Mohammed" },
+    { file: "edge-cases/multicultural/test_multicultural_greek.pdf", name: "Papadopoulos", first: "Eleni" },
+    { file: "edge-cases/multicultural/test_multicultural_pacific_islander.pdf", name: "TUPOU", first: "Sione" },
+    { file: "edge-cases/multicultural/test_multicultural_korean.pdf", name: "Kim", first: "Jiyeon" },
+    { file: "edge-cases/multicultural/test_multicultural_lebanese.pdf", name: "El-Masri", first: "Layla" },
   ];
 
   for (const tc of testCases) {
-    test(`converts ${tc.file} -> ${tc.first} ${tc.name}`, async () => {
+    test(`converts ${tc.file.split("/").pop()} -> ${tc.first} ${tc.name}`, async () => {
       const req = createConvertRequest(join(PDF_DIR, tc.file));
       const response = await POST(req);
       const data = await response.json();
