@@ -23,15 +23,12 @@ export default function Home() {
   const [isConverting, setIsConverting] = useState(false);
   const [isDetecting, setIsDetecting] = useState(false);
   const [result, setResult] = useState<ConversionResult | null>(null);
-  // Document type selection
   const [documentType, setDocumentType] = useState<"auto" | "consent_form" | "referral_letter" | "gp_referral">("auto");
   const [detectedType, setDetectedType] = useState<string | null>(null);
-  // Genie HL7 action options
   const [autoFile, setAutoFile] = useState(true);
   const [sendToDoctor, setSendToDoctor] = useState(false);
   const [providerNumber, setProviderNumber] = useState("");
 
-  // Auto-detect document type when file is selected
   const detectDocumentType = useCallback(async (selectedFile: File) => {
     setIsDetecting(true);
     try {
@@ -51,7 +48,6 @@ export default function Home() {
       }
     } catch (error) {
       console.error("Detection error:", error);
-      // Fall back to auto on error
       setDocumentType("auto");
       setDetectedType(null);
     } finally {
@@ -150,242 +146,297 @@ export default function Home() {
   };
 
   return (
-    <main className="container mx-auto px-4 py-8 max-w-2xl">
-      {/* SMEC AI Logo */}
-      <div className="flex justify-center mb-6">
-        <Image
-          src="/smec_ai_logo_horizontal.png"
-          alt="SMEC AI"
-          width={200}
-          height={48}
-          className="h-12 w-auto"
-          priority
-        />
-      </div>
+    <main className="min-h-screen flex flex-col items-center justify-center px-4 py-10">
+      <div className="w-full max-w-[580px]">
 
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          PDF to HL7 Converter
-        </h1>
-        <p className="text-gray-600">
-          Convert patient consent PDFs to HL7 v2.4 format for Genie
-        </p>
-      </div>
+        {/* ── Logo strip ── */}
+        <div className="logo-strip animate-fade-in-up">
+          <Image
+            src="/bjc_health_logo.png"
+            alt="BJC Health - Connected Care"
+            width={220}
+            height={63}
+            className="h-12 w-auto"
+            priority
+          />
+          <div className="logo-divider" />
+          <Image
+            src="/smec_ai_logo_horizontal.png"
+            alt="SMEC AI"
+            width={120}
+            height={28}
+            className="h-7 w-auto"
+            priority
+          />
+        </div>
 
-      {/* Supported Format Notice */}
-      <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-        <p className="text-sm text-blue-800">
-          <strong>Supported formats:</strong> BJC Health Consent Forms, Specialist Referral Letters, and GP Referral Letters (Best Practice).
-          Document type is auto-detected, or select manually below.
-        </p>
-      </div>
+        {/* ── Main card ── */}
+        <div className="card mt-6 animate-fade-in-up stagger-1">
 
-      {/* Upload Area */}
-      <div
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        className={`
-          border-2 border-dashed rounded-lg p-8 text-center transition-colors
-          ${isDragging
-            ? "border-blue-500 bg-blue-50"
-            : "border-gray-300 hover:border-gray-400"
-          }
-          ${file ? "bg-green-50 border-green-300" : ""}
-        `}
-      >
-        {file ? (
-          <div className="space-y-4">
-            <div className="flex items-center justify-center gap-2 text-green-700">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span className="font-medium">{file.name}</span>
-            </div>
-            <p className="text-sm text-gray-500">
-              {(file.size / 1024).toFixed(1)} KB
+          {/* Header */}
+          <div className="px-7 pt-7 pb-5">
+            <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">
+              PDF to HL7 Converter
+            </h1>
+            <p className="text-sm text-[var(--text-secondary)] mt-1.5 leading-relaxed">
+              Convert patient documents to HL7 v2.4 format for Genie
             </p>
-            <button
-              onClick={handleReset}
-              className="text-sm text-red-600 hover:text-red-700 underline"
-            >
-              Remove file
-            </button>
           </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="flex justify-center">
-              <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-gray-700 font-medium">
-                Drag and drop your PDF here
-              </p>
-              <p className="text-sm text-gray-500 mt-1">or</p>
-            </div>
-            <label className="inline-block">
-              <span className="px-4 py-2 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700 transition-colors">
-                Browse Files
+
+          <div className="divider-subtle" />
+
+          {/* Content */}
+          <div className="px-7 py-6 space-y-5">
+
+            {/* Supported formats */}
+            <div className="flex flex-wrap gap-2 animate-fade-in stagger-2">
+              <span className="badge badge-blue">
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                Consent Forms
               </span>
-              <input
-                type="file"
-                accept=".pdf"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-            </label>
-            <p className="text-xs text-gray-400">PDF files only, max 10MB</p>
-          </div>
-        )}
-      </div>
-
-      {/* Genie Actions */}
-      {file && !result?.success && (
-        <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg space-y-4">
-          <h3 className="font-medium text-gray-700">Conversion Options</h3>
-
-          {/* Document Type Selector */}
-          <div className="space-y-1">
-            <label htmlFor="documentType" className="block text-sm text-gray-700">
-              Document Type
-              {isDetecting && (
-                <span className="ml-2 text-blue-600 text-xs">(detecting...)</span>
-              )}
-              {detectedType && !isDetecting && (
-                <span className="ml-2 text-green-600 text-xs">(auto-detected)</span>
-              )}
-            </label>
-            <select
-              id="documentType"
-              value={documentType}
-              onChange={(e) => {
-                setDocumentType(e.target.value as "auto" | "consent_form" | "referral_letter" | "gp_referral");
-                setDetectedType(null); // Clear detected flag when manually changed
-              }}
-              disabled={isDetecting}
-              className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white disabled:bg-gray-100 disabled:cursor-wait"
-            >
-              <option value="auto">Auto-detect</option>
-              <option value="consent_form">Consent Form</option>
-              <option value="referral_letter">Specialist Referral Letter</option>
-              <option value="gp_referral">GP Referral Letter</option>
-            </select>
-          </div>
-
-          <hr className="border-gray-200" />
-
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={autoFile}
-              onChange={(e) => setAutoFile(e.target.checked)}
-              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-            />
-            <span className="text-gray-700">Auto-file to patient record</span>
-            <span className="text-xs text-gray-500">(Final result)</span>
-          </label>
-
-          <div className="space-y-2">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={sendToDoctor}
-                onChange={(e) => setSendToDoctor(e.target.checked)}
-                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-              />
-              <span className="text-gray-700">Send to specific doctor</span>
-            </label>
-
-            {sendToDoctor && (
-              <input
-                type="text"
-                placeholder="Medicare Provider Number (e.g., 1234567A)"
-                value={providerNumber}
-                onChange={(e) => setProviderNumber(e.target.value)}
-                className="ml-7 w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Convert Button */}
-      {file && !result?.success && (
-        <div className="mt-6 text-center">
-          <button
-            onClick={handleConvert}
-            disabled={isConverting}
-            className={`
-              px-6 py-3 rounded-md font-medium text-white transition-colors
-              ${isConverting
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-blue-600 hover:bg-blue-700"
-              }
-            `}
-          >
-            {isConverting ? (
-              <span className="flex items-center gap-2">
-                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                Converting...
+              <span className="badge badge-blue">
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                Specialist Referrals
               </span>
-            ) : (
-              "Convert to HL7"
+              <span className="badge badge-blue">
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                GP Referrals
+              </span>
+            </div>
+
+            {/* ── Upload zone ── */}
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`upload-zone p-8 text-center ${isDragging ? "dragging" : ""} ${file ? "has-file" : ""}`}
+            >
+              {file ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-center gap-2.5 text-[var(--success)]">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="font-semibold text-sm">{file.name}</span>
+                  </div>
+                  <p className="text-xs text-[var(--text-muted)] mono">
+                    {(file.size / 1024).toFixed(1)} KB
+                  </p>
+                  <button
+                    onClick={handleReset}
+                    className="text-xs text-[var(--error)] hover:underline transition-colors"
+                  >
+                    Remove file
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex justify-center">
+                    <div className="w-12 h-12 rounded-full flex items-center justify-center bg-[var(--blue-50)] border border-[var(--blue-200)]">
+                      <svg className="w-5 h-5 text-[var(--bjc-blue)]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-[var(--text-primary)]">
+                      Drag and drop your PDF here
+                    </p>
+                    <p className="text-xs text-[var(--text-muted)] mt-1">or</p>
+                  </div>
+                  <label className="inline-block">
+                    <span className="btn-primary inline-block text-sm">
+                      Browse Files
+                    </span>
+                    <input
+                      type="file"
+                      accept=".pdf"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                  <p className="text-[11px] text-[var(--text-faint)] tracking-wide uppercase">
+                    PDF files only &middot; Max 10MB
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* ── Conversion options ── */}
+            {file && !result?.success && (
+              <div className="card-inner p-5 space-y-4 animate-fade-in">
+                <h3 className="text-xs font-semibold uppercase tracking-widest text-[var(--text-muted)]">
+                  Conversion Options
+                </h3>
+
+                {/* Document Type */}
+                <div className="space-y-1.5">
+                  <label htmlFor="documentType" className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                    Document Type
+                    {isDetecting && (
+                      <span className="badge badge-blue text-[11px]">
+                        <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        detecting
+                      </span>
+                    )}
+                    {detectedType && !isDetecting && (
+                      <span className="badge badge-success text-[11px]">auto-detected</span>
+                    )}
+                  </label>
+                  <select
+                    id="documentType"
+                    value={documentType}
+                    onChange={(e) => {
+                      setDocumentType(e.target.value as "auto" | "consent_form" | "referral_letter" | "gp_referral");
+                      setDetectedType(null);
+                    }}
+                    disabled={isDetecting}
+                    className="select-field w-full max-w-xs disabled:opacity-50 disabled:cursor-wait"
+                  >
+                    <option value="auto">Auto-detect</option>
+                    <option value="consent_form">Consent Form</option>
+                    <option value="referral_letter">Specialist Referral Letter</option>
+                    <option value="gp_referral">GP Referral Letter</option>
+                  </select>
+                </div>
+
+                <div className="divider-subtle" />
+
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={autoFile}
+                    onChange={(e) => setAutoFile(e.target.checked)}
+                    className="checkbox-custom"
+                  />
+                  <span className="text-sm text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+                    Auto-file to patient record
+                  </span>
+                  <span className="text-[11px] text-[var(--text-muted)]">(Final result)</span>
+                </label>
+
+                <div className="space-y-2.5">
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={sendToDoctor}
+                      onChange={(e) => setSendToDoctor(e.target.checked)}
+                      className="checkbox-custom"
+                    />
+                    <span className="text-sm text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+                      Send to specific doctor
+                    </span>
+                  </label>
+
+                  {sendToDoctor && (
+                    <div className="ml-[30px] animate-fade-in">
+                      <input
+                        type="text"
+                        placeholder="Medicare Provider Number (e.g., 1234567A)"
+                        value={providerNumber}
+                        onChange={(e) => setProviderNumber(e.target.value)}
+                        className="input-field max-w-xs text-sm"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
-          </button>
-        </div>
-      )}
 
-      {/* Error Message */}
-      {result && !result.success && (
-        <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-700">{result.error}</p>
-        </div>
-      )}
+            {/* ── Convert button ── */}
+            {file && !result?.success && (
+              <div className="text-center pt-1 animate-fade-in">
+                <button
+                  onClick={handleConvert}
+                  disabled={isConverting}
+                  className="btn-primary w-full max-w-xs"
+                >
+                  {isConverting ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Converting...
+                    </span>
+                  ) : (
+                    "Convert to HL7"
+                  )}
+                </button>
+              </div>
+            )}
 
-      {/* Success Result */}
-      {result?.success && (
-        <div className="mt-6 space-y-4">
-          <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-            <h3 className="font-medium text-green-800 mb-2">
-              ✓ Conversion Successful
-            </h3>
-            {result.extractedData && (
-              <div className="text-sm text-green-700 space-y-1">
-                <p><strong>Patient:</strong> {result.extractedData.firstName} {result.extractedData.lastName}</p>
-                <p><strong>DOB:</strong> {result.extractedData.dob}</p>
-                <p><strong>Sex:</strong> {result.extractedData.sex}</p>
-                <p><strong>Medicare:</strong> {result.extractedData.medicareNo}</p>
+            {/* ── Error ── */}
+            {result && !result.success && (
+              <div className="p-4 rounded-xl bg-[var(--error-bg)] border border-[var(--error-border)] animate-fade-in">
+                <div className="flex items-start gap-3">
+                  <svg className="w-5 h-5 text-[var(--error)] shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                  <p className="text-sm text-[var(--error)]">{result.error}</p>
+                </div>
+              </div>
+            )}
+
+            {/* ── Success ── */}
+            {result?.success && (
+              <div className="space-y-5 animate-fade-in-up">
+                <div className="p-5 rounded-xl bg-[var(--success-bg)] border border-[var(--success-border)]">
+                  <div className="flex items-center gap-2.5 mb-3">
+                    <svg className="w-5 h-5 text-[var(--success)]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <h3 className="font-semibold text-sm text-[var(--success)]">
+                      Conversion Successful
+                    </h3>
+                  </div>
+                  {result.extractedData && (
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                      <div>
+                        <span className="text-[var(--text-muted)] text-xs">Patient</span>
+                        <p className="text-[var(--text-primary)] font-medium">
+                          {result.extractedData.firstName} {result.extractedData.lastName}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-[var(--text-muted)] text-xs">DOB</span>
+                        <p className="text-[var(--text-primary)] font-medium mono">{result.extractedData.dob}</p>
+                      </div>
+                      <div>
+                        <span className="text-[var(--text-muted)] text-xs">Sex</span>
+                        <p className="text-[var(--text-primary)] font-medium">{result.extractedData.sex}</p>
+                      </div>
+                      <div>
+                        <span className="text-[var(--text-muted)] text-xs">Medicare</span>
+                        <p className="text-[var(--text-primary)] font-medium mono">{result.extractedData.medicareNo}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3 justify-center">
+                  <button onClick={handleDownload} className="btn-success">
+                    Download HL7 File
+                  </button>
+                  <button onClick={handleReset} className="btn-secondary">
+                    Convert Another
+                  </button>
+                </div>
               </div>
             )}
           </div>
-
-          <div className="flex gap-4 justify-center">
-            <button
-              onClick={handleDownload}
-              className="px-6 py-3 bg-green-600 text-white rounded-md font-medium hover:bg-green-700 transition-colors"
-            >
-              Download HL7 File
-            </button>
-            <button
-              onClick={handleReset}
-              className="px-6 py-3 bg-gray-200 text-gray-700 rounded-md font-medium hover:bg-gray-300 transition-colors"
-            >
-              Convert Another
-            </button>
-          </div>
         </div>
-      )}
 
-      {/* Footer */}
-      <footer className="mt-12 text-center text-sm text-gray-500">
-        <p>HL7 v2.4 format compatible with Genie Solutions</p>
-        <p className="mt-1">Files are processed in memory and not stored</p>
-      </footer>
+        {/* ── Footer ── */}
+        <footer className="mt-6 text-center animate-fade-in stagger-3">
+          <p className="text-[11px] text-[var(--text-muted)] tracking-wide">
+            HL7 v2.4 &middot; Genie Compatible &middot; Processed in memory
+          </p>
+        </footer>
+      </div>
     </main>
   );
 }
