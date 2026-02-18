@@ -60,6 +60,9 @@ bun.lockb
 docs/input PDF/*.pdf
 !docs/input PDF/Referral_dummy.pdf
 
+# Supabase local
+supabase/.temp/
+
 # AWS Amplify
 amplify-builds/
 aws-exports.js
