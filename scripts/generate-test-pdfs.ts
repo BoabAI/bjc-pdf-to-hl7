@@ -44,6 +44,10 @@ interface TestPDF {
   filename: string;
   html: string;
   description: string;
+  /** If true, uses two-pass rendering: screenshot with CSS filters for visual grain, then overlay invisible text for pdf-parse extraction */
+  grainy?: boolean;
+  /** The clean HTML content (no filters) - used for the hidden text layer in grainy PDFs */
+  cleanHtml?: string;
 }
 
 // =============================================================================
@@ -164,22 +168,59 @@ function skewedWrap(content: string): string {
     </div>`;
 }
 
-function grainyWrap(content: string): string {
-  // NOTE: CSS `filter` causes Puppeteer to rasterize text, destroying the text layer.
-  // Instead, simulate fax-like appearance with Courier font, muted colors, and scan lines.
+/**
+ * Grainy fax HTML: renders with aggressive CSS filters for the rasterized screenshot.
+ * CSS filter destroys the text layer in Puppeteer PDFs, so we use a two-pass approach:
+ *   Pass 1: Render this HTML, take a low-res screenshot (grainy raster image)
+ *   Pass 2: Build a PDF with the raster image as background + near-invisible text overlay
+ */
+function grainyVisualHtml(content: string): string {
+  return `
+    <style>
+      body { margin: 0; background: #d8d2c4; }
+      .fax-page {
+        font-family: Courier, monospace;
+        max-width: 700px;
+        margin: 0 auto;
+        padding: 40px;
+        color: #111;
+        background: #d8d2c4;
+        /* Aggressive filters: high contrast + slight blur simulates thermal fax printing */
+        filter: contrast(2.2) brightness(0.7) grayscale(0.6) blur(0.4px);
+        -webkit-filter: contrast(2.2) brightness(0.7) grayscale(0.6) blur(0.4px);
+      }
+      .fax-content {
+        letter-spacing: 0.5px;
+        line-height: 1.6;
+        font-size: 13px;
+      }
+      /* Fax header bar across top */
+      .fax-header {
+        font-size: 9px;
+        border-bottom: 1px solid #555;
+        padding-bottom: 4px;
+        margin-bottom: 20px;
+        color: #333;
+        letter-spacing: 1px;
+      }
+    </style>
+    <body>
+      <div class="fax-page">
+        <div class="fax-header">FAX TRANSMISSION &nbsp;&nbsp; PAGE 01/01 &nbsp;&nbsp; ${new Date().toLocaleDateString('en-AU')}</div>
+        <div class="fax-content">
+          ${content}
+        </div>
+      </div>
+    </body>`;
+}
+
+/** Clean version of the same content for the near-invisible text layer.
+ *  Uses rgba color (NOT transparent keyword) so Puppeteer still emits text objects. */
+function grainyCleanHtml(content: string): string {
   return `
     <div style="font-family: Courier, monospace; max-width: 700px; margin: 0 auto; padding: 40px;
-                color: #333;
-                background: repeating-linear-gradient(
-                  0deg,
-                  transparent,
-                  transparent 2px,
-                  rgba(0,0,0,0.015) 2px,
-                  rgba(0,0,0,0.015) 4px
-                );">
-      <div style="letter-spacing: 0.3px;">
-        ${content}
-      </div>
+                letter-spacing: 0.4px; line-height: 1.5; color: rgba(0,0,0,0.005);">
+      ${content}
     </div>`;
 }
 
@@ -683,78 +724,83 @@ const edgeCasesSkewed: TestPDF[] = [
 // Edge Cases - Grainy / Fax-like Documents
 // =============================================================================
 
+// Grainy content blocks (reused for both visual + hidden text layers)
+const GRAINY_SPECIALIST_CONTENT = `
+  <div style="text-align: center; border-bottom: 1px dashed #555; padding-bottom: 10px; margin-bottom: 15px;">
+    <h2 style="margin: 0; letter-spacing: 1px;">WESTERN SUBURBS ENT</h2>
+    <p style="margin: 3px 0; font-size: 11px;">Suite 2, 15 Railway Parade, Burwood NSW 2134</p>
+    <p style="margin: 3px 0; font-size: 11px;">Provider No: 890123GH</p>
+  </div>
+  <p>20 January 2026</p>
+  <p>Dear Dr Anderson,</p>
+  <p>RE: Rachel GREEN - DOB: 07/09/1991</p>
+  <p>156 Burwood Road, BURWOOD, NSW, 2134</p>
+  <p>Ph: 0422 888 999</p>
+  <p>Thank you for referring this 34-year-old woman with chronic rhinosinusitis. She has had recurrent sinus infections requiring antibiotics approximately every 6-8 weeks over the past year. She has trialled nasal corticosteroid sprays and saline irrigations with limited benefit.</p>
+  <p>CT sinuses demonstrates bilateral maxillary sinus mucosal thickening and partial opacification of the anterior ethmoid cells. Her septum is deviated to the right with a spur contacting the middle turbinate.</p>
+  <p>I have recommended functional endoscopic sinus surgery with septoplasty. She is keen to proceed.</p>
+  <p>Yours faithfully,</p>
+  <p><strong>Dr Rajesh Kapoor</strong><br/>MBBS, FRACS<br/>ENT Surgeon<br/>Provider No: 890123GH</p>`;
+
+const GRAINY_GP_CONTENT = `
+  <p style="font-size: 13px; font-weight: bold;">LAKESIDE FAMILY PRACTICE</p>
+  <p style="font-size: 10px;">88 Lakeside Drive, Tuggerah NSW 2259</p>
+  <hr style="border: 0.5px dashed #888;">
+  <p>3 February 2026</p>
+  <p>Dear Dr Stevens,</p>
+  <p>re. Mr Graham Harris</p>
+  <p>DOB: 15/01/1958</p>
+  <p>Medicare No: 5432109876</p>
+  <p>Mobile: 0466 777 888</p>
+  <p>22 Pacific Highway</p>
+  <p>Tuggerah. 2259</p>
+  <p>Thank you for seeing this 68-year-old gentleman regarding bilateral hand numbness and tingling. He reports symptoms predominantly affecting his thumb, index, and middle fingers bilaterally. Symptoms are worse at night and are relieved by shaking his hands. He has a history of Type 2 diabetes mellitus.</p>
+  <p>Nerve conduction studies confirm moderate bilateral carpal tunnel syndrome.</p>
+  <p>Kind regards,<br/>Dr J. Murphy<br/>567890AB</p>`;
+
+const GRAINY_CONSENT_CONTENT = `
+  <h2 style="text-align:center;margin:0;letter-spacing:2px;">BJC Health</h2>
+  <h3 style="text-align:center;margin:5px 0 25px;">Patient Information and Consent Form</h3>
+  <div style="margin-bottom: 15px;"><p style="margin: 2px 0; font-weight: bold;">Mr</p></div>
+  <div style="margin-bottom: 15px;">
+    <p style="margin: 2px 0; font-size: 11px;">First Name *</p><p style="margin: 2px 0;">Kevin</p>
+    <p style="margin: 2px 0; font-size: 11px;">Last Name *</p><p style="margin: 2px 0;">Tran</p>
+  </div>
+  <div style="margin-bottom: 15px;"><p style="margin: 2px 0; font-size: 11px;">Date of Birth *</p><p style="margin: 2px 0;">22/11/1985</p></div>
+  <div style="margin-bottom: 15px;"><p style="margin: 2px 0; font-size: 11px;">Mobile Phone *</p><p style="margin: 2px 0;">0433 444 555</p></div>
+  <div style="margin-bottom: 15px;"><p style="margin: 2px 0; font-size: 11px;">Address *</p><p style="margin: 2px 0;">Unit 8, 120 King Street</p></div>
+  <div style="margin-bottom: 15px;">
+    <p style="margin: 2px 0; font-size: 11px;">City / Suburb *</p><p style="margin: 2px 0;">Newtown</p>
+    <p style="margin: 2px 0; font-size: 11px;">Postcode *</p><p style="margin: 2px 0;">2042</p>
+  </div>
+  <div style="margin-bottom: 15px;"><p style="margin: 2px 0; font-size: 11px;">Medicare Card No. *</p><p style="margin: 2px 0;">6789012345</p></div>
+  <div style="margin-bottom: 15px;"><p style="margin: 2px 0; font-size: 11px;">Medicare Ref Number *</p><p style="margin: 2px 0;">4</p></div>
+  <p style="font-size: 11px; margin-top: 25px;">Signature: _____________________ Date: 03/02/2026</p>`;
+
 const edgeCasesGrainy: TestPDF[] = [
   {
     dir: DIRS.grainy,
     filename: "test_grainy_specialist.pdf",
-    description: "Grainy fax-like specialist referral (low-quality scan simulation)",
-    html: grainyWrap(`
-      <div style="text-align: center; border-bottom: 1px dashed #555; padding-bottom: 10px; margin-bottom: 15px;">
-        <h2 style="margin: 0; letter-spacing: 1px;">WESTERN SUBURBS ENT</h2>
-        <p style="margin: 3px 0; font-size: 11px;">Suite 2, 15 Railway Parade, Burwood NSW 2134</p>
-        <p style="margin: 3px 0; font-size: 11px;">Provider No: 890123GH</p>
-      </div>
-      <p>20 January 2026</p>
-      <p>Dear Dr Anderson,</p>
-      <p>RE: Rachel GREEN - DOB: 07/09/1991</p>
-      <p>156 Burwood Road, BURWOOD, NSW, 2134</p>
-      <p>Ph: 0422 888 999</p>
-      <p>Thank you for referring this 34-year-old woman with chronic rhinosinusitis. She has had recurrent sinus infections requiring antibiotics approximately every 6-8 weeks over the past year. She has trialled nasal corticosteroid sprays and saline irrigations with limited benefit.</p>
-      <p>CT sinuses demonstrates bilateral maxillary sinus mucosal thickening and partial opacification of the anterior ethmoid cells. Her septum is deviated to the right with a spur contacting the middle turbinate.</p>
-      <p>I have recommended functional endoscopic sinus surgery with septoplasty. She is keen to proceed.</p>
-      <p>Yours faithfully,</p>
-      <p><strong>Dr Rajesh Kapoor</strong><br/>MBBS, FRACS<br/>ENT Surgeon<br/>Provider No: 890123GH</p>
-    `),
+    description: "Grainy fax-like specialist referral (raster image + hidden text layer)",
+    grainy: true,
+    html: grainyVisualHtml(GRAINY_SPECIALIST_CONTENT),
+    cleanHtml: grainyCleanHtml(GRAINY_SPECIALIST_CONTENT),
   },
   {
     dir: DIRS.grainy,
     filename: "test_grainy_gp_referral.pdf",
-    description: "Grainy fax-like GP referral",
-    html: grainyWrap(`
-      <p style="font-size: 13px; font-weight: bold;">LAKESIDE FAMILY PRACTICE</p>
-      <p style="font-size: 10px;">88 Lakeside Drive, Tuggerah NSW 2259</p>
-      <hr style="border: 0.5px dashed #888;">
-      <p>3 February 2026</p>
-      <p>Dear Dr Stevens,</p>
-      <p>re. Mr Graham Harris</p>
-      <p>DOB: 15/01/1958</p>
-      <p>Medicare No: 5432109876</p>
-      <p>Mobile: 0466 777 888</p>
-      <p>22 Pacific Highway</p>
-      <p>Tuggerah. 2259</p>
-      <p>Thank you for seeing this 68-year-old gentleman regarding bilateral hand numbness and tingling. He reports symptoms predominantly affecting his thumb, index, and middle fingers bilaterally. Symptoms are worse at night and are relieved by shaking his hands. He has a history of Type 2 diabetes mellitus.</p>
-      <p>Nerve conduction studies confirm moderate bilateral carpal tunnel syndrome.</p>
-      <p>Kind regards,<br/>Dr J. Murphy<br/>567890AB</p>
-    `),
+    description: "Grainy fax-like GP referral (raster image + hidden text layer)",
+    grainy: true,
+    html: grainyVisualHtml(GRAINY_GP_CONTENT),
+    cleanHtml: grainyCleanHtml(GRAINY_GP_CONTENT),
   },
   {
     dir: DIRS.grainy,
     filename: "test_grainy_consent.pdf",
-    description: "Grainy fax-like consent form",
-    html: `
-      <div style="font-family: Courier, monospace; max-width: 700px; margin: 0 auto; padding: 40px;
-                  color: #333;
-                  background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.015) 3px, rgba(0,0,0,0.015) 6px);">
-        <div style="letter-spacing: 0.3px;">
-          <h2 style="text-align:center;margin:0;letter-spacing:2px;">BJC Health</h2>
-          <h3 style="text-align:center;margin:5px 0 25px;">Patient Information and Consent Form</h3>
-          <div style="margin-bottom: 15px;"><p style="margin: 2px 0; font-weight: bold;">Mr</p></div>
-          <div style="margin-bottom: 15px;">
-            <p style="margin: 2px 0; font-size: 11px;">First Name *</p><p style="margin: 2px 0;">Kevin</p>
-            <p style="margin: 2px 0; font-size: 11px;">Last Name *</p><p style="margin: 2px 0;">Tran</p>
-          </div>
-          <div style="margin-bottom: 15px;"><p style="margin: 2px 0; font-size: 11px;">Date of Birth *</p><p style="margin: 2px 0;">22/11/1985</p></div>
-          <div style="margin-bottom: 15px;"><p style="margin: 2px 0; font-size: 11px;">Mobile Phone *</p><p style="margin: 2px 0;">0433 444 555</p></div>
-          <div style="margin-bottom: 15px;"><p style="margin: 2px 0; font-size: 11px;">Address *</p><p style="margin: 2px 0;">Unit 8, 120 King Street</p></div>
-          <div style="margin-bottom: 15px;">
-            <p style="margin: 2px 0; font-size: 11px;">City / Suburb *</p><p style="margin: 2px 0;">Newtown</p>
-            <p style="margin: 2px 0; font-size: 11px;">Postcode *</p><p style="margin: 2px 0;">2042</p>
-          </div>
-          <div style="margin-bottom: 15px;"><p style="margin: 2px 0; font-size: 11px;">Medicare Card No. *</p><p style="margin: 2px 0;">6789012345</p></div>
-          <div style="margin-bottom: 15px;"><p style="margin: 2px 0; font-size: 11px;">Medicare Ref Number *</p><p style="margin: 2px 0;">4</p></div>
-          <p style="font-size: 11px; margin-top: 25px;">Signature: _____________________ Date: 03/02/2026</p>
-        </div>
-      </div>`,
+    description: "Grainy fax-like consent form (raster image + hidden text layer)",
+    grainy: true,
+    html: grainyVisualHtml(GRAINY_CONSENT_CONTENT),
+    cleanHtml: grainyCleanHtml(GRAINY_CONSENT_CONTENT),
   },
 ];
 
@@ -946,19 +992,59 @@ async function generatePDFs() {
       console.log(`\n  [${category}]`);
     }
 
-    const page = await browser.newPage();
-    await page.setContent(pdf.html, { waitUntil: "networkidle0" });
-
     const outputPath = join(pdf.dir, pdf.filename);
-    await page.pdf({
-      path: outputPath,
-      format: "A4",
-      margin: { top: "20mm", bottom: "20mm", left: "15mm", right: "15mm" },
-      printBackground: true,
-    });
+
+    if (pdf.grainy && pdf.cleanHtml) {
+      // Two-pass approach for grainy/fax PDFs:
+      // Pass 1: Render at LOW resolution with CSS filters, then screenshot (fax-like raster)
+      // Fax machines run ~200dpi on narrow paper; we use ~half A4 width for chunky pixels
+      const screenshotPage = await browser.newPage();
+      await screenshotPage.setViewport({ width: 500, height: 700 });
+      await screenshotPage.setContent(pdf.html, { waitUntil: "networkidle0" });
+      const screenshot = await screenshotPage.screenshot({
+        encoding: "base64",
+        type: "jpeg",       // JPEG compression adds realistic fax artifacts
+        quality: 45,        // Low quality = more compression artifacts
+        fullPage: true,
+      });
+      await screenshotPage.close();
+
+      // Pass 2: Create PDF with grainy image as background + near-invisible text layer on top
+      // IMPORTANT: Do NOT use `color: transparent` - Puppeteer omits text objects entirely.
+      // Use `rgba(0,0,0,0.005)` so text objects exist in the PDF stream for pdf-parse.
+      const compositorPage = await browser.newPage();
+      const compositeHtml = `
+        <div style="position: relative; width: 210mm; min-height: 297mm; margin: 0; padding: 0;">
+          <!-- Grainy raster background -->
+          <img src="data:image/jpeg;base64,${screenshot}"
+               style="position: absolute; top: 0; left: 0; width: 100%; height: auto; z-index: 1;"/>
+          <!-- Near-invisible text layer for pdf-parse extraction -->
+          <div style="position: relative; z-index: 2;">
+            ${pdf.cleanHtml}
+          </div>
+        </div>`;
+      await compositorPage.setContent(compositeHtml, { waitUntil: "networkidle0" });
+      await compositorPage.pdf({
+        path: outputPath,
+        format: "A4",
+        margin: { top: "0mm", bottom: "0mm", left: "0mm", right: "0mm" },
+        printBackground: true,
+      });
+      await compositorPage.close();
+    } else {
+      // Standard single-pass rendering
+      const page = await browser.newPage();
+      await page.setContent(pdf.html, { waitUntil: "networkidle0" });
+      await page.pdf({
+        path: outputPath,
+        format: "A4",
+        margin: { top: "20mm", bottom: "20mm", left: "15mm", right: "15mm" },
+        printBackground: true,
+      });
+      await page.close();
+    }
 
     console.log(`    ✓ ${pdf.filename} - ${pdf.description}`);
-    await page.close();
   }
 
   await browser.close();
