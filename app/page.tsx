@@ -163,9 +163,9 @@ export default function Home() {
           <Image
             src="/smec_ai_logo_horizontal.png"
             alt="SMEC AI"
-            width={120}
-            height={28}
-            className="h-7 w-auto"
+            width={180}
+            height={42}
+            className="h-10 w-auto"
             priority
           />
         </div>
