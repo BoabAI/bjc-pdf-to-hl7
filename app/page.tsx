@@ -23,7 +23,7 @@ export default function Home() {
   const [isConverting, setIsConverting] = useState(false);
   const [isDetecting, setIsDetecting] = useState(false);
   const [result, setResult] = useState<ConversionResult | null>(null);
-  const [documentType, setDocumentType] = useState<"auto" | "consent_form" | "referral_letter" | "gp_referral">("auto");
+  const [documentType, setDocumentType] = useState<"auto" | "consent_form" | "referral_letter" | "gp_referral" | "generic">("auto");
   const [detectedType, setDetectedType] = useState<string | null>(null);
   const [autoFile, setAutoFile] = useState(true);
   const [sendToDoctor, setSendToDoctor] = useState(false);
@@ -290,7 +290,7 @@ export default function Home() {
                     id="documentType"
                     value={documentType}
                     onChange={(e) => {
-                      setDocumentType(e.target.value as "auto" | "consent_form" | "referral_letter" | "gp_referral");
+                      setDocumentType(e.target.value as "auto" | "consent_form" | "referral_letter" | "gp_referral" | "generic");
                       setDetectedType(null);
                     }}
                     disabled={isDetecting}
@@ -300,6 +300,7 @@ export default function Home() {
                     <option value="consent_form">Consent Form</option>
                     <option value="referral_letter">Specialist Referral Letter</option>
                     <option value="gp_referral">GP Referral Letter</option>
+                    <option value="generic">Other Document</option>
                   </select>
                 </div>
 

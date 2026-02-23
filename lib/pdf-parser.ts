@@ -3,13 +3,15 @@
  * Supports:
  * - BJC Health Patient Information and Consent Form
  * - Specialist Referral Letters (e.g., from NeuroSpine Clinic)
+ * - GP/Best Practice Referral Letters
+ * - Generic/any PDF (best-effort extraction using broad patterns)
  */
 
 import pdf from "pdf-parse";
 import type { PatientData } from "./hl7-builder";
 
 // Document types supported
-export type DocumentType = "consent_form" | "referral_letter" | "gp_referral";
+export type DocumentType = "consent_form" | "referral_letter" | "gp_referral" | "generic";
 
 export interface ExtractionResult {
   success: boolean;
@@ -179,7 +181,15 @@ function detectDocumentType(text: string): DocumentType {
     }
     return "referral_letter";
   }
-  return "consent_form";
+
+  // Check for consent form indicators (BJC Health specific field labels)
+  const hasConsentFields = /First Name\s*\*?/i.test(text) && /Last Name\s*\*?/i.test(text);
+  if (hasConsentFields) {
+    return "consent_form";
+  }
+
+  // No specific format detected — use generic extraction
+  return "generic";
 }
 
 /**
@@ -423,6 +433,157 @@ function extractReferralLetterData(
   return { data: patientData, success };
 }
 
+// Generic extraction patterns for any PDF format
+const GENERIC_PATTERNS = {
+  // "Patient: First Last", "Patient Name: First Last", "Name: First Last"
+  patientName: /(?:Patient(?:\s*Name)?|Name)\s*[:\-]\s*([A-Za-z][A-Za-z'-]*)\s+([A-Za-z][A-Za-z'-]*)/i,
+
+  // Title + name anywhere: "Mr John Smith", "Mrs Jane O'Brien"
+  titleName: /\b(Mr|Mrs|Miss|Ms|Dr)\s+([A-Za-z][A-Za-z'-]*)\s+([A-Za-z][A-Za-z'-]*)\b/i,
+
+  // DOB in various labelled formats: "DOB: 23/02/1980", "Date of Birth: 23/02/1980", "D.O.B. 23/02/1980", "Born: 23/02/1980"
+  dob: /(?:D\.?O\.?B\.?|Date of Birth|Born)\s*[:\s]\s*(\d{1,2}\/\d{1,2}\/\d{4})/i,
+
+  // Standalone Australian date (DD/MM/YYYY) — fallback if labelled DOB not found
+  dateAU: /\b(\d{1,2}\/\d{1,2}\/\d{4})\b/,
+
+  // Medicare number near label
+  medicareNo: /Medicare\s*(?:No|Number|Card|#)?[:\s.]+(\d{10,11})/i,
+
+  // Phone/mobile in various formats (use [\d ] not [\d\s] to avoid newlines)
+  phone: /(?:Mobile|Phone|Ph|Tel|Contact)\s*[:\s]+(\d[\d ]{9,14})/i,
+
+  // Address: number + street, suburb, state, postcode on one line
+  addressLine: /(\d+[^,\n]{3,40}),\s*([A-Za-z][A-Za-z ]+?),?\s*([A-Z]{2,3})\s+(\d{4})/,
+
+  // Suburb + postcode (looser): "Wentworth Point 2127" or "SYDNEY NSW 2000"
+  suburbPostcode: /\b([A-Z][A-Za-z ]+?)\s+(?:([A-Z]{2,3})\s+)?(\d{4})\b/,
+};
+
+/**
+ * Extract patient data from any PDF using broad, format-agnostic patterns
+ */
+function extractGenericData(
+  text: string,
+  warnings: string[]
+): { data: PatientData; success: boolean } {
+  const defaultData: PatientData = {
+    firstName: "UNKNOWN",
+    lastName: "PATIENT",
+    dob: "19000101",
+    sex: "U",
+  };
+
+  let firstName: string | null = null;
+  let lastName: string | null = null;
+  let dobRaw: string | null = null;
+  let sex: "M" | "F" | "U" = "U";
+
+  // Try labelled name patterns: "Patient: First Last" or "Name: First Last"
+  const nameMatch = text.match(GENERIC_PATTERNS.patientName);
+  if (nameMatch) {
+    firstName = cleanText(nameMatch[1]);
+    lastName = cleanText(nameMatch[2]);
+  }
+
+  // Try title + name: "Mr John Smith"
+  if (!firstName || !lastName) {
+    const titleMatch = text.match(GENERIC_PATTERNS.titleName);
+    if (titleMatch) {
+      const title = titleMatch[1];
+      firstName = cleanText(titleMatch[2]);
+      lastName = cleanText(titleMatch[3]);
+      sex = TITLE_TO_SEX[title] || "U";
+    }
+  }
+
+  // Extract DOB (labelled first, then standalone date as fallback)
+  const dobMatch = text.match(GENERIC_PATTERNS.dob);
+  if (dobMatch) {
+    dobRaw = dobMatch[1];
+  } else {
+    const dateMatch = text.match(GENERIC_PATTERNS.dateAU);
+    if (dateMatch) {
+      dobRaw = dateMatch[1];
+      warnings.push("DOB inferred from first date found in document — please verify");
+    }
+  }
+
+  // Extract Medicare
+  const medicareMatch = text.match(GENERIC_PATTERNS.medicareNo);
+  let medicareNo: string | undefined;
+  let medicareRef: string | undefined;
+  if (medicareMatch) {
+    const fullMedicare = medicareMatch[1];
+    if (fullMedicare.length === 11) {
+      medicareNo = fullMedicare.substring(0, 10);
+      medicareRef = fullMedicare.substring(10);
+    } else {
+      medicareNo = fullMedicare;
+    }
+  }
+
+  // Extract phone
+  const phone = extractField(text, GENERIC_PATTERNS.phone);
+
+  // Extract address
+  let address: string | undefined;
+  let suburb: string | undefined;
+  let state: string | undefined;
+  let postcode: string | undefined;
+
+  const addrMatch = text.match(GENERIC_PATTERNS.addressLine);
+  if (addrMatch) {
+    address = cleanText(addrMatch[1]);
+    suburb = cleanText(addrMatch[2]);
+    state = cleanText(addrMatch[3]);
+    postcode = cleanText(addrMatch[4]);
+  } else {
+    const spMatch = text.match(GENERIC_PATTERNS.suburbPostcode);
+    if (spMatch) {
+      suburb = cleanText(spMatch[1]);
+      state = spMatch[2] ? cleanText(spMatch[2]) : undefined;
+      postcode = cleanText(spMatch[3]);
+      if (!state && postcode) {
+        state = inferStateFromPostcode(postcode);
+      }
+    }
+  }
+
+  // Infer sex from pronouns if title didn't help
+  if (sex === "U") {
+    sex = inferSexFromPronouns(text);
+  }
+
+  const patientData: PatientData = {
+    firstName: firstName || defaultData.firstName,
+    lastName: lastName || defaultData.lastName,
+    dob: dobRaw ? convertDateToHL7(dobRaw) : defaultData.dob,
+    sex,
+    phone: phone?.replace(/\s/g, "") || undefined,
+    address,
+    suburb,
+    state: state || (postcode ? inferStateFromPostcode(postcode) : undefined),
+    postcode,
+    medicareNo,
+    medicareRef,
+  };
+
+  // Add warnings
+  if (!firstName) warnings.push("Could not extract first name");
+  if (!lastName) warnings.push("Could not extract last name");
+  if (!dobRaw) warnings.push("Could not extract date of birth");
+  if (sex === "U") warnings.push("Could not determine sex (defaulting to Unknown)");
+  if (!phone) warnings.push("Could not extract phone number");
+  if (!address) warnings.push("Could not extract address");
+  if (!medicareNo) warnings.push("Could not extract Medicare number");
+
+  const success =
+    patientData.firstName !== "UNKNOWN" && patientData.lastName !== "PATIENT";
+
+  return { data: patientData, success };
+}
+
 /**
  * Extract patient data from PDF
  * @param pdfBuffer - The PDF file as a Buffer
@@ -464,6 +625,8 @@ export async function extractPatientData(
 
     if (documentType === "referral_letter" || documentType === "gp_referral") {
       result = extractReferralLetterData(text, warnings);
+    } else if (documentType === "generic") {
+      result = extractGenericData(text, warnings);
     } else {
       result = extractConsentFormData(text, warnings);
     }

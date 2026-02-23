@@ -41,12 +41,13 @@ export async function POST(request: NextRequest) {
     // Check if this is a detect-only request
     const detectOnly = formData.get("detectOnly") === "true";
 
-    // Get document type preference (auto, consent_form, referral_letter, or gp_referral)
+    // Get document type preference (auto, consent_form, referral_letter, gp_referral, or generic)
     const documentTypeParam = formData.get("documentType") as string | null;
     const documentType =
       documentTypeParam === "consent_form" ||
       documentTypeParam === "referral_letter" ||
-      documentTypeParam === "gp_referral"
+      documentTypeParam === "gp_referral" ||
+      documentTypeParam === "generic"
         ? documentTypeParam
         : "auto";
 

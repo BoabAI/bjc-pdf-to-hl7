@@ -1,0 +1,60 @@
+Subject: PDF to HL7 Converter - Proof of Concept Ready for Testing
+
+Hi Nicole,
+
+Hope you're well.
+
+I'm pleased to let you know the proof of concept for the PDF to HL7 Converter is ready for you to review and test.
+
+
+WHAT IT DOES
+
+The tool converts patient PDF documents (consent forms, GP referrals, and specialist referral letters) into HL7 files that can be imported directly into Genie. It reads the patient details from the PDF automatically — no manual data entry required.
+
+
+DATA PRIVACY & SECURITY
+
+A few key points on how patient data is handled:
+
+• All data stays in Australia — the application is hosted on AWS in the Sydney region
+• No patient data is stored on the server — PDFs are processed entirely in memory and discarded immediately after conversion. Nothing is saved, logged, or retained
+• Access is password-protected and all connections are encrypted via HTTPS
+• The system simply reads the PDF, extracts the patient details, generates the HL7 file, and that's it — no data touches a database or file system
+
+
+HOW TO ACCESS
+
+URL: https://main.ddv0o3k8wcjhr.amplifyapp.com
+Password: Mh2Hl7Cv
+
+
+HOW TO TEST
+
+1. Go to the URL above and log in with the password
+2. Upload a patient PDF (drag and drop, or click Browse Files)
+3. The system will auto-detect the document type
+4. Click "Convert to HL7"
+5. Check that the patient details displayed are correct
+6. Download the HL7 file
+7. Try importing the .hl7 file into Genie
+
+
+WHAT TO LOOK FOR
+
+• Are the patient names, DOB, and Medicare numbers extracted correctly?
+• Does the HL7 file import into Genie without errors?
+• Does the document auto-file to the correct patient?
+• Any documents that don't convert properly — please send me the PDF and I'll adjust the system
+
+The tool has optimised support for three document formats:
+• BJC Health consent forms
+• Specialist referral letters (e.g. NeuroSpine format)
+• GP referral letters (Best Practice format)
+
+It will also attempt to extract patient details from any other PDF format — so feel free to try it with any documents you work with. The more sample PDFs you can send through, the better I can tune the extraction for your real-world documents.
+
+Happy to jump on a call if you'd like a walkthrough, or feel free to have a play and let me know how you go.
+
+Cheers,
+Sean
+SMEC AI
