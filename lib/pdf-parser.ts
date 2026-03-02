@@ -54,6 +54,21 @@ const REFERRAL_PATTERNS = {
   patientLine:
     /RE:\s*(?:([A-Za-z][A-Za-z'-]*)\s+([A-Z][A-Z'-]+)|([A-Z][A-Z'-]+),\s*([A-Za-z][A-Za-z'-]*))\s*[-–]\s*DOB:\s*(\d{1,2}\/\d{1,2}\/\d{4})/i,
 
+  // RE: Title FirstName LastName   DOB DD/MM/YYYY (Rozelle/spaces format, no hyphen)
+  // e.g. "RE:   Ms Karen Phillips   DOB 14/07/1982"
+  patientLineSpaced:
+    /RE:\s+(?:Mr|Mrs|Miss|Ms|Dr)\s+([A-Za-z][A-Za-z'-]*(?:\s+[A-Za-z][A-Za-z'-]*)*?)\s+DOB\s+(\d{1,2}\/\d{1,2}\/\d{4})/i,
+
+  // Re: Mr/Mrs Name (D.O.B.: DD/MM/YYYY) - Rose Bay / parenthetical DOB format
+  // e.g. "Re: Mr Thomas Whitaker (D.O.B.: 15/06/1948)"
+  patientLineParenDob:
+    /Re:\s*(?:Mr|Mrs|Miss|Ms|Dr)\s+([A-Za-z][A-Za-z'-]*(?:\s+[A-Za-z][A-Za-z'-]*)*?)\s*\(D\.?O\.?B\.?:?\s*(\d{1,2}\/\d{1,2}\/\d{4})\)/i,
+
+  // Re: FirstName LastName (no title, no inline DOB) - short/scanned referral
+  // e.g. "Re: Amira Karim"
+  patientLineNoTitle:
+    /\bRe:\s+([A-Za-z][A-Za-z'-]*)\s+([A-Za-z][A-Za-z'-]*)\s*$/im,
+
   // Provider No: 457833CF (legally required on Australian medical letters)
   providerNo: /Provider\s*No[:\.]?\s*(\d{6}[A-Z]{2})/i,
 
@@ -68,7 +83,7 @@ const REFERRAL_PATTERNS = {
 // Secondary patterns for referral letters (MEDIUM reliability)
 const REFERRAL_PATTERNS_SECONDARY = {
   // Phone - try multiple labels (use [\d ] not [\d\s] to avoid matching newlines)
-  phone: /(?:Mobile|Ph|Tel|Phone)[:\s]+(\d[\d ]{9,14})/i,
+  phone: /(?:Mobile|Mob|Ph|Tel|Phone)[:\s]+(\d[\d ]{9,14})/i,
 
   // Address line after RE: line (NeuroSpine format)
   // Matches: "104 Stratford Road, TAHMOOR, NSW, 2573"
@@ -79,17 +94,21 @@ const REFERRAL_PATTERNS_SECONDARY = {
 // GP/Best Practice referral letter patterns
 const GP_REFERRAL_PATTERNS = {
   // "re. Mr Tim Ball" or "re. Mrs Jane O'Brien-Smith" - title + name format
-  // Captures: (1) title, (2) first name, (3) last name (may contain apostrophes/hyphens)
-  patientLineWithTitle: /\bre\.?\s+(Mr|Mrs|Miss|Ms|Dr)\s+([A-Za-z]+)\s+([A-Za-z][A-Za-z'-]*[A-Za-z]|[A-Za-z])/i,
+  // Captures: (1) title, (2) first name(s), (3) last name (may contain apostrophes/hyphens)
+  // Handles middle names: "re. Ms Patricia Anne Henderson" → first="Patricia Anne", last="Henderson"
+  patientLineWithTitle: /\bre\.?\s+(Mr|Mrs|Miss|Ms|Dr)\s+(.+?)\s+([A-Za-z][A-Za-z'-]*)\s*$/im,
 
-  // DOB on separate line: "DOB: 18/09/1968"
-  dobLine: /\bDOB:\s*(\d{1,2}\/\d{1,2}\/\d{4})/i,
+  // DOB on separate line: "DOB: 18/09/1968" or standalone "03/11/1956" right after patient line
+  dobLine: /\bDOB:?\s*(\d{1,2}\/\d{1,2}\/\d{4})/i,
+  // Standalone date on line after "re." (Best Practice format: no DOB label)
+  dobStandalone: /^(\d{1,2}\/\d{1,2}\/\d{4})\s*$/m,
 
   // Medicare No: 2673291844 (GP letters often include this)
   medicareNo: /Medicare\s*No[:\s]+(\d{10,11})/i,
 
-  // Mobile on separate line: "Mobile: 0468 900 291" (use [\d ] not [\d\s] to avoid newlines)
-  mobile: /Mobile:\s*([\d ]{10,14})/i,
+  // Mobile on separate line: "Mobile: 0468 900 291" or "Mob: 0423 876 214"
+  // (use [\d ] not [\d\s] to avoid newlines)
+  mobile: /(?:Mobile|Mob):\s*([\d ]{10,14})/i,
 
   // Multi-line address pattern (GP format)
   // Line 1: "274/4 The Crescent"
@@ -174,11 +193,16 @@ function detectDocumentType(text: string): DocumentType {
     // GP format: "re. Mr Tim Ball" or "re. Mrs Mary O'Brien-Smith" (title + name)
     const isGPFormat = /\bre\.?\s+(?:Mr|Mrs|Miss|Ms|Dr)\s+[A-Za-z]+\s+[A-Za-z][A-Za-z'-]*/i.test(text);
     // GP format also has Medicare No
-    const hasMedicareNo = /Medicare\s*No[:\s]+\d{10,11}/i.test(text);
+    const hasMedicareNo = /Medicare\s*(?:No|no)?[:\s.]+\d/i.test(text);
 
     if (isGPFormat || hasMedicareNo) {
       return "gp_referral";
     }
+    return "referral_letter";
+  }
+
+  // Referral with "Re: Name" but no "Dear" (short/scanned/partial referral)
+  if (hasReLine && /\bRe:\s+[A-Za-z][A-Za-z'-]*\s+[A-Za-z][A-Za-z'-]*/i.test(text)) {
     return "referral_letter";
   }
 
@@ -306,15 +330,68 @@ function extractReferralLetterData(
     sex = inferSexFromPronouns(text);
   }
 
-  // Try GP/Best Practice format if NeuroSpine didn't work: "re. Mr Tim Ball"
+  // Try "RE: Title Name   DOB date" format (Rozelle/spaced, no hyphen)
+  if (!firstName || !lastName) {
+    const spacedMatch = text.match(REFERRAL_PATTERNS.patientLineSpaced);
+    if (spacedMatch) {
+      const nameParts = spacedMatch[1].trim().split(/\s+/);
+      if (nameParts.length >= 2) {
+        lastName = cleanText(nameParts[nameParts.length - 1]);
+        firstName = cleanText(nameParts.slice(0, -1).join(" "));
+      } else {
+        firstName = cleanText(nameParts[0]);
+      }
+      dobRaw = spacedMatch[2] || null;
+      // Try to get title from the full match for sex determination
+      const titleMatch = text.match(/RE:\s+(Mr|Mrs|Miss|Ms|Dr)\s/i);
+      if (titleMatch) {
+        sex = TITLE_TO_SEX[titleMatch[1]] || "U";
+      } else {
+        sex = inferSexFromPronouns(text);
+      }
+    }
+  }
+
+  // Try "Re: Mr Name (D.O.B.: DD/MM/YYYY)" format (Rose Bay/parenthetical DOB)
+  if (!firstName || !lastName) {
+    const parenDobMatch = text.match(REFERRAL_PATTERNS.patientLineParenDob);
+    if (parenDobMatch) {
+      const nameParts = parenDobMatch[1].trim().split(/\s+/);
+      if (nameParts.length >= 2) {
+        lastName = cleanText(nameParts[nameParts.length - 1]);
+        firstName = cleanText(nameParts.slice(0, -1).join(" "));
+      } else {
+        firstName = cleanText(nameParts[0]);
+      }
+      dobRaw = parenDobMatch[2] || null;
+      // Get title for sex
+      const titleMatch = text.match(/Re:\s*(Mr|Mrs|Miss|Ms|Dr)\s/i);
+      if (titleMatch) {
+        sex = TITLE_TO_SEX[titleMatch[1]] || "U";
+      }
+    }
+  }
+
+  // Try GP/Best Practice format: "re. Mr Tim Ball" or "re. Ms Patricia Anne Henderson"
   if (!firstName || !lastName) {
     const gpPatientMatch = text.match(GP_REFERRAL_PATTERNS.patientLineWithTitle);
     if (gpPatientMatch) {
       const title = gpPatientMatch[1];
+      // Group 2 may have middle names, group 3 is always the last word (surname)
       firstName = cleanText(gpPatientMatch[2]);
       lastName = cleanText(gpPatientMatch[3]);
       // Use title to determine sex (more reliable than pronouns)
       sex = TITLE_TO_SEX[title] || "U";
+    }
+  }
+
+  // Try "Re: FirstName LastName" without title (short/scanned referral)
+  if (!firstName || !lastName) {
+    const noTitleMatch = text.match(REFERRAL_PATTERNS.patientLineNoTitle);
+    if (noTitleMatch) {
+      firstName = cleanText(noTitleMatch[1]);
+      lastName = cleanText(noTitleMatch[2]);
+      sex = inferSexFromPronouns(text);
     }
   }
 
@@ -323,6 +400,17 @@ function extractReferralLetterData(
     const dobMatch = text.match(GP_REFERRAL_PATTERNS.dobLine);
     if (dobMatch) {
       dobRaw = dobMatch[1];
+    }
+  }
+
+  // Try standalone date on line after patient name (Best Practice exports)
+  // Only search text AFTER the patient line to avoid matching the letter date
+  if (!dobRaw) {
+    const reIdx = text.search(/\bre[:\.]?\s+/i);
+    const textAfterRe = reIdx >= 0 ? text.substring(reIdx) : text;
+    const standaloneMatch = textAfterRe.match(GP_REFERRAL_PATTERNS.dobStandalone);
+    if (standaloneMatch) {
+      dobRaw = standaloneMatch[1];
     }
   }
 
@@ -345,36 +433,88 @@ function extractReferralLetterData(
     phone = extractField(text, REFERRAL_PATTERNS_SECONDARY.phone);
   }
 
+  // Extract patient block: text from "re."/"RE:"/"Re:" to "Dear" or limited range
+  const reLineIdx = text.search(/\bre[:\.]?\s+/i);
+  const dearIdx = text.indexOf("Dear", reLineIdx > 0 ? reLineIdx : 0);
+  const blockEnd = dearIdx > reLineIdx ? dearIdx : (reLineIdx > 0 ? reLineIdx + 500 : text.length);
+  const patientBlock = reLineIdx >= 0 ? text.substring(reLineIdx, blockEnd) : text;
+
+  // Try bare mobile number in patient block (no label, starts with 04)
+  if (!phone) {
+    const bareMatch = patientBlock.match(/^(04[\d ]{8,12})\s*$/m);
+    if (bareMatch) {
+      phone = cleanText(bareMatch[1]);
+    }
+  }
+
   // Extract address
   let address: string | undefined;
   let suburb: string | undefined;
   let state: string | undefined;
   let postcode: string | undefined;
 
-  // Try NeuroSpine single-line format first
-  const addressMatch = text.match(REFERRAL_PATTERNS_SECONDARY.addressLine);
-  if (addressMatch) {
-    address = cleanText(addressMatch[1]);
-    suburb = cleanText(addressMatch[2]);
-    state = cleanText(addressMatch[3]);
-    postcode = cleanText(addressMatch[4]);
+  // Try combined address+phone line in patient block:
+  // "22 Brighton Blvd, Bondi Beach NSW, 2026, 0412 789 456"
+  const combinedMatch = patientBlock.match(
+    /^(\d+[^,\n]+),\s*([A-Za-z][A-Za-z ]+?)\s+(NSW|VIC|QLD|SA|WA|TAS|NT|ACT),?\s*(\d{4})(?:,?\s*(04[\d ]{8,12}))?\s*$/m
+  );
+  if (combinedMatch) {
+    address = cleanText(combinedMatch[1]);
+    suburb = cleanText(combinedMatch[2]);
+    state = cleanText(combinedMatch[3]);
+    postcode = cleanText(combinedMatch[4]);
+    if (combinedMatch[5] && !phone) {
+      phone = cleanText(combinedMatch[5]);
+    }
   }
 
-  // Try GP multi-line format if single-line didn't work
-  // GP format: street line followed by "Suburb. Postcode" or "Suburb Postcode"
-  // The address lines appear within the patient details block (between "re." and "Dear")
+  // Try labeled address in patient block: "Address: 45 Alt Street, Ashfield 2131"
   if (!address) {
-    // Extract the patient details block: from "re." line to "Dear" or end of section
-    const reLineIdx = text.search(/\bre\.?\s+/i);
-    const dearIdx = text.indexOf("Dear", reLineIdx > 0 ? reLineIdx : 0);
-    // If no "Dear" found after "re.", search whole text after "re." (limited to ~500 chars)
-    const blockEnd = dearIdx > reLineIdx ? dearIdx : (reLineIdx > 0 ? reLineIdx + 500 : text.length);
-    const patientBlock = reLineIdx >= 0 ? text.substring(reLineIdx, blockEnd) : text;
-
-    // Find "Suburb. Postcode" or "Suburb  Postcode" within patient block
-    const suburbPostcodeMatch = patientBlock.match(
-      /^([A-Za-z][A-Za-z ]+?)[.\s]+(\d{4})\s*$/m
+    const labeledMatch = patientBlock.match(
+      /Address:\s*(.+?),\s*([A-Za-z][A-Za-z ]+?)\s+(\d{4})/i
     );
+    if (labeledMatch) {
+      address = cleanText(labeledMatch[1]);
+      suburb = cleanText(labeledMatch[2]);
+      postcode = cleanText(labeledMatch[3]);
+      state = inferStateFromPostcode(postcode);
+    }
+  }
+
+  // Try NeuroSpine single-line format in patient block first, then whole text
+  if (!address) {
+    const addrInBlock = patientBlock.match(REFERRAL_PATTERNS_SECONDARY.addressLine);
+    if (addrInBlock) {
+      address = cleanText(addrInBlock[1]);
+      suburb = cleanText(addrInBlock[2]);
+      state = cleanText(addrInBlock[3]);
+      postcode = cleanText(addrInBlock[4]);
+    } else {
+      // Fallback: search entire text (only for formats where patient address isn't in block)
+      const addressMatch = text.match(REFERRAL_PATTERNS_SECONDARY.addressLine);
+      if (addressMatch) {
+        address = cleanText(addressMatch[1]);
+        suburb = cleanText(addressMatch[2]);
+        state = cleanText(addressMatch[3]);
+        postcode = cleanText(addressMatch[4]);
+      }
+    }
+  }
+
+  // Try GP multi-line format: street line followed by "Suburb STATE Postcode" or "Suburb. Postcode"
+  if (!address) {
+    // Try with explicit state first: "Kellyville NSW  2155"
+    let suburbPostcodeMatch = patientBlock.match(
+      /^([A-Za-z][A-Za-z ]+?)\s+(NSW|VIC|QLD|SA|WA|TAS|NT|ACT)\s+(\d{4})\s*$/m
+    );
+    if (suburbPostcodeMatch) {
+      state = cleanText(suburbPostcodeMatch[2]);
+    } else {
+      // Fallback without state: "Ettalong Beach.  2257"
+      suburbPostcodeMatch = patientBlock.match(
+        /^([A-Za-z][A-Za-z ]+?)[.\s]+(\d{4})\s*$/m
+      );
+    }
     if (suburbPostcodeMatch) {
       const matchIndex = patientBlock.indexOf(suburbPostcodeMatch[0]);
       // Look for the street address on the line immediately before
@@ -387,12 +527,20 @@ function extractReferralLetterData(
       if (
         streetLine &&
         /^(?:\d|Unit|Apt|Level|Flat|Suite|Lot)/i.test(streetLine) &&
-        !/^(?:Mobile|Phone|Ph|Tel|DOB|Medicare|Dear|re\.|RE:)/i.test(streetLine)
+        !/^(?:Mobile|Mob|Phone|Ph|Tel|DOB|Medicare|Dear|re\.|RE:)/i.test(streetLine)
       ) {
         address = cleanText(streetLine);
         suburb = cleanText(suburbPostcodeMatch[1]);
-        postcode = cleanText(suburbPostcodeMatch[2]);
-        state = inferStateFromPostcode(postcode);
+        // Group 2 is state if 3-group match, or postcode if 2-group match
+        if (suburbPostcodeMatch[3]) {
+          // State-aware match: groups are suburb, state, postcode
+          postcode = cleanText(suburbPostcodeMatch[3]);
+          // state already set above
+        } else {
+          // Stateless match: groups are suburb, postcode
+          postcode = cleanText(suburbPostcodeMatch[2]);
+          state = inferStateFromPostcode(postcode);
+        }
       }
     }
   }

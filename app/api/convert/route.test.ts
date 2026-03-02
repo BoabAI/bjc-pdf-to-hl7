@@ -361,6 +361,12 @@ describe("POST /api/convert - End-to-End All Types", () => {
     { file: "edge-cases/multicultural/test_multicultural_pacific_islander.pdf", name: "TUPOU", first: "Sione" },
     { file: "edge-cases/multicultural/test_multicultural_korean.pdf", name: "Kim", first: "Jiyeon" },
     { file: "edge-cases/multicultural/test_multicultural_lebanese.pdf", name: "El-Masri", first: "Layla" },
+    // Mock referrals (real-world formats with fictional patient data)
+    { file: "mock-referrals/test_mock_referral1.pdf", name: "MITCHELL", first: "James" },
+    { file: "mock-referrals/test_mock_referral2.pdf", name: "Henderson", first: "Patricia Anne" },
+    { file: "mock-referrals/test_mock_referral3.pdf", name: "Phillips", first: "Karen" },
+    { file: "mock-referrals/test_mock_referral4.pdf", name: "Karim", first: "Amira" },
+    { file: "mock-referrals/test_mock_referral5.pdf", name: "Whitaker", first: "Thomas" },
   ];
 
   for (const tc of testCases) {

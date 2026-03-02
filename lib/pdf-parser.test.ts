@@ -67,6 +67,13 @@ const TEST_MULTI_PACIFIC = join(PDF_DIR, "edge-cases/multicultural/test_multicul
 const TEST_MULTI_KOREAN = join(PDF_DIR, "edge-cases/multicultural/test_multicultural_korean.pdf");
 const TEST_MULTI_LEBANESE = join(PDF_DIR, "edge-cases/multicultural/test_multicultural_lebanese.pdf");
 
+// Mock referral PDFs (real-world formats with fictional patient data)
+const TEST_MOCK_REFERRAL1 = join(PDF_DIR, "mock-referrals/test_mock_referral1.pdf"); // NeuroSpine specialist
+const TEST_MOCK_REFERRAL2 = join(PDF_DIR, "mock-referrals/test_mock_referral2.pdf"); // Providence GP
+const TEST_MOCK_REFERRAL3 = join(PDF_DIR, "mock-referrals/test_mock_referral3.pdf"); // Rozelle GP
+const TEST_MOCK_REFERRAL4 = join(PDF_DIR, "mock-referrals/test_mock_referral4.pdf"); // Short/partial referral
+const TEST_MOCK_REFERRAL5 = join(PDF_DIR, "mock-referrals/test_mock_referral5.pdf"); // Rose Bay specialist
+
 // =============================================================================
 // Document Type Detection
 // =============================================================================
@@ -1037,5 +1044,194 @@ describe("Forced Document Type", () => {
     const pdfBuffer = readFileSync(TEST_GP);
     const result = await extractPatientData(pdfBuffer, undefined);
     expect(result.documentType).toBe("gp_referral");
+  });
+});
+
+// =============================================================================
+// Mock Referrals (real-world formats with fictional patient data)
+// =============================================================================
+
+describe("Mock Referral 1 - NeuroSpine Specialist", () => {
+  test("detects as referral_letter", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL1));
+    expect(result.documentType).toBe("referral_letter");
+  });
+
+  test("extracts patient name", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL1));
+    expect(result.data.firstName).toBe("James");
+    expect(result.data.lastName).toBe("MITCHELL");
+  });
+
+  test("extracts DOB", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL1));
+    expect(result.data.dob).toBe("19780918");
+  });
+
+  test("extracts phone", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL1));
+    expect(result.data.phone).toBe("0451223891");
+  });
+
+  test("extracts address", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL1));
+    expect(result.data.address).toBe("72 Greenfield Dr");
+    expect(result.data.suburb).toBe("TAHMOOR");
+    expect(result.data.state).toBe("NSW");
+    expect(result.data.postcode).toBe("2573");
+  });
+
+  test("infers sex as male from pronouns", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL1));
+    expect(result.data.sex).toBe("M");
+  });
+
+  test("marks extraction as successful", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL1));
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("Mock Referral 2 - GP Providence (Best Practice)", () => {
+  test("detects as gp_referral", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL2));
+    expect(result.documentType).toBe("gp_referral");
+  });
+
+  test("extracts patient name with middle name", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL2));
+    expect(result.data.firstName).toBe("Patricia Anne");
+    expect(result.data.lastName).toBe("Henderson");
+  });
+
+  test("extracts DOB from standalone line (not letter date)", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL2));
+    expect(result.data.dob).toBe("19561103");
+  });
+
+  test("extracts bare phone number from patient block", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL2));
+    expect(result.data.phone).toBe("0438221765");
+  });
+
+  test("extracts address", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL2));
+    expect(result.data.address).toBe("14 Ocean View Pde");
+    expect(result.data.suburb).toBe("Ettalong Beach");
+    expect(result.data.state).toBe("NSW");
+    expect(result.data.postcode).toBe("2257");
+  });
+
+  test("infers sex as female from title", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL2));
+    expect(result.data.sex).toBe("F");
+  });
+});
+
+describe("Mock Referral 3 - GP Rozelle (Medicare + Mob)", () => {
+  test("detects as gp_referral (has Medicare no)", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL3));
+    expect(result.documentType).toBe("gp_referral");
+  });
+
+  test("extracts patient name from RE: spaced format", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL3));
+    expect(result.data.firstName).toBe("Karen");
+    expect(result.data.lastName).toBe("Phillips");
+  });
+
+  test("extracts DOB from RE: line", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL3));
+    expect(result.data.dob).toBe("19820714");
+  });
+
+  test("extracts phone from Mob: format", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL3));
+    expect(result.data.phone).toBe("0423876214");
+  });
+
+  test("extracts labeled address (Address: format)", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL3));
+    expect(result.data.address).toBe("45 Alt Street");
+    expect(result.data.suburb).toBe("Ashfield");
+    expect(result.data.state).toBe("NSW");
+    expect(result.data.postcode).toBe("2131");
+  });
+
+  test("infers sex as female from title", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL3));
+    expect(result.data.sex).toBe("F");
+  });
+});
+
+describe("Mock Referral 4 - Short/Partial Referral (no Dear)", () => {
+  test("detects as referral_letter (Re: without Dear)", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL4));
+    expect(result.documentType).toBe("referral_letter");
+  });
+
+  test("extracts name from Re: without title", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL4));
+    expect(result.data.firstName).toBe("Amira");
+    expect(result.data.lastName).toBe("Karim");
+  });
+
+  test("extracts DOB from DOB: label", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL4));
+    expect(result.data.dob).toBe("19851108");
+  });
+
+  test("extracts phone from Mobile: label", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL4));
+    expect(result.data.phone).toBe("0412334567");
+  });
+
+  test("extracts address with state-aware suburb parsing", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL4));
+    expect(result.data.address).toBe("27 Windsor Road");
+    expect(result.data.suburb).toBe("Kellyville");
+    expect(result.data.state).toBe("NSW");
+    expect(result.data.postcode).toBe("2155");
+  });
+
+  test("sex is unknown (no title, short text)", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL4));
+    expect(result.data.sex).toBe("U");
+  });
+});
+
+describe("Mock Referral 5 - Rose Bay (parenthetical DOB)", () => {
+  test("detects as referral_letter", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL5));
+    expect(result.documentType).toBe("referral_letter");
+  });
+
+  test("extracts patient name from Re: with title", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL5));
+    expect(result.data.firstName).toBe("Thomas");
+    expect(result.data.lastName).toBe("Whitaker");
+  });
+
+  test("extracts DOB from parenthetical D.O.B. format", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL5));
+    expect(result.data.dob).toBe("19480615");
+  });
+
+  test("extracts phone from combined address+phone line", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL5));
+    expect(result.data.phone).toBe("0412789456");
+  });
+
+  test("extracts address from combined line", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL5));
+    expect(result.data.address).toBe("22 Brighton Blvd");
+    expect(result.data.suburb).toBe("Bondi Beach");
+    expect(result.data.state).toBe("NSW");
+    expect(result.data.postcode).toBe("2026");
+  });
+
+  test("infers sex as male from title", async () => {
+    const result = await extractPatientData(readFileSync(TEST_MOCK_REFERRAL5));
+    expect(result.data.sex).toBe("M");
   });
 });
