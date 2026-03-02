@@ -8,7 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 bun dev          # Start development server (localhost:3000)
 bun run build    # Production build
 bun run lint     # ESLint check
-bun test         # Run tests (Bun test runner)
+bun test         # Run all tests (Bun test runner)
+bun test --filter "consent"  # Run tests matching a pattern
 bun start        # Start production server
 ```
 
@@ -28,7 +29,16 @@ curl -X POST -F "pdf=@/path/to/file.pdf" -F "detectOnly=true" http://localhost:3
 curl -X POST -F "pdf=@/path/to/file.pdf" -F "documentType=gp_referral" -F "autoFile=true" http://localhost:3000/api/convert
 ```
 
-Tests require a sample PDF at `docs/input PDF/` - existing tests use a BJC Health consent form PDF.
+## Debug Scripts
+
+```bash
+bun run scripts/diagnose-pdfs.ts          # Extract patient data from all test PDFs
+bun run scripts/dump-text.ts              # Dump raw text from first 4 test PDFs
+bun run scripts/dump-text.ts path/to.pdf  # Dump raw text from a specific PDF
+bun run scripts/generate-test-pdfs.ts     # Regenerate all 20 test PDFs (requires puppeteer)
+```
+
+Tests use generated PDFs at `docs/input PDF/` (nested subdirectories with various formats).
 
 ## Architecture
 
@@ -50,12 +60,13 @@ Simple password-based auth using Next.js middleware (`middleware.ts`):
 
 ### Document Type System
 
-Three document types with auto-detection (`lib/pdf-parser.ts:detectDocumentType`):
+Four document types with auto-detection (`lib/pdf-parser.ts:detectDocumentType`):
 - **`consent_form`** - BJC Health Patient Information and Consent Forms (regex on form field labels)
 - **`referral_letter`** - Specialist referral letters, e.g. NeuroSpine format (`RE: FirstName LASTNAME - DOB:`)
 - **`gp_referral`** - GP/Best Practice referral letters (`re. Mr Tim Ball` + separate DOB line)
+- **`generic`** - Fallback for any PDF; best-effort extraction using broad name/DOB/Medicare/address patterns
 
-Detection logic: checks for `Dear Dr/Professor` + `RE:/re.` patterns, then distinguishes GP vs specialist by title presence and Medicare number.
+Detection logic: checks for `Dear Dr/Professor` + `RE:/re.` patterns, then distinguishes GP vs specialist by title presence and Medicare number. Falls back to `generic` when no specific format is detected.
 
 ### Core Modules
 
@@ -64,6 +75,7 @@ Detection logic: checks for `Dear Dr/Professor` + `RE:/re.` patterns, then disti
 - `extractConsentFormData()` - Parses BJC Health form fields (name, DOB, Medicare, address)
 - `extractReferralLetterData()` - Parses both specialist and GP referral formats
 - `inferSexFromPronouns()` - Falls back to pronoun counting when no title available
+- `formatExtractedData()` - Formats PatientData into display-friendly key/value pairs for the UI
 - State inference from Australian postcodes (first digit mapping)
 
 **`lib/hl7-builder.ts`** - Generates HL7 v2.4 ORU^R01 messages per ADRM specification:
@@ -84,6 +96,12 @@ Detection logic: checks for `Dear Dr/Professor` + `RE:/re.` patterns, then disti
 
 - `autoFile` (default true): Sets OBR-25 to F (Final/auto-file) or P (Preliminary/queue for review)
 - `orderingProvider`: Medicare Provider Number placed in PV1-9 to route document to a specific doctor's inbox
+
+### Regex Pitfalls
+
+- Phone patterns: Use `[\d ]` (space only), never `[\d\s]` which matches newlines and bleeds into next line
+- Names: Use `[A-Za-z][A-Za-z'-]*` to handle apostrophes (O'Brien) and hyphens (Smith-Jones)
+- GP address: Scope search to text between `re.` line and `Dear` line to avoid matching clinic letterhead
 
 ## Deployment
 
