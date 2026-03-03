@@ -27,16 +27,20 @@ node_modules
 
 # Test files
 /test-pdfs/
-*.test.ts
-*.spec.ts
-*.test.pdf
+**/*.test.ts
+**/*.spec.ts
+**/*.test.pdf
+__tests__/
 /coverage
 
-# Patient PDFs (may contain real patient data)
-docs/input PDF/**/*.pdf
+# Docs directory (12MB+ of test PDFs not needed at runtime)
+docs/
 
 # Scripts (dev tools, not needed in build)
 /scripts/
+
+# Plans
+docs/plans/
 
 # Misc
 .DS_Store
@@ -50,5 +54,9 @@ yarn-error.log*
 # TypeScript build info
 *.tsbuildinfo
 
-# Bun lockfile (use bun.lock instead)
+# Python scripts
+*.py
+
+# Bun lockfiles (not used by npm)
+bun.lock
 bun.lockb
