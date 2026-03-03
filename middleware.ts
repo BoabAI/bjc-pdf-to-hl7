@@ -19,10 +19,17 @@ export function middleware(request: NextRequest) {
 
   // If not authenticated, redirect to login
   if (!isAuthenticated) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    const loginUrl = new URL("/login", request.url);
+    const redirectResponse = NextResponse.redirect(loginUrl);
+    // Prevent CloudFront from caching redirect responses
+    redirectResponse.headers.set("Cache-Control", "no-store, must-revalidate");
+    return redirectResponse;
   }
 
-  return NextResponse.next();
+  // Prevent CloudFront from caching authenticated pages so middleware always runs
+  const response = NextResponse.next();
+  response.headers.set("Cache-Control", "private, no-cache, no-store, must-revalidate");
+  return response;
 }
 
 export const config = {
