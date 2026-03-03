@@ -89,6 +89,7 @@ export async function POST(request: NextRequest) {
       hl7Content,
       extractedData,
       warnings: extraction.warnings,
+      extractionMethod: extraction.extractionMethod,
     });
   } catch (error) {
     console.error("Conversion error:", error);

@@ -8,7 +8,9 @@ frontend:
       commands:
         # Create .env.production from Amplify env vars for runtime
         - echo "APP_PASSWORD=$APP_PASSWORD" > .env.production
-        - echo "Created .env.production with APP_PASSWORD"
+        - echo "OPENROUTER_API_KEY=$OPENROUTER_API_KEY" >> .env.production
+        - echo "OPENROUTER_MODEL=$OPENROUTER_MODEL" >> .env.production
+        - echo "Created .env.production with APP_PASSWORD + OpenRouter config"
         - npm run build
   artifacts:
     baseDirectory: .next

@@ -9,6 +9,7 @@
 
 import pdf from "pdf-parse";
 import type { PatientData } from "./hl7-builder";
+import { extractPatientDataWithVision } from "./vision-extractor";
 
 // Document types supported
 export type DocumentType = "consent_form" | "referral_letter" | "gp_referral" | "generic";
@@ -18,6 +19,7 @@ export interface ExtractionResult {
   data: PatientData;
   warnings: string[];
   documentType: DocumentType;
+  extractionMethod: "regex" | "vision";
 }
 
 // Extraction patterns for BJC Health consent forms
@@ -759,7 +761,22 @@ export async function extractPatientData(
 
     if (!text || text.trim().length === 0) {
       warnings.push("PDF contains no extractable text");
-      return { success: false, data: defaultData, warnings, documentType: "consent_form" };
+      // Try vision LLM extraction for image-based PDFs
+      if (process.env.OPENROUTER_API_KEY) {
+        warnings.push("Attempting vision extraction...");
+        const visionResult = await extractPatientDataWithVision(pdfBuffer);
+        warnings.push(...visionResult.warnings);
+        if (visionResult.success) {
+          return {
+            success: true,
+            data: visionResult.data,
+            warnings,
+            documentType: "generic",
+            extractionMethod: "vision",
+          };
+        }
+      }
+      return { success: false, data: defaultData, warnings, documentType: "consent_form", extractionMethod: "regex" };
     }
 
     // Determine document type (auto-detect or use forced type)
@@ -779,12 +796,46 @@ export async function extractPatientData(
       result = extractConsentFormData(text, warnings);
     }
 
-    return { ...result, warnings, documentType };
+    // If regex extraction failed, try vision LLM as fallback
+    if (!result.success && process.env.OPENROUTER_API_KEY) {
+      warnings.push("Regex extraction incomplete — attempting vision extraction...");
+      const visionResult = await extractPatientDataWithVision(pdfBuffer);
+      warnings.push(...visionResult.warnings);
+      if (visionResult.success) {
+        return {
+          success: true,
+          data: visionResult.data,
+          warnings,
+          documentType,
+          extractionMethod: "vision",
+        };
+      }
+    }
+
+    return { ...result, warnings, documentType, extractionMethod: "regex" };
   } catch (error) {
     warnings.push(
       `PDF parsing error: ${error instanceof Error ? error.message : "Unknown error"}`
     );
-    return { success: false, data: defaultData, warnings, documentType: "consent_form" };
+    // Last resort: try vision if PDF text parsing itself crashed
+    if (process.env.OPENROUTER_API_KEY) {
+      try {
+        const visionResult = await extractPatientDataWithVision(pdfBuffer);
+        warnings.push(...visionResult.warnings);
+        if (visionResult.success) {
+          return {
+            success: true,
+            data: visionResult.data,
+            warnings,
+            documentType: "generic",
+            extractionMethod: "vision",
+          };
+        }
+      } catch {
+        warnings.push("Vision fallback also failed");
+      }
+    }
+    return { success: false, data: defaultData, warnings, documentType: "consent_form", extractionMethod: "regex" };
   }
 }
 

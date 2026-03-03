@@ -14,6 +14,7 @@ interface ConversionResult {
     sex: string;
     medicareNo: string;
   };
+  extractionMethod?: "regex" | "vision";
   error?: string;
 }
 
@@ -393,6 +394,11 @@ export default function Home() {
                     <h3 className="font-semibold text-sm text-[var(--success)]">
                       Conversion Successful
                     </h3>
+                    {result.extractionMethod === "vision" && (
+                      <span className="badge text-[10px] px-2 py-0.5 bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700">
+                        AI Vision
+                      </span>
+                    )}
                   </div>
                   {result.extractedData && (
                     <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
