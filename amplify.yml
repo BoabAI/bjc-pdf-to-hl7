@@ -12,6 +12,9 @@ frontend:
         - echo "OPENROUTER_MODEL=$OPENROUTER_MODEL" >> .env.production
         - echo "Created .env.production with APP_PASSWORD + OpenRouter config"
         - npm run build
+        # Copy .env.production into standalone output so the Lambda server can read it
+        - cp .env.production .next/standalone/.env.production 2>/dev/null || true
+        - echo "Copied .env.production to standalone server"
   artifacts:
     baseDirectory: .next
     files:
