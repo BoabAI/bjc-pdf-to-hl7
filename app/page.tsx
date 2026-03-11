@@ -146,6 +146,12 @@ export default function Home() {
     setDetectedType(null);
   };
 
+  const missingPatientData =
+    result?.success &&
+    !result.extractedData?.firstName &&
+    !result.extractedData?.lastName &&
+    !result.extractedData?.dob;
+
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-4 py-10">
       <div className="w-full max-w-[580px]">
@@ -386,20 +392,31 @@ export default function Home() {
             {/* ── Success ── */}
             {result?.success && (
               <div className="space-y-5 animate-fade-in-up">
-                <div className="p-5 rounded-xl bg-[var(--success-bg)] border border-[var(--success-border)]">
+                <div className={`p-5 rounded-xl border ${missingPatientData ? "bg-[var(--error-bg)] border-[var(--error-border)]" : "bg-[var(--success-bg)] border-[var(--success-border)]"}`}>
                   <div className="flex items-center gap-2.5 mb-3">
-                    <svg className="w-5 h-5 text-[var(--success)]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <h3 className="font-semibold text-sm text-[var(--success)]">
-                      Conversion Successful
+                    {missingPatientData ? (
+                      <svg className="w-5 h-5 text-[var(--error)]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5 text-[var(--success)]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    )}
+                    <h3 className={`font-semibold text-sm ${missingPatientData ? "text-[var(--error)]" : "text-[var(--success)]"}`}>
+                      {missingPatientData ? "Could not extract patient data" : "Conversion Successful"}
                     </h3>
-                    {result.extractionMethod === "vision" && (
+                    {!missingPatientData && result.extractionMethod === "vision" && (
                       <span className="badge text-[10px] px-2 py-0.5 bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700">
                         AI Vision
                       </span>
                     )}
                   </div>
+                  {missingPatientData && (
+                    <p className="text-sm text-[var(--error)]">
+                      The patient name and date of birth could not be found in this PDF. Please check the document format or try a different file.
+                    </p>
+                  )}
                   {result.extractedData && (
                     <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
                       <div>
@@ -425,9 +442,11 @@ export default function Home() {
                 </div>
 
                 <div className="flex gap-3 justify-center">
-                  <button onClick={handleDownload} className="btn-success">
-                    Download HL7 File
-                  </button>
+                  {!missingPatientData && (
+                    <button onClick={handleDownload} className="btn-success">
+                      Download HL7 File
+                    </button>
+                  )}
                   <button onClick={handleReset} className="btn-secondary">
                     Convert Another
                   </button>
