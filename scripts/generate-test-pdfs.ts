@@ -44,7 +44,7 @@ interface TestPDF {
   filename: string;
   html: string;
   description: string;
-  /** If true, uses two-pass rendering: screenshot with CSS filters for visual grain, then overlay invisible text for pdf-parse extraction */
+  /** If true, uses two-pass rendering: screenshot with CSS filters for visual grain, then overlay a near-invisible text layer for text-based diagnostics. */
   grainy?: boolean;
   /** The clean HTML content (no filters) - used for the hidden text layer in grainy PDFs */
   cleanHtml?: string;
@@ -1077,14 +1077,14 @@ async function generatePDFs() {
 
       // Pass 2: Create PDF with grainy image as background + near-invisible text layer on top
       // IMPORTANT: Do NOT use `color: transparent` - Puppeteer omits text objects entirely.
-      // Use `rgba(0,0,0,0.005)` so text objects exist in the PDF stream for pdf-parse.
+      // Use `rgba(0,0,0,0.005)` so text objects still exist in the PDF stream.
       const compositorPage = await browser.newPage();
       const compositeHtml = `
         <div style="position: relative; width: 210mm; min-height: 297mm; margin: 0; padding: 0;">
           <!-- Grainy raster background -->
           <img src="data:image/jpeg;base64,${screenshot}"
                style="position: absolute; top: 0; left: 0; width: 100%; height: auto; z-index: 1;"/>
-          <!-- Near-invisible text layer for pdf-parse extraction -->
+          <!-- Near-invisible text layer -->
           <div style="position: relative; z-index: 2;">
             ${pdf.cleanHtml}
           </div>

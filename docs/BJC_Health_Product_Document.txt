@@ -149,7 +149,7 @@ document:
   ---------------------  -----------------------------------
   Frontend               Next.js 14 (React), Tailwind CSS
   Backend                Next.js API Routes (serverless)
-  PDF Parsing            pdf-parse (text extraction)
+  PDF Extraction         AWS Bedrock Claude Sonnet 4.6
   Hosting                AWS Amplify (Sydney region)
   Runtime                Node.js (AWS Lambda via Amplify SSR)
 

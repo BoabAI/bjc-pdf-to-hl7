@@ -62,9 +62,6 @@ docs/input PDF/**/*.pdf
 !docs/input PDF/originals/Referral_dummy.pdf
 !docs/input PDF/mock-referrals/*.pdf
 
-# Source material for mock PDFs (redacted originals + Python scripts)
-docs/input PDF/20260302-referrals/
-
 # Supabase local
 supabase/.temp/
 

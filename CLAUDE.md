@@ -33,8 +33,7 @@ curl -X POST -F "pdf=@/path/to/file.pdf" -F "documentType=gp_referral" -F "autoF
 
 ```bash
 bun run scripts/diagnose-pdfs.ts          # Extract patient data from all test PDFs
-bun run scripts/dump-text.ts              # Dump raw text from first 4 test PDFs
-bun run scripts/dump-text.ts path/to.pdf  # Dump raw text from a specific PDF
+bun run scripts/test-vision.ts            # Run live Bedrock extraction against mock referrals
 bun run scripts/generate-test-pdfs.ts     # Regenerate all 20 test PDFs (requires puppeteer)
 ```
 
@@ -47,7 +46,7 @@ Next.js 14 App Router application that converts PDF patient documents to Austral
 ### Data Flow
 
 ```
-PDF Upload → /api/convert → pdf-parser.ts (extract patient data) → hl7-builder.ts (generate HL7) → HL7 Download
+PDF Upload → /api/convert → pdf-parser.ts → vision-extractor.ts (Bedrock classify + extract) → hl7-builder.ts → HL7 Download
 ```
 
 ### Authentication
@@ -60,23 +59,23 @@ Simple password-based auth using Next.js middleware (`middleware.ts`):
 
 ### Document Type System
 
-Four document types with auto-detection (`lib/pdf-parser.ts:detectDocumentType`):
-- **`consent_form`** - BJC Health Patient Information and Consent Forms (regex on form field labels)
-- **`referral_letter`** - Specialist referral letters, e.g. NeuroSpine format (`RE: FirstName LASTNAME - DOB:`)
-- **`gp_referral`** - GP/Best Practice referral letters (`re. Mr Tim Ball` + separate DOB line)
-- **`generic`** - Fallback for any PDF; best-effort extraction using broad name/DOB/Medicare/address patterns
-
-Detection logic: checks for `Dear Dr/Professor` + `RE:/re.` patterns, then distinguishes GP vs specialist by title presence and Medicare number. Falls back to `generic` when no specific format is detected.
+Four document types are classified by Bedrock vision:
+- **`consent_form`** - BJC Health Patient Information and Consent Forms
+- **`referral_letter`** - Specialist referral letters and clinic letters
+- **`gp_referral`** - GP/Best Practice referral letters
+- **`generic`** - Any other medical PDF or unclear case
 
 ### Core Modules
 
-**`lib/pdf-parser.ts`** - Extracts patient data using regex patterns per document type. Key functions:
-- `extractPatientData(pdfBuffer, documentType?)` - Main entry point, auto-detects or uses forced type
-- `extractConsentFormData()` - Parses BJC Health form fields (name, DOB, Medicare, address)
-- `extractReferralLetterData()` - Parses both specialist and GP referral formats
-- `inferSexFromPronouns()` - Falls back to pronoun counting when no title available
+**`lib/pdf-parser.ts`** - Bedrock extraction facade. Key functions:
+- `extractPatientData(pdfBuffer, documentType?)` - Main entry point, optionally passes a document type hint to Bedrock
 - `formatExtractedData()` - Formats PatientData into display-friendly key/value pairs for the UI
-- State inference from Australian postcodes (first digit mapping)
+
+**`lib/vision-extractor.ts`** - Sends PDFs to Bedrock Claude Sonnet 4.6 and returns:
+- Classified document type
+- Structured patient fields
+- Runtime warnings for timeout, IAM, or credential failures
+- State inference from Australian postcodes when the model omits state
 
 **`lib/hl7-builder.ts`** - Generates HL7 v2.4 ORU^R01 messages per ADRM specification:
 - MSH: Message header with AUS country code, 8859/1 charset
@@ -97,12 +96,12 @@ Detection logic: checks for `Dear Dr/Professor` + `RE:/re.` patterns, then disti
 - `autoFile` (default true): Sets OBR-25 to F (Final/auto-file) or P (Preliminary/queue for review)
 - `orderingProvider`: Medicare Provider Number placed in PV1-9 to route document to a specific doctor's inbox
 
-### Regex Pitfalls
+### Bedrock Runtime Notes
 
-- Phone patterns: Use `[\d ]` (space only), never `[\d\s]` which matches newlines and bleeds into next line
-- Names: Use `[A-Za-z][A-Za-z'-]*` to handle apostrophes (O'Brien) and hyphens (Smith-Jones)
-- GP address: Scope search to text between `re.` line and `Dear` line to avoid matching clinic letterhead
+- `/api/convert` is pinned to `nodejs` runtime for Amplify SSR
+- Bedrock auth comes from the Amplify compute role, not the Amplify service role
+- A missing compute role will surface as an AWS credential error at runtime
 
 ## Deployment
 
-Deploy to AWS Amplify with platform set to **WEB_COMPUTE** (required for SSR). The `amplify.yml` is pre-configured. Uses `output: "standalone"` in next.config.mjs for Amplify compatibility. Must create `.env.production` during build phase to pass `APP_PASSWORD` to Lambda runtime.
+Deploy to AWS Amplify with platform set to **WEB_COMPUTE** (required for SSR). The `amplify.yml` is pre-configured. Uses `output: "standalone"` in next.config.mjs for Amplify compatibility. Must create `.env.production` during build phase to pass `APP_PASSWORD` to Lambda runtime, and the app must have a compute role with Bedrock permissions attached.

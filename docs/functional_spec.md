@@ -11,12 +11,12 @@
 
 ## 1. Overview
 
-The PDF to HL7 Converter is a web application that converts patient PDF documents into Australian HL7 v2.4 messages compatible with Genie clinical software. The system extracts patient data from uploaded PDFs using pattern matching, generates standards-compliant HL7 messages with the original PDF embedded as Base64, and provides a download for import into practice management systems.
+The PDF to HL7 Converter is a web application that converts patient PDF documents into Australian HL7 v2.4 messages compatible with Genie clinical software. The system extracts patient data from uploaded PDFs using AWS Bedrock vision, generates standards-compliant HL7 messages with the original PDF embedded as Base64, and provides a download for import into practice management systems.
 
 ### 1.1 Key Capabilities
 
 - Automatic document type detection (consent forms, specialist referrals, GP referrals)
-- Patient data extraction via regex pattern matching (name, DOB, sex, Medicare, address, phone)
+- Patient data extraction via AWS Bedrock vision (name, DOB, sex, Medicare, address, phone)
 - HL7 v2.4 ORU^R01 message generation per Australian ADRM specification
 - PDF embedding as Base64 in OBX segment for Genie import
 - Password-protected web interface with drag-and-drop upload
@@ -29,7 +29,7 @@ The PDF to HL7 Converter is a web application that converts patient PDF document
 | Framework | Next.js 14 (App Router) |
 | Runtime | Bun |
 | Language | TypeScript 5 |
-| PDF Parsing | pdf-parse (Poppler-based) |
+| PDF Extraction | AWS Bedrock Claude Sonnet 4.6 |
 | Styling | Tailwind CSS 3 + Custom CSS |
 | Deployment | AWS Amplify (WEB_COMPUTE / SSR) |
 | Testing | Bun test runner (244 tests) |
@@ -54,7 +54,7 @@ PDF Upload --> /api/convert --> pdf-parser.ts --> hl7-builder.ts --> HL7 Downloa
 | `app/login/page.tsx` | Password authentication page |
 | `app/api/convert/route.ts` | PDF conversion API endpoint |
 | `app/api/auth/route.ts` | Authentication API endpoint |
-| `lib/pdf-parser.ts` | PDF text extraction and patient data parsing |
+| `lib/pdf-parser.ts` | Bedrock-backed PDF extraction facade |
 | `lib/hl7-builder.ts` | HL7 v2.4 message generation |
 | `middleware.ts` | Route protection and session validation |
 
@@ -586,7 +586,7 @@ bun start        # Production server
 
 | Constraint | Detail |
 |------------|--------|
-| Extraction method | Regex pattern matching (not AI/ML) |
+| Extraction method | AWS Bedrock vision extraction |
 | Document formats | Three supported formats only |
 | Missing fields | Defaults used when extraction fails (warnings generated) |
 | Address parsing | Scoped to patient block to avoid letterhead addresses |
@@ -609,10 +609,10 @@ bun start        # Production server
 
 | Test File | Count | Coverage |
 |-----------|-------|----------|
-| `lib/pdf-parser.test.ts` | 100+ | All regex patterns, edge cases, special characters |
+| `lib/pdf-parser.test.ts` | 6 | Bedrock facade behavior and display formatting |
 | `lib/hl7-builder.test.ts` | 100+ | All segments, encoding, escaping |
-| `app/api/convert/route.test.ts` | 40+ | API validation, integration flows |
-| **Total** | **244** | |
+| `app/api/convert/route.test.ts` | 12 | API validation and Bedrock integration flows |
+| **Total** | **117** | |
 
 ### 11.2 Test Infrastructure
 
@@ -620,7 +620,7 @@ bun start        # Production server
 |--------|---------|
 | `scripts/generate-test-pdfs.ts` | Creates 20 test PDFs with realistic content |
 | `scripts/diagnose-pdfs.ts` | Runs extraction across all test PDFs |
-| `scripts/dump-text.ts [file]` | Dumps raw PDF text for regex debugging |
+| `scripts/test-vision.ts` | Runs live Bedrock extraction against mock referrals |
 
 ### 11.3 Test PDF Variants
 
@@ -642,14 +642,15 @@ medihost-pdf-to-hl7/
 |   +-- page.tsx                       Converter page
 |   +-- globals.css                    Styling
 +-- lib/
-|   +-- pdf-parser.ts                  PDF extraction logic
-|   +-- pdf-parser.test.ts             Parser tests
+|   +-- pdf-parser.ts                  Bedrock extraction facade
+|   +-- pdf-parser.test.ts             Bedrock facade tests
+|   +-- vision-extractor.ts            Bedrock document classification + extraction
 |   +-- hl7-builder.ts                 HL7 generation
 |   +-- hl7-builder.test.ts            Builder tests
 +-- scripts/
 |   +-- generate-test-pdfs.ts          Test PDF generator
 |   +-- diagnose-pdfs.ts               Extraction diagnostics
-|   +-- dump-text.ts                   Raw text dumper
+|   +-- test-vision.ts                 Bedrock integration script
 +-- middleware.ts                      Auth middleware
 +-- next.config.mjs                    Next.js config
 +-- amplify.yml                        AWS Amplify config

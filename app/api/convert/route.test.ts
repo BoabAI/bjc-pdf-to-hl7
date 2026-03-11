@@ -1,14 +1,41 @@
-import { describe, test, expect } from "bun:test";
-import { readFileSync } from "fs";
-import { join } from "path";
-import { GET, POST } from "./route";
+import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
 
-const PDF_DIR = join(import.meta.dir, "../../../docs/input PDF");
+const extractPatientDataMock = mock();
+const formatExtractedDataMock = mock();
 
-// Helper: create a NextRequest with FormData containing a PDF file
+mock.module("@/lib/pdf-parser", () => ({
+  extractPatientData: extractPatientDataMock,
+  formatExtractedData: formatExtractedDataMock,
+}));
+
+const { GET, POST } = await import("./route");
+
+const baseExtraction = {
+  success: true,
+  data: {
+    firstName: "Jane",
+    lastName: "Smith",
+    dob: "19920514",
+    sex: "F" as const,
+    phone: "0412345678",
+    medicareNo: "1234567890",
+    medicareRef: "3",
+  },
+  warnings: ["Using Bedrock vision"],
+  documentType: "referral_letter" as const,
+  extractionMethod: "vision" as const,
+};
+
+const baseFormattedData = {
+  firstName: "Jane",
+  lastName: "Smith",
+  dob: "14/05/1992",
+  sex: "Female",
+  medicareNo: "1234567890-3",
+};
+
 function createConvertRequest(
-  pdfPath: string,
   options?: {
     detectOnly?: boolean;
     documentType?: string;
@@ -16,10 +43,15 @@ function createConvertRequest(
     orderingProvider?: string;
     mimeType?: string;
     filename?: string;
+    sizeBytes?: number;
   }
 ): NextRequest {
-  const pdfBuffer = readFileSync(pdfPath);
-  const blob = new Blob([pdfBuffer], { type: options?.mimeType ?? "application/pdf" });
+  const fileSize = options?.sizeBytes ?? 1024;
+  const content = new Uint8Array(fileSize);
+  content.set(Buffer.from("%PDF-1.4"));
+  const blob = new Blob([content], {
+    type: options?.mimeType ?? "application/pdf",
+  });
   const file = new File([blob], options?.filename ?? "test.pdf", {
     type: options?.mimeType ?? "application/pdf",
   });
@@ -30,7 +62,9 @@ function createConvertRequest(
   if (options?.detectOnly) formData.append("detectOnly", "true");
   if (options?.documentType) formData.append("documentType", options.documentType);
   if (options?.autoFile !== undefined) formData.append("autoFile", options.autoFile);
-  if (options?.orderingProvider) formData.append("orderingProvider", options.orderingProvider);
+  if (options?.orderingProvider) {
+    formData.append("orderingProvider", options.orderingProvider);
+  }
 
   return new NextRequest("http://localhost:3000/api/convert", {
     method: "POST",
@@ -38,7 +72,6 @@ function createConvertRequest(
   });
 }
 
-// Helper: create a request with no file
 function createEmptyRequest(): NextRequest {
   const formData = new FormData();
   return new NextRequest("http://localhost:3000/api/convert", {
@@ -47,340 +80,181 @@ function createEmptyRequest(): NextRequest {
   });
 }
 
-// =============================================================================
-// GET - Health Check
-// =============================================================================
+beforeEach(() => {
+  extractPatientDataMock.mockReset();
+  formatExtractedDataMock.mockReset();
+  extractPatientDataMock.mockResolvedValue(baseExtraction);
+  formatExtractedDataMock.mockReturnValue(baseFormattedData);
+});
 
-describe("GET /api/convert - Health Check", () => {
-  test("returns ok status", async () => {
+describe("GET /api/convert", () => {
+  test("returns service health", async () => {
     const response = await GET();
     const data = await response.json();
 
     expect(response.status).toBe(200);
     expect(data.status).toBe("ok");
     expect(data.service).toBe("PDF to HL7 Converter");
-    expect(data.version).toBe("1.0.0");
   });
 });
 
-// =============================================================================
-// POST - Validation
-// =============================================================================
-
-describe("POST /api/convert - Input Validation", () => {
-  test("rejects request with no file", async () => {
-    const req = createEmptyRequest();
-    const response = await POST(req);
+describe("POST /api/convert validation", () => {
+  test("rejects a request with no file", async () => {
+    const response = await POST(createEmptyRequest());
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.success).toBe(false);
     expect(data.error).toBe("No PDF file provided");
   });
 
-  test("rejects non-PDF file", async () => {
-    const textBlob = new Blob(["hello world"], { type: "text/plain" });
-    const file = new File([textBlob], "test.txt", { type: "text/plain" });
-
-    const formData = new FormData();
-    formData.append("pdf", file);
-
-    const req = new NextRequest("http://localhost:3000/api/convert", {
-      method: "POST",
-      body: formData,
-    });
-
-    const response = await POST(req);
+  test("rejects a non-PDF upload", async () => {
+    const response = await POST(
+      createConvertRequest({
+        mimeType: "text/plain",
+        filename: "notes.txt",
+      })
+    );
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.success).toBe(false);
     expect(data.error).toBe("File must be a PDF");
   });
 
-  test("rejects file exceeding 10MB", async () => {
-    // Create a >10MB buffer
-    const largeBuffer = Buffer.alloc(11 * 1024 * 1024, 0);
-    const blob = new Blob([largeBuffer], { type: "application/pdf" });
-    const file = new File([blob], "large.pdf", { type: "application/pdf" });
-
-    const formData = new FormData();
-    formData.append("pdf", file);
-
-    const req = new NextRequest("http://localhost:3000/api/convert", {
-      method: "POST",
-      body: formData,
-    });
-
-    const response = await POST(req);
+  test("rejects files above the 10MB limit", async () => {
+    const response = await POST(
+      createConvertRequest({
+        sizeBytes: 11 * 1024 * 1024,
+      })
+    );
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.success).toBe(false);
     expect(data.error).toBe("File size exceeds 10MB limit");
   });
 });
 
-// =============================================================================
-// POST - Successful Conversion
-// =============================================================================
+describe("POST /api/convert Bedrock flow", () => {
+  test("returns document type only in detect-only mode", async () => {
+    const response = await POST(
+      createConvertRequest({
+        detectOnly: true,
+      })
+    );
+    const data = await response.json();
 
-describe("POST /api/convert - Successful Conversion", () => {
-  test("converts specialist referral to HL7", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "specialist-referrals/test_specialist_referral.pdf"));
-    const response = await POST(req);
+    expect(extractPatientDataMock).toHaveBeenCalledWith(expect.any(Buffer), "auto");
+    expect(response.status).toBe(200);
+    expect(data).toEqual({
+      success: true,
+      documentType: "referral_letter",
+    });
+  });
+
+  test("passes a forced document type to extraction", async () => {
+    await POST(
+      createConvertRequest({
+        detectOnly: true,
+        documentType: "gp_referral",
+      })
+    );
+
+    expect(extractPatientDataMock).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      "gp_referral"
+    );
+  });
+
+  test("falls back to auto when document type is invalid", async () => {
+    await POST(
+      createConvertRequest({
+        detectOnly: true,
+        documentType: "not_real",
+      })
+    );
+
+    expect(extractPatientDataMock).toHaveBeenCalledWith(expect.any(Buffer), "auto");
+  });
+
+  test("builds an HL7 payload from Bedrock extraction output", async () => {
+    const response = await POST(
+      createConvertRequest({
+        filename: "Referral.pdf",
+      })
+    );
     const data = await response.json();
 
     expect(response.status).toBe(200);
     expect(data.success).toBe(true);
-    expect(data.filename).toMatch(/WILLIAMS_Emma_\d+\.hl7$/);
+    expect(data.filename).toMatch(/^Smith_Jane_\d{14}\.hl7$/);
+    expect(data.extractedData).toEqual(baseFormattedData);
+    expect(data.warnings).toEqual(["Using Bedrock vision"]);
+    expect(data.extractionMethod).toBe("vision");
     expect(data.hl7Content).toContain("MSH|");
     expect(data.hl7Content).toContain("PID|");
-    expect(data.hl7Content).toContain("OBX|");
-    expect(data.extractedData.firstName).toBe("Emma");
-    expect(data.extractedData.lastName).toBe("WILLIAMS");
-  });
-
-  test("converts GP referral to HL7", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "gp-referrals/test_gp_referral.pdf"));
-    const response = await POST(req);
-    const data = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(data.success).toBe(true);
-    expect(data.extractedData.firstName).toBe("Sarah");
-    expect(data.extractedData.lastName).toBe("Thompson");
-    expect(data.extractedData.sex).toBe("Female");
-  });
-
-  test("converts consent form to HL7", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "consent-forms/test_consent_form.pdf"));
-    const response = await POST(req);
-    const data = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(data.success).toBe(true);
-    expect(data.extractedData.firstName).toBe("James");
-    expect(data.extractedData.lastName).toBe("Patterson");
-  });
-
-  test("HL7 content contains embedded PDF as Base64", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "specialist-referrals/test_specialist_referral.pdf"));
-    const response = await POST(req);
-    const data = await response.json();
-
+    expect(data.hl7Content).toContain("OBR|");
     expect(data.hl7Content).toContain("^application^pdf^Base64^");
   });
 
-  test("HL7 uses CR-only terminators", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "specialist-referrals/test_specialist_referral.pdf"));
-    const response = await POST(req);
+  test("sets OBR-25 to Preliminary when autoFile is false", async () => {
+    const response = await POST(
+      createConvertRequest({
+        autoFile: "false",
+      })
+    );
     const data = await response.json();
-
-    expect(data.hl7Content).toContain("\r");
-    expect(data.hl7Content).not.toContain("\n");
-  });
-
-  test("returns warnings array", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "specialist-referrals/test_specialist_referral.pdf"));
-    const response = await POST(req);
-    const data = await response.json();
-
-    expect(Array.isArray(data.warnings)).toBe(true);
-  });
-});
-
-// =============================================================================
-// POST - Detect Only Mode
-// =============================================================================
-
-describe("POST /api/convert - Detect Only Mode", () => {
-  test("returns only document type for specialist referral", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "specialist-referrals/test_specialist_referral.pdf"), {
-      detectOnly: true,
-    });
-    const response = await POST(req);
-    const data = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(data.success).toBe(true);
-    expect(data.documentType).toBe("referral_letter");
-    // Should NOT include HL7 content in detect-only mode
-    expect(data.hl7Content).toBeUndefined();
-    expect(data.filename).toBeUndefined();
-  });
-
-  test("returns gp_referral for GP referral", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "gp-referrals/test_gp_referral.pdf"), {
-      detectOnly: true,
-    });
-    const response = await POST(req);
-    const data = await response.json();
-
-    expect(data.documentType).toBe("gp_referral");
-  });
-
-  test("returns consent_form for consent form", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "consent-forms/test_consent_form.pdf"), {
-      detectOnly: true,
-    });
-    const response = await POST(req);
-    const data = await response.json();
-
-    expect(data.documentType).toBe("consent_form");
-  });
-});
-
-// =============================================================================
-// POST - Document Type Override
-// =============================================================================
-
-describe("POST /api/convert - Document Type Override", () => {
-  test("forces consent_form document type", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "specialist-referrals/test_specialist_referral.pdf"), {
-      detectOnly: true,
-      documentType: "consent_form",
-    });
-    const response = await POST(req);
-    const data = await response.json();
-
-    expect(data.documentType).toBe("consent_form");
-  });
-
-  test("forces gp_referral document type", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "specialist-referrals/test_specialist_referral.pdf"), {
-      detectOnly: true,
-      documentType: "gp_referral",
-    });
-    const response = await POST(req);
-    const data = await response.json();
-
-    expect(data.documentType).toBe("gp_referral");
-  });
-
-  test("ignores invalid document type (falls back to auto)", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "specialist-referrals/test_specialist_referral.pdf"), {
-      detectOnly: true,
-      documentType: "invalid_type",
-    });
-    const response = await POST(req);
-    const data = await response.json();
-
-    // Should auto-detect since "invalid_type" is not a valid DocumentType
-    expect(data.documentType).toBe("referral_letter");
-  });
-});
-
-// =============================================================================
-// POST - Genie Options
-// =============================================================================
-
-describe("POST /api/convert - Genie Options", () => {
-  test("defaults to auto-file (OBR-25 = F)", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "specialist-referrals/test_specialist_referral.pdf"));
-    const response = await POST(req);
-    const data = await response.json();
-
-    // OBR segment should contain F for Final (auto-file)
     const obrSegment = data.hl7Content.split("\r").find((s: string) => s.startsWith("OBR|"));
     const obrFields = obrSegment.split("|");
-    expect(obrFields[25]).toBe("F");
-  });
 
-  test("sets Preliminary when autoFile=false (OBR-25 = P)", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "specialist-referrals/test_specialist_referral.pdf"), {
-      autoFile: "false",
-    });
-    const response = await POST(req);
-    const data = await response.json();
-
-    const obrSegment = data.hl7Content.split("\r").find((s: string) => s.startsWith("OBR|"));
-    const obrFields = obrSegment.split("|");
     expect(obrFields[25]).toBe("P");
   });
 
-  test("includes ordering provider in PV1-9", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "specialist-referrals/test_specialist_referral.pdf"), {
-      orderingProvider: "457833CF",
-    });
-    const response = await POST(req);
+  test("includes the ordering provider in PV1-9", async () => {
+    const response = await POST(
+      createConvertRequest({
+        orderingProvider: "457833CF",
+      })
+    );
     const data = await response.json();
-
     const pv1Segment = data.hl7Content.split("\r").find((s: string) => s.startsWith("PV1|"));
+
     expect(pv1Segment).toContain("457833CF^^^AUSHICPR");
   });
 
-  test("omits ordering provider when not specified", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "specialist-referrals/test_specialist_referral.pdf"));
-    const response = await POST(req);
+  test("returns a user-facing extraction failure when Bedrock returns no patient", async () => {
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      success: false,
+      data: {
+        firstName: "UNKNOWN",
+        lastName: "PATIENT",
+        dob: "19000101",
+        sex: "U" as const,
+      },
+      warnings: ["Vision extraction could not determine patient name"],
+      documentType: "generic",
+    });
+
+    const response = await POST(createConvertRequest());
     const data = await response.json();
 
-    const pv1Segment = data.hl7Content.split("\r").find((s: string) => s.startsWith("PV1|"));
-    expect(pv1Segment).not.toContain("AUSHICPR");
+    expect(response.status).toBe(200);
+    expect(data.success).toBe(false);
+    expect(data.warnings).toEqual([
+      "Vision extraction could not determine patient name",
+    ]);
+    expect(data.extractionMethod).toBe("vision");
   });
 
-  test("uses filename (sans .pdf) as document title", async () => {
-    const req = createConvertRequest(join(PDF_DIR, "specialist-referrals/test_specialist_referral.pdf"), {
-      filename: "Specialist_Referral_Dr_Chen.pdf",
-    });
-    const response = await POST(req);
+  test("returns a 500 when the conversion pipeline throws", async () => {
+    extractPatientDataMock.mockRejectedValue(new Error("Bedrock crashed"));
+
+    const response = await POST(createConvertRequest());
     const data = await response.json();
 
-    const obrSegment = data.hl7Content.split("\r").find((s: string) => s.startsWith("OBR|"));
-    expect(obrSegment).toContain("Specialist_Referral_Dr_Chen");
-  });
-});
-
-// =============================================================================
-// POST - End-to-End with All Document Types (including new categories)
-// =============================================================================
-
-describe("POST /api/convert - End-to-End All Types", () => {
-  const testCases = [
-    { file: "specialist-referrals/test_specialist_referral.pdf", name: "WILLIAMS", first: "Emma" },
-    { file: "specialist-referrals/test_specialist_referral_reverse_name.pdf", name: "JOHNSON", first: "Robert" },
-    { file: "gp-referrals/test_gp_referral.pdf", name: "Thompson", first: "Sarah" },
-    { file: "gp-referrals/test_gp_referral_male.pdf", name: "O'Connor", first: "David" },
-    { file: "gp-referrals/test_gp_referral_miss.pdf", name: "Khan", first: "Aisha" },
-    { file: "consent-forms/test_consent_form.pdf", name: "Patterson", first: "James" },
-    { file: "consent-forms/test_consent_form_female.pdf", name: "Sharma", first: "Priya" },
-    { file: "edge-cases/minimal/test_edge_special_chars.pdf", name: "O'Brien-Smith", first: "Mary" },
-    { file: "edge-cases/states/test_edge_qld_patient.pdf", name: "Brown", first: "Lisa" },
-    { file: "edge-cases/states/test_edge_nt_patient.pdf", name: "Cooper", first: "Daniel" },
-    // Skewed documents
-    { file: "edge-cases/skewed/test_skewed_specialist.pdf", name: "CHEN", first: "Michael" },
-    { file: "edge-cases/skewed/test_skewed_gp_referral.pdf", name: "Morris", first: "Angela" },
-    // Grainy documents
-    { file: "edge-cases/grainy/test_grainy_specialist.pdf", name: "GREEN", first: "Rachel" },
-    { file: "edge-cases/grainy/test_grainy_gp_referral.pdf", name: "Harris", first: "Graham" },
-    // Multicultural names
-    { file: "edge-cases/multicultural/test_multicultural_vietnamese.pdf", name: "Nguyen", first: "Mai" },
-    { file: "edge-cases/multicultural/test_multicultural_chinese.pdf", name: "ZHANG", first: "Wei" },
-    { file: "edge-cases/multicultural/test_multicultural_arabic.pdf", name: "Al-Rashidi", first: "Mohammed" },
-    { file: "edge-cases/multicultural/test_multicultural_greek.pdf", name: "Papadopoulos", first: "Eleni" },
-    { file: "edge-cases/multicultural/test_multicultural_pacific_islander.pdf", name: "TUPOU", first: "Sione" },
-    { file: "edge-cases/multicultural/test_multicultural_korean.pdf", name: "Kim", first: "Jiyeon" },
-    { file: "edge-cases/multicultural/test_multicultural_lebanese.pdf", name: "El-Masri", first: "Layla" },
-    // Mock referrals (real-world formats with fictional patient data)
-    { file: "mock-referrals/test_mock_referral1.pdf", name: "MITCHELL", first: "James" },
-    { file: "mock-referrals/test_mock_referral2.pdf", name: "Henderson", first: "Patricia Anne" },
-    { file: "mock-referrals/test_mock_referral3.pdf", name: "Phillips", first: "Karen" },
-    { file: "mock-referrals/test_mock_referral4.pdf", name: "Karim", first: "Amira" },
-    { file: "mock-referrals/test_mock_referral5.pdf", name: "Whitaker", first: "Thomas" },
-  ];
-
-  for (const tc of testCases) {
-    test(`converts ${tc.file.split("/").pop()} -> ${tc.first} ${tc.name}`, async () => {
-      const req = createConvertRequest(join(PDF_DIR, tc.file));
-      const response = await POST(req);
-      const data = await response.json();
-
-      expect(response.status).toBe(200);
-      expect(data.success).toBe(true);
-      expect(data.extractedData.firstName).toBe(tc.first);
-      expect(data.extractedData.lastName).toBe(tc.name);
-      expect(data.hl7Content).toContain("MSH|");
-      expect(data.hl7Content).toContain("^application^pdf^Base64^");
+    expect(response.status).toBe(500);
+    expect(data).toEqual({
+      success: false,
+      error: "Bedrock crashed",
     });
-  }
+  });
 });

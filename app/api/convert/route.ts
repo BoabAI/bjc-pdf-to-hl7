@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildHL7Message, generateHL7Filename } from "@/lib/hl7-builder";
 import { extractPatientData, formatExtractedData } from "@/lib/pdf-parser";
 
+export const runtime = "nodejs";
+
 // Maximum file size: 10MB
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -62,8 +64,16 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    if (!extraction.success && extraction.warnings.length > 0) {
-      console.warn("PDF extraction warnings:", extraction.warnings);
+    if (!extraction.success) {
+      if (extraction.warnings.length > 0) {
+        console.warn("PDF extraction warnings:", extraction.warnings);
+      }
+      return NextResponse.json({
+        success: false,
+        error: "Could not extract patient name from this document. The name may be redacted, missing, or in an unsupported format.",
+        warnings: extraction.warnings,
+        extractionMethod: extraction.extractionMethod,
+      });
     }
 
     // Extract Genie action options

@@ -139,8 +139,9 @@ This creates a dummy referral letter with fake patient data for testing.
 
 | File | Purpose |
 |------|---------|
-| `lib/pdf-parser.ts` | Document detection + extraction patterns |
+| `lib/pdf-parser.ts` | Bedrock extraction facade |
+| `lib/vision-extractor.ts` | Bedrock document classification + patient extraction |
 | `app/api/convert/route.ts` | Accept documentType parameter |
 | `app/page.tsx` | Document type dropdown UI |
 | `scripts/generate-test-pdf.ts` | Puppeteer script for test PDFs |
-| `lib/pdf-parser.test.ts` | Extraction tests |
+| `lib/pdf-parser.test.ts` | Bedrock facade tests |

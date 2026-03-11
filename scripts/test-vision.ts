@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 /**
  * Manual integration test for vision LLM extraction.
- * Sends each mock referral PDF to OpenRouter and prints extracted patient data.
+ * Sends each mock referral PDF to AWS Bedrock and prints extracted patient data.
  *
- * Usage: OPENROUTER_API_KEY=sk-or-... bun run scripts/test-vision.ts
+ * Usage: AWS_PROFILE=your-profile bun run scripts/test-vision.ts
  */
 
 import { readFileSync } from "fs";
@@ -20,14 +20,9 @@ const EXPECTED = [
   { file: "test_mock_referral5.pdf", firstName: "Thomas", lastName: "Whitaker", dob: "15/06/1948" },
 ];
 
-if (!process.env.OPENROUTER_API_KEY) {
-  console.error("ERROR: OPENROUTER_API_KEY not set");
-  process.exit(1);
-}
-
 console.log("=".repeat(70));
 console.log("Vision LLM Extraction Test");
-console.log(`Model: ${process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash"}`);
+console.log("Auth: AWS SDK default credential chain");
 console.log("=".repeat(70));
 
 let passed = 0;

@@ -1,11 +1,11 @@
 # PDF to HL7 Converter
 
-Convert PDF patient consent forms to Australian HL7 v2.4 format (Genie-compatible).
+Convert Australian medical PDFs to HL7 v2.4 format (Genie-compatible) using AWS Bedrock.
 
 ## Features
 
-- Upload PDF consent forms via web interface or API
-- Extract patient data (name, DOB, address, Medicare number)
+- Upload consent forms, specialist referrals, and GP referrals via web interface or API
+- Extract patient data with AWS Bedrock vision (name, DOB, address, Medicare number)
 - Generate HL7 v2.4 ORU^R01 messages per ADRM specification
 - Embed original PDF as Base64 in OBX segment
 - Download generated HL7 files
@@ -82,6 +82,7 @@ OBX|1|ED|PDF^Consent Document^AUSPDI||^application^pdf^Base64^<base64_data>|||||
 1. Connect your GitHub repository to AWS Amplify
 2. Amplify will auto-detect Next.js and use `amplify.yml`
 3. Set platform to **WEB_COMPUTE** for SSR support
+4. Attach an Amplify compute role with Bedrock permissions for runtime access
 
 ```bash
 # Manual build test
@@ -93,7 +94,7 @@ bun run build
 - **Next.js 14** - App Router with Server Components
 - **TypeScript** - Type-safe development
 - **Tailwind CSS** - Styling
-- **pdf-parse** - PDF text extraction
+- **AWS Bedrock** - Vision-based PDF classification and extraction
 - **AWS Amplify** - Hosting with SSR support
 
 ## Project Structure
@@ -104,7 +105,8 @@ bun run build
 │   ├── page.tsx              # Upload UI
 │   └── layout.tsx            # Root layout
 ├── lib/
-│   ├── pdf-parser.ts         # PDF data extraction
+│   ├── pdf-parser.ts         # Bedrock extraction facade
+│   ├── vision-extractor.ts   # Bedrock document classification + extraction
 │   ├── hl7-builder.ts        # HL7 message generation
 │   └── utils.ts              # Utility functions
 └── amplify.yml               # AWS Amplify config

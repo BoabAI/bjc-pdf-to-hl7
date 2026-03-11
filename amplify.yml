@@ -6,11 +6,9 @@ frontend:
         - npm install
     build:
       commands:
-        # Create .env.production from Amplify env vars for runtime
+        # Bedrock auth comes from the Amplify compute role at runtime.
         - echo "APP_PASSWORD=$APP_PASSWORD" > .env.production
-        - echo "OPENROUTER_API_KEY=$OPENROUTER_API_KEY" >> .env.production
-        - echo "OPENROUTER_MODEL=$OPENROUTER_MODEL" >> .env.production
-        - echo "Created .env.production with APP_PASSWORD + OpenRouter config"
+        - echo "Created .env.production with APP_PASSWORD"
         - npm run build
         # Copy .env.production into standalone output so the Lambda server can read it
         - cp .env.production .next/standalone/.env.production 2>/dev/null || true
@@ -23,4 +21,3 @@ frontend:
     paths:
       - node_modules/**/*
       - .next/cache/**/*
-
