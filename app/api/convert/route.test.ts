@@ -186,7 +186,11 @@ describe("POST /api/convert Bedrock flow", () => {
     expect(response.status).toBe(200);
     expect(data.success).toBe(true);
     expect(data.filename).toMatch(/^Smith_Jane_\d{14}\.hl7$/);
-    expect(data.extractedData).toEqual(baseFormattedData);
+    expect(data.extractedData).toEqual({
+      ...baseFormattedData,
+      date: expect.stringMatching(/^\d{2}\/\d{2}\/\d{4}$/),
+      messageType: "REF (Referral)",
+    });
     expect(data.warnings).toEqual(["Using Bedrock vision"]);
     expect(data.extractionMethod).toBe("vision");
     expect(data.hl7Content).toContain("MSH|");
@@ -243,6 +247,96 @@ describe("POST /api/convert Bedrock flow", () => {
       "Vision extraction could not determine patient name",
     ]);
     expect(data.extractionMethod).toBe("vision");
+  });
+
+  test("uses REF^I12 message type for referral_letter documents", async () => {
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "referral_letter",
+    });
+
+    const response = await POST(createConvertRequest());
+    const data = await response.json();
+    const mshSegment = data.hl7Content.split("\r").find((s: string) => s.startsWith("MSH|"));
+    const mshFields = mshSegment.split("|");
+
+    expect(mshFields[8]).toBe("REF^I12");
+  });
+
+  test("uses REF^I12 message type for gp_referral documents", async () => {
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "gp_referral",
+    });
+
+    const response = await POST(createConvertRequest());
+    const data = await response.json();
+    const mshSegment = data.hl7Content.split("\r").find((s: string) => s.startsWith("MSH|"));
+    const mshFields = mshSegment.split("|");
+
+    expect(mshFields[8]).toBe("REF^I12");
+  });
+
+  test("uses ORU^R01 message type for consent_form documents", async () => {
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "consent_form",
+    });
+
+    const response = await POST(createConvertRequest());
+    const data = await response.json();
+    const mshSegment = data.hl7Content.split("\r").find((s: string) => s.startsWith("MSH|"));
+    const mshFields = mshSegment.split("|");
+
+    expect(mshFields[8]).toBe("ORU^R01");
+  });
+
+  test("includes referralInfo in HL7 output when present", async () => {
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "referral_letter",
+      referralInfo: {
+        senderName: "Dr Sarah Jones",
+        senderClinic: "Springfield Medical",
+        senderProviderNumber: "1234567A",
+        addresseeName: "Dr Michael Brown",
+        addresseeClinic: "BJC Health",
+      },
+    });
+    formatExtractedDataMock.mockReturnValue({
+      ...baseFormattedData,
+      sender: "Dr Sarah Jones (Springfield Medical)",
+      addressee: "Dr Michael Brown (BJC Health)",
+    });
+
+    const response = await POST(createConvertRequest());
+    const data = await response.json();
+
+    // Check OBR-16 has sender info
+    const obrSegment = data.hl7Content.split("\r").find((s: string) => s.startsWith("OBR|"));
+    expect(obrSegment).toContain("1234567A^Jones^Sarah^^^DR^^^AUSHICPR");
+
+    // Check PV1-9 has addressee (no explicit orderingProvider, so addressee fills it)
+    const pv1Segment = data.hl7Content.split("\r").find((s: string) => s.startsWith("PV1|"));
+    expect(pv1Segment).toContain("^Brown^Michael^^^DR");
+
+    // Check extractedData includes sender/addressee for display
+    expect(data.extractedData.sender).toBe("Dr Sarah Jones (Springfield Medical)");
+    expect(data.extractedData.addressee).toBe("Dr Michael Brown (BJC Health)");
+  });
+
+  test("uses ORU^R01 message type for generic documents", async () => {
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "generic",
+    });
+
+    const response = await POST(createConvertRequest());
+    const data = await response.json();
+    const mshSegment = data.hl7Content.split("\r").find((s: string) => s.startsWith("MSH|"));
+    const mshFields = mshSegment.split("|");
+
+    expect(mshFields[8]).toBe("ORU^R01");
   });
 
   test("returns a 500 when the conversion pipeline throws", async () => {

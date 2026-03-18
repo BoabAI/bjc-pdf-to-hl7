@@ -10,9 +10,11 @@ import type { PatientData } from "./hl7-builder";
 import {
   extractPatientDataWithVision,
   type DocumentType,
+  type ReferralInfo,
 } from "./vision-extractor";
 
 export type { DocumentType } from "./vision-extractor";
+export type { ReferralInfo } from "./vision-extractor";
 
 export interface ExtractionResult {
   success: boolean;
@@ -20,6 +22,7 @@ export interface ExtractionResult {
   warnings: string[];
   documentType: DocumentType;
   extractionMethod: "vision";
+  referralInfo?: ReferralInfo;
 }
 
 const DEFAULT_DATA: PatientData = {
@@ -49,6 +52,7 @@ export async function extractPatientData(
       warnings: visionResult.warnings,
       documentType: documentTypeHint ?? visionResult.documentType,
       extractionMethod: "vision",
+      referralInfo: visionResult.referralInfo,
     };
   } catch (error) {
     return {
@@ -65,12 +69,14 @@ export async function extractPatientData(
   }
 }
 
-export function formatExtractedData(data: PatientData): {
+export function formatExtractedData(data: PatientData, referralInfo?: ReferralInfo): {
   firstName: string;
   lastName: string;
   dob: string;
   sex: string;
   medicareNo: string;
+  sender?: string;
+  addressee?: string;
 } {
   const dob = data.dob;
   const formattedDob =
@@ -78,7 +84,15 @@ export function formatExtractedData(data: PatientData): {
       ? `${dob.substring(6, 8)}/${dob.substring(4, 6)}/${dob.substring(0, 4)}`
       : dob;
 
-  return {
+  const result: {
+    firstName: string;
+    lastName: string;
+    dob: string;
+    sex: string;
+    medicareNo: string;
+    sender?: string;
+    addressee?: string;
+  } = {
     firstName: data.firstName,
     lastName: data.lastName,
     dob: formattedDob,
@@ -87,4 +101,18 @@ export function formatExtractedData(data: PatientData): {
       ? `${data.medicareNo}${data.medicareRef ? `-${data.medicareRef}` : ""}`
       : "Not provided",
   };
+
+  if (referralInfo?.senderName) {
+    result.sender = referralInfo.senderClinic
+      ? `${referralInfo.senderName} (${referralInfo.senderClinic})`
+      : referralInfo.senderName;
+  }
+
+  if (referralInfo?.addresseeName) {
+    result.addressee = referralInfo.addresseeClinic
+      ? `${referralInfo.addresseeName} (${referralInfo.addresseeClinic})`
+      : referralInfo.addresseeName;
+  }
+
+  return result;
 }

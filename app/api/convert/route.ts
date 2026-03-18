@@ -80,18 +80,34 @@ export async function POST(request: NextRequest) {
     const autoFile = formData.get("autoFile") !== "false"; // Default to true
     const orderingProvider = formData.get("orderingProvider") as string | null;
 
+    // Derive HL7 message type: REF^I12 for referral letters, ORU^R01 for everything else
+    const messageType = (extraction.documentType === "referral_letter" || extraction.documentType === "gp_referral")
+      ? "REF^I12" as const
+      : "ORU^R01" as const;
+
     // Build HL7 message with embedded PDF
     const hl7Content = buildHL7Message(extraction.data, pdfBuffer, {
       documentTitle: file.name.replace(/\.pdf$/i, ""),
       resultStatus: autoFile ? "F" : "P", // F=Final (auto-file), P=Preliminary (queue)
       orderingProvider: orderingProvider || undefined,
+      messageType,
+      referralInfo: extraction.referralInfo,
     });
 
     // Generate filename
     const filename = generateHL7Filename(extraction.data);
 
     // Format extracted data for display
-    const extractedData = formatExtractedData(extraction.data);
+    const baseData = formatExtractedData(extraction.data, extraction.referralInfo);
+
+    // Add HL7 metadata fields for UI display
+    const now = new Date();
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    const extractedData = {
+      ...baseData,
+      date: `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`,
+      messageType: messageType === "REF^I12" ? "REF (Referral)" : "ORU (Result)",
+    };
 
     return NextResponse.json({
       success: true,

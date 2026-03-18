@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Image from "next/image";
 
 interface ConversionResult {
@@ -13,6 +13,11 @@ interface ConversionResult {
     dob: string;
     sex: string;
     medicareNo: string;
+    sender?: string;
+    addressee?: string;
+    date?: string;
+    messageType?: string;
+    carrier?: string;
   };
   extractionMethod?: "vision";
   error?: string;
@@ -29,6 +34,18 @@ export default function Home() {
   const [autoFile, setAutoFile] = useState(true);
   const [sendToDoctor, setSendToDoctor] = useState(false);
   const [providerNumber, setProviderNumber] = useState("");
+  const [carrier, setCarrier] = useState("SMECAI");
+
+  // Load carrier from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("hl7_carrier");
+    if (saved) setCarrier(saved);
+  }, []);
+
+  const handleCarrierChange = (value: string) => {
+    setCarrier(value);
+    localStorage.setItem("hl7_carrier", value);
+  };
 
   const detectDocumentType = useCallback(async (selectedFile: File) => {
     setIsDetecting(true);
@@ -114,6 +131,10 @@ export default function Home() {
       const data = await response.json();
 
       if (data.success) {
+        // Override carrier with client-side preference
+        if (data.extractedData) {
+          data.extractedData.carrier = carrier;
+        }
         setResult(data);
       } else {
         setResult({ success: false, error: data.error || "Conversion failed" });
@@ -311,6 +332,25 @@ export default function Home() {
                   </select>
                 </div>
 
+                {/* Carrier */}
+                <div className="space-y-1.5">
+                  <label htmlFor="carrier" className="text-sm text-[var(--text-secondary)]">
+                    Carrier
+                  </label>
+                  <select
+                    id="carrier"
+                    value={carrier}
+                    onChange={(e) => handleCarrierChange(e.target.value)}
+                    className="select-field w-full max-w-xs"
+                  >
+                    <option value="SMECAI">SMECAI</option>
+                    <option value="EMAIL">Email</option>
+                    <option value="FAX">Fax</option>
+                    <option value="POST">Post</option>
+                    <option value="HAND">Hand Delivered</option>
+                  </select>
+                </div>
+
                 <div className="divider-subtle" />
 
                 <label className="flex items-center gap-3 cursor-pointer group">
@@ -433,10 +473,20 @@ export default function Home() {
                   {result.extractedData && (
                     <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
                       <div>
-                        <span className="text-[var(--text-muted)] text-xs">Patient</span>
-                        <p className="text-[var(--text-primary)] font-medium">
-                          {result.extractedData.firstName} {result.extractedData.lastName}
-                        </p>
+                        <span className="text-[var(--text-muted)] text-xs">Date</span>
+                        <p className="text-[var(--text-primary)] font-medium mono">{result.extractedData.date}</p>
+                      </div>
+                      <div>
+                        <span className="text-[var(--text-muted)] text-xs">Type</span>
+                        <p className="text-[var(--text-primary)] font-medium">{result.extractedData.messageType}</p>
+                      </div>
+                      <div>
+                        <span className="text-[var(--text-muted)] text-xs">Surname</span>
+                        <p className="text-[var(--text-primary)] font-medium">{result.extractedData.lastName}</p>
+                      </div>
+                      <div>
+                        <span className="text-[var(--text-muted)] text-xs">First Name</span>
+                        <p className="text-[var(--text-primary)] font-medium">{result.extractedData.firstName}</p>
                       </div>
                       <div>
                         <span className="text-[var(--text-muted)] text-xs">DOB</span>
@@ -450,6 +500,22 @@ export default function Home() {
                         <span className="text-[var(--text-muted)] text-xs">Medicare</span>
                         <p className="text-[var(--text-primary)] font-medium mono">{result.extractedData.medicareNo}</p>
                       </div>
+                      <div>
+                        <span className="text-[var(--text-muted)] text-xs">Carrier</span>
+                        <p className="text-[var(--text-primary)] font-medium">{result.extractedData.carrier}</p>
+                      </div>
+                      {result.extractedData.sender && (
+                        <div>
+                          <span className="text-[var(--text-muted)] text-xs">Sender</span>
+                          <p className="text-[var(--text-primary)] font-medium">{result.extractedData.sender}</p>
+                        </div>
+                      )}
+                      {result.extractedData.addressee && (
+                        <div>
+                          <span className="text-[var(--text-muted)] text-xs">Addressee</span>
+                          <p className="text-[var(--text-primary)] font-medium">{result.extractedData.addressee}</p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

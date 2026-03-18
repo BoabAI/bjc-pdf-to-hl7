@@ -1,7 +1,10 @@
 /**
  * HL7 v2.4 Message Builder for Australian Pathology (Genie-compatible)
  * Based on Australian Diagnostics and Referral Messaging (ADRM) specification
+ * Supports both ORU^R01 (results) and REF^I12 (referral letters) message types
  */
+
+import type { ReferralInfo } from "./vision-extractor";
 
 export interface PatientData {
   firstName: string;
@@ -26,10 +29,12 @@ export interface HL7Options {
   // Genie actions
   resultStatus?: "F" | "P"; // OBR-25: Final (auto-file) or Preliminary (queue for review)
   orderingProvider?: string; // PV1-9: Medicare Provider Number for doctor routing
+  messageType?: "ORU^R01" | "REF^I12"; // MSH-9: ORU for results, REF for referral letters
+  referralInfo?: ReferralInfo; // Sender/addressee info for referral letters
 }
 
 const DEFAULT_OPTIONS: HL7Options = {
-  sendingApplication: "MEDIHOST",
+  sendingApplication: "SMECAI",
   sendingFacility: "BJCHEALTH",
   receivingApplication: "GENIE",
   receivingFacility: "CLINIC",
@@ -41,6 +46,18 @@ const FIELD_SEP = "|";
 const ENCODING_CHARS = "^~\\&";
 const COMPONENT_SEP = "^";
 const SEGMENT_TERMINATOR = "\r"; // CR only, no LF
+
+/**
+ * Parse a doctor name string into XCN components (lastName, firstName)
+ * Handles "Dr FirstName LastName", "Dr. FirstName LastName", "FirstName LastName"
+ */
+function parseDoctorName(name: string): { lastName: string; firstName: string } {
+  const nameParts = name.replace(/^Dr\.?\s*/i, "").trim().split(/\s+/);
+  return {
+    lastName: escapeHL7(nameParts.length > 1 ? nameParts[nameParts.length - 1] : nameParts[0]),
+    firstName: escapeHL7(nameParts.length > 1 ? nameParts.slice(0, -1).join(" ") : ""),
+  };
+}
 
 /**
  * Escape special characters in HL7 data
@@ -103,6 +120,15 @@ function buildMSH(options: HL7Options): string {
   // MSH-17: Country Code (AUS)
   // MSH-18: Character Set (8859/1)
 
+  const isREF = options.messageType === "REF^I12";
+
+  // MSH-12: Version ID
+  // For REF^I12: extended version with AU simplified REF profile identifier
+  // For ORU^R01: plain 2.4
+  const versionId = isREF
+    ? "2.4^AUS&Australia&ISO3166_1^HL7AU-OO-REF-SIMPLIFIED-201706&&L"
+    : "2.4";
+
   return [
     "MSH",
     ENCODING_CHARS,
@@ -112,10 +138,10 @@ function buildMSH(options: HL7Options): string {
     options.receivingFacility,
     timestamp,
     "", // Security
-    "ORU^R01",
+    options.messageType || "ORU^R01",
     messageId,
     "P",
-    "2.4",
+    versionId,
     "", // Sequence Number
     "", // Continuation Pointer
     "AL",
@@ -129,11 +155,12 @@ function buildMSH(options: HL7Options): string {
  * Build PID (Patient Identification) segment
  */
 function buildPID(patient: PatientData): string {
-  // Format Medicare number with reference
+  // Format Medicare number with Individual Reference Number (IRN)
+  // ADRM format: number-IRN^^^AUSHIC^MC
   let patientId = "";
   if (patient.medicareNo) {
     const ref = patient.medicareRef || "1";
-    patientId = `${patient.medicareNo}-${ref}^^^Medicare^MC`;
+    patientId = `${patient.medicareNo}-${ref}^^^AUSHIC^MC`;
   }
 
   // Format address
@@ -198,6 +225,12 @@ function buildPV1(options: HL7Options): string {
     // PV1-9: Consulting Doctor with Medicare Provider Number
     // Format: ProviderNumber^^^AUSHICPR
     fields.push(`${options.orderingProvider}^^^AUSHICPR`);
+  } else if (options.referralInfo?.addresseeName) {
+    // Pad fields 3-8 (empty)
+    for (let i = 0; i < 6; i++) fields.push("");
+    // PV1-9: Consulting Doctor from referral addressee (name only, no provider number)
+    const { lastName, firstName } = parseDoctorName(options.referralInfo.addresseeName);
+    fields.push(`^${lastName}^${firstName}^^^DR`);
   }
 
   return fields.join(FIELD_SEP);
@@ -226,13 +259,41 @@ function buildOBR(options: HL7Options): string {
   fields.push("", "");
   fields.push(timestamp); // OBR-7
 
-  // Pad empty fields up to OBR-22
-  for (let i = 0; i < 14; i++) {
+  // OBR-8 through OBR-15 (empty)
+  for (let i = 0; i < 8; i++) {
+    fields.push("");
+  }
+
+  // OBR-16: Ordering Provider (sender of the referral letter)
+  const ref = options.referralInfo;
+  if (ref?.senderName) {
+    const provNum = ref.senderProviderNumber || "";
+    const { lastName: senderLast, firstName: senderFirst } = parseDoctorName(ref.senderName);
+    if (provNum) {
+      // Format: ProviderNumber^LastName^FirstName^^^DR^^^AUSHICPR
+      fields.push(`${provNum}^${senderLast}^${senderFirst}^^^DR^^^AUSHICPR`);
+    } else {
+      // Format: ^LastName^FirstName^^^DR
+      fields.push(`^${senderLast}^${senderFirst}^^^DR`);
+    }
+  } else {
+    fields.push("");
+  }
+
+  // OBR-17 through OBR-21 (empty)
+  for (let i = 0; i < 5; i++) {
     fields.push("");
   }
 
   fields.push(timestamp); // OBR-22: Results Rpt/Status Chng
-  fields.push("", ""); // OBR-23, OBR-24
+  fields.push(""); // OBR-23
+
+  // OBR-24: Diagnostic Service Section ID
+  // PHY = Physician (routes to Incoming Letters in Genie REF)
+  // Empty for ORU messages (routes to Pathology/Radiology by default)
+  const isREF = options.messageType === "REF^I12";
+  fields.push(isREF ? "PHY" : "");
+
   fields.push(options.resultStatus || "F"); // OBR-25: Result Status (F=Final/auto-file, P=Preliminary/queue)
 
   return fields.join(FIELD_SEP);
@@ -273,7 +334,65 @@ function buildOBX(pdfBase64: string): string {
 }
 
 /**
+ * Build RF1 (Referral Information) segment - required for REF^I12
+ */
+function buildRF1(): string {
+  const timestamp = getHL7Timestamp();
+  // RF1-1: Referral Status (empty)
+  // RF1-2: Referral Priority (empty)
+  // RF1-3: Referral Type (empty)
+  // RF1-4: Referral Disposition (empty)
+  // RF1-5: Referral Category (empty)
+  // RF1-6: Originating Referral Identifier (empty)
+  // RF1-7: Effective Date (timestamp)
+  return ["RF1", "", "", "", "", "", "", timestamp].join(FIELD_SEP);
+}
+
+/**
+ * Build PRD (Provider Data) segment - required for REF^I12
+ * Used to identify sender (RP~AP = Referring+Authoring Provider) and
+ * addressee (RT~IR = Referred-To+Intended Recipient)
+ */
+function buildPRD(
+  role: "sender" | "addressee",
+  name: string,
+  providerNumber?: string,
+): string {
+  // PRD-1: Provider Role
+  //   Sender:    RP (Referring Provider) + AP (Authoring Provider)
+  //   Addressee: RT (Referred-To Provider) + IR (Intended Recipient)
+  const roleCode = role === "sender" ? "RP~AP" : "RT~IR";
+
+  const { lastName, firstName } = parseDoctorName(name);
+
+  // PRD-2: Provider Name (XPN format: LastName^FirstName^^^Prefix)
+  const providerName = `${lastName}^${firstName}^^^DR`;
+
+  // PRD-3 through PRD-6: empty
+  // PRD-7: Provider Identifiers (CM format: ProviderNumber^AssigningAuthority^IdentifierType)
+  let providerIds = "";
+  if (providerNumber) {
+    providerIds = `${providerNumber}^AUSHICPR^UPIN`;
+  }
+
+  return [
+    "PRD",
+    roleCode,
+    providerName,
+    "", // Provider Address
+    "", // Provider Location
+    "", // Provider Communication Information
+    "", // Provider Id No
+    providerIds,
+  ].join(FIELD_SEP);
+}
+
+/**
  * Build complete HL7 message with embedded PDF
+ *
+ * Segment order varies by message type:
+ * - ORU^R01: MSH → PID → PV1 → OBR → OBX
+ * - REF^I12: MSH → RF1 → PRD(s) → PID → OBR → OBX → PV1
  */
 export function buildHL7Message(
   patient: PatientData,
@@ -281,18 +400,43 @@ export function buildHL7Message(
   options: Partial<HL7Options> = {}
 ): string {
   const mergedOptions = { ...DEFAULT_OPTIONS, ...options };
+  const isREF = mergedOptions.messageType === "REF^I12";
 
   // Convert PDF to Base64 (no line breaks or spaces)
   const pdfBase64 = pdfBuffer.toString("base64");
 
-  // Build all segments
-  const segments = [
-    buildMSH(mergedOptions),
-    buildPID(patient),
-    buildPV1(mergedOptions),
-    buildOBR(mergedOptions),
-    buildOBX(pdfBase64),
-  ];
+  let segments: string[];
+
+  if (isREF) {
+    // REF^I12 segment order: MSH → RF1 → PRD(s) → PID → OBR → OBX → PV1
+    segments = [buildMSH(mergedOptions)];
+
+    // RF1: Referral Information (required for REF)
+    segments.push(buildRF1());
+
+    // PRD: Provider Data segments (required for REF)
+    const ref = mergedOptions.referralInfo;
+    if (ref?.senderName) {
+      segments.push(buildPRD("sender", ref.senderName, ref.senderProviderNumber));
+    }
+    if (ref?.addresseeName) {
+      segments.push(buildPRD("addressee", ref.addresseeName));
+    }
+
+    segments.push(buildPID(patient));
+    segments.push(buildOBR(mergedOptions));
+    segments.push(buildOBX(pdfBase64));
+    segments.push(buildPV1(mergedOptions)); // PV1 last in REF
+  } else {
+    // ORU^R01 segment order: MSH → PID → PV1 → OBR → OBX
+    segments = [
+      buildMSH(mergedOptions),
+      buildPID(patient),
+      buildPV1(mergedOptions),
+      buildOBR(mergedOptions),
+      buildOBX(pdfBase64),
+    ];
+  }
 
   // Join segments with CR (carriage return) only - no LF
   return segments.join(SEGMENT_TERMINATOR) + SEGMENT_TERMINATOR;

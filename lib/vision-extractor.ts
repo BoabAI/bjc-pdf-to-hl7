@@ -30,12 +30,21 @@ const DOCUMENT_TYPES: DocumentType[] = [
   "generic",
 ];
 
+export interface ReferralInfo {
+  senderName?: string;
+  senderClinic?: string;
+  senderProviderNumber?: string;
+  addresseeName?: string;
+  addresseeClinic?: string;
+}
+
 export interface VisionExtractionResult {
   success: boolean;
   data: PatientData;
   warnings: string[];
   model: string;
   documentType: DocumentType;
+  referralInfo?: ReferralInfo;
   tokensUsed?: { input: number; output: number };
 }
 
@@ -107,6 +116,31 @@ const EXTRACTION_TOOL = {
             description:
               "Medicare reference number — single digit (1-9), often after a / or as IRN",
           },
+          senderName: {
+            type: ["string", "null"],
+            description:
+              "Name of the referring doctor or letter author (e.g. 'Dr John Smith'). Only for referral/GP referral letters.",
+          },
+          senderClinic: {
+            type: ["string", "null"],
+            description:
+              "Clinic or practice name of the sender/referring doctor. Only for referral/GP referral letters.",
+          },
+          senderProviderNumber: {
+            type: ["string", "null"],
+            description:
+              "Medicare provider number of the sender/referring doctor (if visible in the document).",
+          },
+          addresseeName: {
+            type: ["string", "null"],
+            description:
+              "Name of the doctor or specialist the patient is being referred TO. Often in the salutation ('Dear Dr...') or recipient block.",
+          },
+          addresseeClinic: {
+            type: ["string", "null"],
+            description:
+              "Clinic or practice name of the addressee/recipient doctor.",
+          },
         },
         required: [
           "documentType",
@@ -130,7 +164,7 @@ const EXTRACTION_TOOL = {
 
 const SYSTEM_PROMPT = `You are a medical document data extraction assistant specializing in Australian healthcare documents.
 
-Classify the document and extract the patient's details.
+Classify the document and extract the patient's details, plus sender/addressee info for referral letters.
 
 Document type definitions:
 - consent_form: patient registration, intake, information, or consent forms
@@ -138,7 +172,7 @@ Document type definitions:
 - gp_referral: GP/Best Practice referral letters
 - generic: any other medical PDF or unclear case
 
-Rules:
+Patient extraction rules:
 - Look for the PATIENT's details, not the doctor's, recipient's, or clinic's
 - The patient is often named on the line starting with "RE:", "Re:", or "re."
 - Names before the "Re:" line, in the letterhead, recipient block, or "Dear [Name]" salutation are often doctors
@@ -149,6 +183,15 @@ Rules:
 - Address: extract the patient's residential address, not the clinic address
 - State must be one of NSW, VIC, QLD, SA, WA, TAS, NT, ACT
 - If a field cannot be determined, return null for that field
+
+Sender/Addressee rules (for referral_letter and gp_referral only):
+- senderName: the doctor who WROTE/SIGNED the letter (usually in the letterhead, signature, or "From:" line)
+- senderClinic: the clinic or practice of the sender (usually in the letterhead)
+- senderProviderNumber: the Medicare provider number of the sender (if visible)
+- addresseeName: the doctor the letter is addressed TO (usually in the "Dear Dr..." or recipient block)
+- addresseeClinic: the clinic of the addressee (if mentioned)
+- For consent_form and generic documents, return null for all sender/addressee fields
+
 - Always call the extract_patient_data tool`;
 
 const POSTCODE_TO_STATE: Record<string, string> = {
@@ -290,6 +333,15 @@ export async function extractPatientDataWithVision(
       data.state = inferStateFromPostcode(data.postcode);
     }
 
+    // Parse referral info (optional, only present for referral letters)
+    const referralInfo: ReferralInfo = {};
+    if (raw.senderName) referralInfo.senderName = (raw.senderName as string).trim();
+    if (raw.senderClinic) referralInfo.senderClinic = (raw.senderClinic as string).trim();
+    if (raw.senderProviderNumber) referralInfo.senderProviderNumber = (raw.senderProviderNumber as string).trim();
+    if (raw.addresseeName) referralInfo.addresseeName = (raw.addresseeName as string).trim();
+    if (raw.addresseeClinic) referralInfo.addresseeClinic = (raw.addresseeClinic as string).trim();
+    const hasReferralInfo = Object.keys(referralInfo).length > 0;
+
     const hasName =
       data.firstName !== "UNKNOWN" && data.lastName !== "PATIENT";
 
@@ -313,6 +365,7 @@ export async function extractPatientDataWithVision(
       warnings,
       model,
       documentType,
+      referralInfo: hasReferralInfo ? referralInfo : undefined,
       tokensUsed,
     };
   } catch (error) {

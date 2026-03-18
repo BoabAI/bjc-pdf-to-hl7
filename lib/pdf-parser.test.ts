@@ -103,6 +103,33 @@ describe("extractPatientData", () => {
   });
 });
 
+describe("extractPatientData referralInfo pass-through", () => {
+  test("passes referralInfo from vision result", async () => {
+    extractPatientDataWithVisionMock.mockResolvedValue({
+      ...baseVisionResult,
+      referralInfo: {
+        senderName: "Dr Sarah Jones",
+        senderClinic: "Springfield Medical",
+        addresseeName: "Dr Michael Brown",
+      },
+    });
+
+    const result = await extractPatientData(Buffer.from("%PDF-1.4"));
+
+    expect(result.referralInfo).toEqual({
+      senderName: "Dr Sarah Jones",
+      senderClinic: "Springfield Medical",
+      addresseeName: "Dr Michael Brown",
+    });
+  });
+
+  test("referralInfo is undefined when vision result has none", async () => {
+    const result = await extractPatientData(Buffer.from("%PDF-1.4"));
+
+    expect(result.referralInfo).toBeUndefined();
+  });
+});
+
 describe("formatExtractedData", () => {
   test("formats HL7 date, sex, and Medicare display values", () => {
     const formatted = formatExtractedData({
@@ -133,5 +160,35 @@ describe("formatExtractedData", () => {
 
     expect(formatted.sex).toBe("Unknown");
     expect(formatted.medicareNo).toBe("Not provided");
+  });
+
+  test("includes sender display string when referralInfo has senderName", () => {
+    const formatted = formatExtractedData(
+      { firstName: "Jane", lastName: "Smith", dob: "19920514", sex: "F" },
+      { senderName: "Dr Sarah Jones", senderClinic: "Springfield Medical" }
+    );
+
+    expect(formatted.sender).toBe("Dr Sarah Jones (Springfield Medical)");
+  });
+
+  test("includes addressee display string when referralInfo has addresseeName", () => {
+    const formatted = formatExtractedData(
+      { firstName: "Jane", lastName: "Smith", dob: "19920514", sex: "F" },
+      { addresseeName: "Dr Michael Brown", addresseeClinic: "BJC Health" }
+    );
+
+    expect(formatted.addressee).toBe("Dr Michael Brown (BJC Health)");
+  });
+
+  test("sender/addressee omitted when referralInfo not provided", () => {
+    const formatted = formatExtractedData({
+      firstName: "Jane",
+      lastName: "Smith",
+      dob: "19920514",
+      sex: "F",
+    });
+
+    expect(formatted.sender).toBeUndefined();
+    expect(formatted.addressee).toBeUndefined();
   });
 });

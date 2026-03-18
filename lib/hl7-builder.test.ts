@@ -56,7 +56,7 @@ function getFields(segment: string): string[] {
 // =============================================================================
 
 describe("HL7 Message Structure", () => {
-  test("contains all 5 required segments in order", () => {
+  test("ORU^R01 contains 5 segments in order: MSH PID PV1 OBR OBX", () => {
     const hl7 = buildHL7Message(samplePatient, TINY_PDF);
     const segments = getSegments(hl7);
 
@@ -104,7 +104,7 @@ describe("MSH (Message Header) Segment", () => {
     const hl7 = buildHL7Message(samplePatient, TINY_PDF);
     const msh = getFields(getSegment(hl7, "MSH")!);
 
-    expect(msh[2]).toBe("MEDIHOST"); // MSH-3: Sending Application
+    expect(msh[2]).toBe("SMECAI"); // MSH-3: Sending Application
     expect(msh[3]).toBe("BJCHEALTH"); // MSH-4: Sending Facility
     expect(msh[4]).toBe("GENIE"); // MSH-5: Receiving Application
     expect(msh[5]).toBe("CLINIC"); // MSH-6: Receiving Facility
@@ -133,11 +133,34 @@ describe("MSH (Message Header) Segment", () => {
     expect(msh[6]).toMatch(/^\d{14}$/);
   });
 
-  test("has ORU^R01 message type (MSH-9)", () => {
+  test("has ORU^R01 message type by default (MSH-9)", () => {
     const hl7 = buildHL7Message(samplePatient, TINY_PDF);
     const msh = getFields(getSegment(hl7, "MSH")!);
 
     expect(msh[8]).toBe("ORU^R01");
+  });
+
+  test("uses REF^I12 message type when specified (MSH-9)", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      messageType: "REF^I12",
+    });
+    const msh = getFields(getSegment(hl7, "MSH")!);
+
+    expect(msh[8]).toBe("REF^I12");
+  });
+
+  test("MSH field count unchanged at 18 regardless of message type", () => {
+    const hl7Ref = buildHL7Message(samplePatient, TINY_PDF, {
+      messageType: "REF^I12",
+    });
+    const hl7Oru = buildHL7Message(samplePatient, TINY_PDF, {
+      messageType: "ORU^R01",
+    });
+    const mshRef = getFields(getSegment(hl7Ref, "MSH")!);
+    const mshOru = getFields(getSegment(hl7Oru, "MSH")!);
+
+    expect(mshRef).toHaveLength(18);
+    expect(mshOru).toHaveLength(18);
   });
 
   test("has unique message control ID starting with MSG (MSH-10)", () => {
@@ -159,11 +182,23 @@ describe("MSH (Message Header) Segment", () => {
     expect(msh[10]).toBe("P");
   });
 
-  test("has HL7 version 2.4 (MSH-12)", () => {
+  test("has HL7 version 2.4 for ORU messages (MSH-12)", () => {
     const hl7 = buildHL7Message(samplePatient, TINY_PDF);
     const msh = getFields(getSegment(hl7, "MSH")!);
 
     expect(msh[11]).toBe("2.4");
+  });
+
+  test("has extended ADRM version for REF messages (MSH-12)", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      messageType: "REF^I12",
+    });
+    const msh = getFields(getSegment(hl7, "MSH")!);
+
+    // REF profile requires extended version identifier
+    expect(msh[11]).toBe(
+      "2.4^AUS&Australia&ISO3166_1^HL7AU-OO-REF-SIMPLIFIED-201706&&L"
+    );
   });
 
   test("has AUS country code (MSH-17)", () => {
@@ -238,11 +273,11 @@ describe("PID (Patient Identification) Segment", () => {
     expect(pid[8]).toBe("U");
   });
 
-  test("formats Medicare with ref as number-ref^^^Medicare^MC (PID-3)", () => {
+  test("formats Medicare with ref as number-ref^^^AUSHIC^MC (PID-3)", () => {
     const hl7 = buildHL7Message(fullPatient, TINY_PDF);
     const pid = getFields(getSegment(hl7, "PID")!);
 
-    expect(pid[3]).toBe("2123456789-3^^^Medicare^MC");
+    expect(pid[3]).toBe("2123456789-3^^^AUSHIC^MC");
   });
 
   test("defaults Medicare ref to 1 when not provided", () => {
@@ -253,7 +288,7 @@ describe("PID (Patient Identification) Segment", () => {
     const hl7 = buildHL7Message(patientNoRef, TINY_PDF);
     const pid = getFields(getSegment(hl7, "PID")!);
 
-    expect(pid[3]).toBe("9876543210-1^^^Medicare^MC");
+    expect(pid[3]).toBe("9876543210-1^^^AUSHIC^MC");
   });
 
   test("leaves PID-3 empty when no Medicare number", () => {
@@ -454,8 +489,8 @@ describe("OBR (Observation Request) Segment", () => {
     const hl7 = buildHL7Message(samplePatient, TINY_PDF);
     const obr = getFields(getSegment(hl7, "OBR")!);
 
-    // OBR-3: RPT<timestamp>^MEDIHOST
-    expect(obr[3]).toMatch(/^RPT\d{14}\^MEDIHOST$/);
+    // OBR-3: RPT<timestamp>^SMECAI
+    expect(obr[3]).toMatch(/^RPT\d{14}\^SMECAI$/);
   });
 
   test("has default document title in service ID (OBR-4)", () => {
@@ -621,7 +656,7 @@ describe("Options Merging", () => {
     // Custom value
     expect(msh[3]).toBe("CUSTOMFACILITY");
     // Defaults preserved
-    expect(msh[2]).toBe("MEDIHOST");
+    expect(msh[2]).toBe("SMECAI");
     expect(msh[4]).toBe("GENIE");
     expect(msh[5]).toBe("CLINIC");
   });
@@ -630,7 +665,7 @@ describe("Options Merging", () => {
     const hl7 = buildHL7Message(samplePatient, TINY_PDF, {});
     const msh = getFields(getSegment(hl7, "MSH")!);
 
-    expect(msh[2]).toBe("MEDIHOST");
+    expect(msh[2]).toBe("SMECAI");
     expect(msh[3]).toBe("BJCHEALTH");
   });
 });
@@ -669,7 +704,7 @@ describe("Integration & Edge Cases", () => {
 
     expect(segments).toHaveLength(5);
     expect(getSegment(hl7, "MSH")).toContain("CUSTOM");
-    expect(getSegment(hl7, "PID")).toContain("2123456789-3^^^Medicare^MC");
+    expect(getSegment(hl7, "PID")).toContain("2123456789-3^^^AUSHIC^MC");
     expect(getSegment(hl7, "PV1")).toContain("9999999Z^^^AUSHICPR");
     expect(getSegment(hl7, "OBR")).toContain("Referral Letter");
   });
@@ -689,6 +724,92 @@ describe("Integration & Edge Cases", () => {
     expect(hl7).toContain("^application^pdf^Base64^");
     // Single byte 'x' => base64 'eA=='
     expect(hl7).toContain("eA==");
+  });
+});
+
+// =============================================================================
+// Referral Info (Sender/Addressee)
+// =============================================================================
+
+describe("Referral Info - OBR-16 (Sender)", () => {
+  test("populates OBR-16 with sender name and provider number", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      referralInfo: {
+        senderName: "Dr Sarah Jones",
+        senderProviderNumber: "1234567A",
+      },
+    });
+    const obr = getFields(getSegment(hl7, "OBR")!);
+
+    // OBR-16: ProviderNumber^LastName^FirstName^^^DR^^^AUSHICPR
+    expect(obr[16]).toBe("1234567A^Jones^Sarah^^^DR^^^AUSHICPR");
+  });
+
+  test("populates OBR-16 with sender name only (no provider number)", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      referralInfo: {
+        senderName: "Dr Michael Brown",
+      },
+    });
+    const obr = getFields(getSegment(hl7, "OBR")!);
+
+    // No provider number: ^LastName^FirstName^^^DR
+    expect(obr[16]).toBe("^Brown^Michael^^^DR");
+  });
+
+  test("OBR-16 is empty when no referralInfo provided", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF);
+    const obr = getFields(getSegment(hl7, "OBR")!);
+
+    expect(obr[16]).toBe("");
+  });
+
+  test("OBR field count unchanged at 26 with referralInfo", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      referralInfo: {
+        senderName: "Dr Test",
+        senderProviderNumber: "9999999Z",
+      },
+    });
+    const obr = getFields(getSegment(hl7, "OBR")!);
+
+    expect(obr).toHaveLength(26);
+  });
+});
+
+describe("Referral Info - PV1-9 (Addressee)", () => {
+  test("populates PV1-9 with addressee name when no orderingProvider", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      referralInfo: {
+        addresseeName: "Dr Emily Watson",
+      },
+    });
+    const pv1 = getFields(getSegment(hl7, "PV1")!);
+
+    expect(pv1[9]).toBe("^Watson^Emily^^^DR");
+  });
+
+  test("orderingProvider takes precedence over addressee name", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      orderingProvider: "1234567A",
+      referralInfo: {
+        addresseeName: "Dr Emily Watson",
+      },
+    });
+    const pv1 = getFields(getSegment(hl7, "PV1")!);
+
+    expect(pv1[9]).toBe("1234567A^^^AUSHICPR");
+  });
+
+  test("PV1 remains minimal when no provider and no addressee", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      referralInfo: {
+        senderName: "Dr Sarah Jones", // Only sender, no addressee
+      },
+    });
+    const pv1 = getFields(getSegment(hl7, "PV1")!);
+
+    expect(pv1).toHaveLength(3);
   });
 });
 
@@ -806,7 +927,7 @@ describe("Edge Cases - Data Integrity", () => {
     const hl7 = buildHL7Message(patient, TINY_PDF);
     const pid = getFields(getSegment(hl7, "PID")!);
 
-    expect(pid[3]).toBe("1234567890-1^^^Medicare^MC");
+    expect(pid[3]).toBe("1234567890-1^^^AUSHIC^MC");
   });
 
   test("empty PDF buffer (0 bytes) still produces valid message", () => {
@@ -982,7 +1103,7 @@ describe("Edge Cases - Provider & Medicare Formats", () => {
     const hl7 = buildHL7Message(patient, TINY_PDF);
     const pid = getFields(getSegment(hl7, "PID")!);
 
-    expect(pid[3]).toBe("1234567890-1^^^Medicare^MC");
+    expect(pid[3]).toBe("1234567890-1^^^AUSHIC^MC");
   });
 
   test("Medicare number with high ref number", () => {
@@ -994,7 +1115,7 @@ describe("Edge Cases - Provider & Medicare Formats", () => {
     const hl7 = buildHL7Message(patient, TINY_PDF);
     const pid = getFields(getSegment(hl7, "PID")!);
 
-    expect(pid[3]).toBe("1234567890-9^^^Medicare^MC");
+    expect(pid[3]).toBe("1234567890-9^^^AUSHIC^MC");
   });
 });
 
@@ -1123,5 +1244,271 @@ describe("Edge Cases - Message Uniqueness", () => {
 
     // Both timestamps generated in same buildOBR() call
     expect(obr[7]).toBe(obr[22]);
+  });
+});
+
+// =============================================================================
+// REF^I12 Message Structure
+// =============================================================================
+
+describe("REF^I12 Message Structure", () => {
+  const refOptions = {
+    messageType: "REF^I12" as const,
+    referralInfo: {
+      senderName: "Dr Sarah Jones",
+      senderProviderNumber: "1234567A",
+      senderClinic: "Springfield Medical",
+      addresseeName: "Dr Michael Brown",
+      addresseeClinic: "BJC Health",
+    },
+  };
+
+  test("REF^I12 has correct segment order: MSH RF1 PRD PRD PID OBR OBX PV1", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, refOptions);
+    const segments = getSegments(hl7);
+
+    expect(segments).toHaveLength(8);
+    expect(segments[0]).toMatch(/^MSH\|/);
+    expect(segments[1]).toMatch(/^RF1\|/);
+    expect(segments[2]).toMatch(/^PRD\|/);
+    expect(segments[3]).toMatch(/^PRD\|/);
+    expect(segments[4]).toMatch(/^PID\|/);
+    expect(segments[5]).toMatch(/^OBR\|/);
+    expect(segments[6]).toMatch(/^OBX\|/);
+    expect(segments[7]).toMatch(/^PV1\|/); // PV1 is LAST in REF
+  });
+
+  test("REF^I12 with only sender has 7 segments (one PRD)", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      messageType: "REF^I12",
+      referralInfo: { senderName: "Dr Sarah Jones" },
+    });
+    const segments = getSegments(hl7);
+
+    expect(segments).toHaveLength(7);
+    expect(segments[1]).toMatch(/^RF1\|/);
+    expect(segments[2]).toMatch(/^PRD\|RP~AP/);
+  });
+
+  test("REF^I12 with only addressee has 7 segments (one PRD)", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      messageType: "REF^I12",
+      referralInfo: { addresseeName: "Dr Michael Brown" },
+    });
+    const segments = getSegments(hl7);
+
+    expect(segments).toHaveLength(7);
+    expect(segments[1]).toMatch(/^RF1\|/);
+    expect(segments[2]).toMatch(/^PRD\|RT~IR/);
+  });
+
+  test("REF^I12 with no referralInfo has 6 segments (RF1 but no PRD)", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      messageType: "REF^I12",
+    });
+    const segments = getSegments(hl7);
+
+    expect(segments).toHaveLength(6);
+    expect(segments[0]).toMatch(/^MSH\|/);
+    expect(segments[1]).toMatch(/^RF1\|/);
+    expect(segments[2]).toMatch(/^PID\|/);
+    expect(segments[3]).toMatch(/^OBR\|/);
+    expect(segments[4]).toMatch(/^OBX\|/);
+    expect(segments[5]).toMatch(/^PV1\|/);
+  });
+
+  test("REF^I12 still uses CR-only terminators", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, refOptions);
+
+    expect(hl7).not.toContain("\n");
+    expect(hl7).toContain("\r");
+    expect(hl7.endsWith("\r")).toBe(true);
+  });
+});
+
+// =============================================================================
+// RF1 (Referral Information) Segment
+// =============================================================================
+
+describe("RF1 (Referral Information) Segment", () => {
+  test("RF1 is present in REF^I12 messages", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      messageType: "REF^I12",
+    });
+
+    expect(getSegment(hl7, "RF1")).toBeDefined();
+  });
+
+  test("RF1 is NOT present in ORU^R01 messages", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF);
+
+    expect(getSegment(hl7, "RF1")).toBeUndefined();
+  });
+
+  test("RF1-7 has timestamp (Effective Date)", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      messageType: "REF^I12",
+    });
+    const rf1 = getFields(getSegment(hl7, "RF1")!);
+
+    // RF1 fields: RF1|empty|empty|empty|empty|empty|empty|timestamp
+    expect(rf1[7]).toMatch(/^\d{14}$/);
+  });
+
+  test("RF1 has 8 fields total", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      messageType: "REF^I12",
+    });
+    const rf1 = getFields(getSegment(hl7, "RF1")!);
+
+    expect(rf1).toHaveLength(8);
+  });
+});
+
+// =============================================================================
+// PRD (Provider Data) Segments
+// =============================================================================
+
+describe("PRD (Provider Data) Segments", () => {
+  test("sender PRD has RP~AP role code", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      messageType: "REF^I12",
+      referralInfo: { senderName: "Dr Sarah Jones", senderProviderNumber: "1234567A" },
+    });
+    const segments = getSegments(hl7);
+    const senderPRD = segments.find((s) => s.startsWith("PRD|RP~AP"));
+
+    expect(senderPRD).toBeDefined();
+  });
+
+  test("addressee PRD has RT~IR role code", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      messageType: "REF^I12",
+      referralInfo: { addresseeName: "Dr Michael Brown" },
+    });
+    const segments = getSegments(hl7);
+    const addresseePRD = segments.find((s) => s.startsWith("PRD|RT~IR"));
+
+    expect(addresseePRD).toBeDefined();
+  });
+
+  test("sender PRD-2 has correct name format (LastName^FirstName^^^DR)", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      messageType: "REF^I12",
+      referralInfo: { senderName: "Dr Sarah Jones" },
+    });
+    const segments = getSegments(hl7);
+    const senderPRD = getFields(segments.find((s) => s.startsWith("PRD|RP~AP"))!);
+
+    expect(senderPRD[2]).toBe("Jones^Sarah^^^DR");
+  });
+
+  test("sender PRD-7 has provider number with AUSHICPR^UPIN", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      messageType: "REF^I12",
+      referralInfo: { senderName: "Dr Sarah Jones", senderProviderNumber: "1234567A" },
+    });
+    const segments = getSegments(hl7);
+    const senderPRD = getFields(segments.find((s) => s.startsWith("PRD|RP~AP"))!);
+
+    expect(senderPRD[7]).toBe("1234567A^AUSHICPR^UPIN");
+  });
+
+  test("sender PRD-7 is empty when no provider number", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      messageType: "REF^I12",
+      referralInfo: { senderName: "Dr Sarah Jones" },
+    });
+    const segments = getSegments(hl7);
+    const senderPRD = getFields(segments.find((s) => s.startsWith("PRD|RP~AP"))!);
+
+    expect(senderPRD[7]).toBe("");
+  });
+
+  test("addressee PRD-2 has correct name format", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      messageType: "REF^I12",
+      referralInfo: { addresseeName: "Dr Emily Watson" },
+    });
+    const segments = getSegments(hl7);
+    const addresseePRD = getFields(segments.find((s) => s.startsWith("PRD|RT~IR"))!);
+
+    expect(addresseePRD[2]).toBe("Watson^Emily^^^DR");
+  });
+
+  test("PRD segments are NOT present in ORU^R01 messages", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      referralInfo: {
+        senderName: "Dr Sarah Jones",
+        addresseeName: "Dr Michael Brown",
+      },
+    });
+
+    const segments = getSegments(hl7);
+    const prdSegments = segments.filter((s) => s.startsWith("PRD|"));
+    expect(prdSegments).toHaveLength(0);
+  });
+
+  test("PRD sender comes before PRD addressee", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      messageType: "REF^I12",
+      referralInfo: {
+        senderName: "Dr Sarah Jones",
+        senderProviderNumber: "1234567A",
+        addresseeName: "Dr Michael Brown",
+      },
+    });
+    const segments = getSegments(hl7);
+    const prdIndices = segments
+      .map((s, i) => (s.startsWith("PRD|") ? i : -1))
+      .filter((i) => i >= 0);
+
+    expect(prdIndices).toHaveLength(2);
+    expect(segments[prdIndices[0]]).toContain("RP~AP"); // sender first
+    expect(segments[prdIndices[1]]).toContain("RT~IR"); // addressee second
+  });
+
+  test("PRD has 8 fields total", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      messageType: "REF^I12",
+      referralInfo: { senderName: "Dr Sarah Jones", senderProviderNumber: "1234567A" },
+    });
+    const segments = getSegments(hl7);
+    const prd = getFields(segments.find((s) => s.startsWith("PRD|"))!);
+
+    expect(prd).toHaveLength(8);
+  });
+});
+
+// =============================================================================
+// OBR-24 (Diagnostic Service Section ID)
+// =============================================================================
+
+describe("OBR-24 (Diagnostic Service Section ID)", () => {
+  test("OBR-24 is PHY for REF^I12 messages (routes to Incoming Letters)", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      messageType: "REF^I12",
+    });
+    const obr = getFields(getSegment(hl7, "OBR")!);
+
+    expect(obr[24]).toBe("PHY");
+  });
+
+  test("OBR-24 is empty for ORU^R01 messages", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF);
+    const obr = getFields(getSegment(hl7, "OBR")!);
+
+    expect(obr[24]).toBe("");
+  });
+
+  test("OBR-25 is still correct after OBR-24 addition", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      messageType: "REF^I12",
+      resultStatus: "P",
+    });
+    const obr = getFields(getSegment(hl7, "OBR")!);
+
+    expect(obr[24]).toBe("PHY");
+    expect(obr[25]).toBe("P");
   });
 });
