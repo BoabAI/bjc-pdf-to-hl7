@@ -79,6 +79,7 @@ export async function POST(request: NextRequest) {
     // Extract Genie action options
     const autoFile = formData.get("autoFile") !== "false"; // Default to true
     const orderingProvider = formData.get("orderingProvider") as string | null;
+    const carrier = formData.get("carrier") as string | null;
 
     // Derive HL7 message type: REF^I12 for referral letters, ORU^R01 for everything else
     const messageType = (extraction.documentType === "referral_letter" || extraction.documentType === "gp_referral")
@@ -90,6 +91,7 @@ export async function POST(request: NextRequest) {
       documentTitle: file.name.replace(/\.pdf$/i, ""),
       resultStatus: autoFile ? "F" : "P", // F=Final (auto-file), P=Preliminary (queue)
       orderingProvider: orderingProvider || undefined,
+      ...(carrier ? { sendingApplication: carrier } : {}),
       messageType,
       referralInfo: extraction.referralInfo,
     });
@@ -107,6 +109,7 @@ export async function POST(request: NextRequest) {
       ...baseData,
       date: `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`,
       messageType: messageType === "REF^I12" ? "REF (Referral)" : "ORU (Result)",
+      carrier: carrier || "SMECAI",
     };
 
     return NextResponse.json({

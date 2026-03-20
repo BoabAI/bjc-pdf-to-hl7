@@ -41,6 +41,7 @@ function createConvertRequest(
     documentType?: string;
     autoFile?: string;
     orderingProvider?: string;
+    carrier?: string;
     mimeType?: string;
     filename?: string;
     sizeBytes?: number;
@@ -65,6 +66,7 @@ function createConvertRequest(
   if (options?.orderingProvider) {
     formData.append("orderingProvider", options.orderingProvider);
   }
+  if (options?.carrier) formData.append("carrier", options.carrier);
 
   return new NextRequest("http://localhost:3000/api/convert", {
     method: "POST",
@@ -190,6 +192,7 @@ describe("POST /api/convert Bedrock flow", () => {
       ...baseFormattedData,
       date: expect.stringMatching(/^\d{2}\/\d{2}\/\d{4}$/),
       messageType: "REF (Referral)",
+      carrier: "SMECAI",
     });
     expect(data.warnings).toEqual(["Using Bedrock vision"]);
     expect(data.extractionMethod).toBe("vision");
@@ -337,6 +340,34 @@ describe("POST /api/convert Bedrock flow", () => {
     const mshFields = mshSegment.split("|");
 
     expect(mshFields[8]).toBe("ORU^R01");
+  });
+
+  test("carrier flows to MSH-3 and extractedData", async () => {
+    const response = await POST(
+      createConvertRequest({ carrier: "EMAIL" })
+    );
+    const data = await response.json();
+
+    // MSH-3 should be EMAIL
+    const mshSegment = data.hl7Content.split("\r").find((s: string) => s.startsWith("MSH|"));
+    const mshFields = mshSegment.split("|");
+    expect(mshFields[2]).toBe("EMAIL");
+
+    // extractedData.carrier should reflect the value
+    expect(data.extractedData.carrier).toBe("EMAIL");
+  });
+
+  test("defaults to SMECAI when no carrier provided", async () => {
+    const response = await POST(createConvertRequest());
+    const data = await response.json();
+
+    // MSH-3 defaults to SMECAI
+    const mshSegment = data.hl7Content.split("\r").find((s: string) => s.startsWith("MSH|"));
+    const mshFields = mshSegment.split("|");
+    expect(mshFields[2]).toBe("SMECAI");
+
+    // extractedData.carrier defaults to SMECAI
+    expect(data.extractedData.carrier).toBe("SMECAI");
   });
 
   test("returns a 500 when the conversion pipeline throws", async () => {

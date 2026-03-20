@@ -1511,4 +1511,17 @@ describe("OBR-24 (Diagnostic Service Section ID)", () => {
     expect(obr[24]).toBe("PHY");
     expect(obr[25]).toBe("P");
   });
+
+  test("carrier value is used as MSH-3 Sending Application", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      sendingApplication: "EMAIL",
+    });
+    const msh = getFields(getSegment(hl7, "MSH")!);
+
+    expect(msh[2]).toBe("EMAIL");
+
+    // OBR-3 filler order number should also reflect the carrier
+    const obr = getFields(getSegment(hl7, "OBR")!);
+    expect(obr[3]).toMatch(/^RPT\d+\^EMAIL$/);
+  });
 });

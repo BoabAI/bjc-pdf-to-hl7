@@ -120,6 +120,7 @@ export default function Home() {
       formData.append("pdf", file);
       formData.append("documentType", documentType);
       formData.append("autoFile", autoFile.toString());
+      formData.append("carrier", carrier);
       if (sendToDoctor && providerNumber.trim()) {
         formData.append("orderingProvider", providerNumber.trim());
       }
@@ -132,10 +133,6 @@ export default function Home() {
       const data = await response.json();
 
       if (data.success) {
-        // Override carrier with client-side preference
-        if (data.extractedData) {
-          data.extractedData.carrier = carrier;
-        }
         setResult(data);
       } else {
         setResult({ success: false, error: data.error || "Conversion failed" });
