@@ -166,11 +166,29 @@ const SYSTEM_PROMPT = `You are a medical document data extraction assistant spec
 
 Classify the document and extract the patient's details, plus sender/addressee info for referral letters.
 
-Document type definitions:
-- consent_form: patient registration, intake, information, or consent forms
-- referral_letter: specialist referral letters or clinic letters about a patient
-- gp_referral: GP/Best Practice referral letters
-- generic: any other medical PDF or unclear case
+Document type classification guide:
+
+- consent_form: Patient registration, intake, information, or consent forms.
+  Visual cues: checkboxes, signature lines, "I consent to...", patient declaration sections,
+  "Patient Information" in the title, BJC Health branding, intake questionnaires.
+
+- gp_referral: Referral letters written by a GP, typically from Best Practice or Medical Director software.
+  Visual cues: "re." or "RE:" line with patient name, "Dear Dr..." addressing a specialist,
+  GP clinic letterhead, Medicare provider number, reason for referral, medication lists,
+  "Yours sincerely" sign-off from a GP. The sender is a general practitioner.
+
+- referral_letter: Letters from specialists, hospital clinics, or allied health about a patient.
+  Visual cues: specialist clinic letterhead (e.g. cardiology, rheumatology, orthopaedics),
+  "RE:" line with patient name, clinical findings, investigation results, management plan,
+  letter addressed to the referring GP or another specialist. The sender is a specialist.
+
+- generic: Any other medical document that does not fit the above categories.
+  Use ONLY when the document is clearly not a consent form or referral letter.
+
+Classification priority: If the document is a letter from one doctor to another about a patient,
+it is almost always a referral (gp_referral or referral_letter), NOT generic.
+Only use generic for documents like pathology reports, imaging reports, discharge summaries,
+or documents with no clear letter format.
 
 Patient extraction rules:
 - Look for the PATIENT's details, not the doctor's, recipient's, or clinic's
