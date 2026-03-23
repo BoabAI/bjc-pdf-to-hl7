@@ -36,6 +36,7 @@ export interface ReferralInfo {
   senderProviderNumber?: string;
   addresseeName?: string;
   addresseeClinic?: string;
+  ccNames?: string[];
 }
 
 export interface VisionExtractionResult {
@@ -141,6 +142,12 @@ const EXTRACTION_TOOL = {
             description:
               "Clinic or practice name of the addressee/recipient doctor.",
           },
+          ccNames: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "Names of any CC/carbon copy recipient doctors (from 'CC:', 'cc:', 'Copy to:', 'c/o:' lines). Empty array if no CC line exists.",
+          },
         },
         required: [
           "documentType",
@@ -206,8 +213,13 @@ Sender/Addressee rules (for referral_letter and gp_referral only):
 - senderName: the doctor who WROTE/SIGNED the letter (usually in the letterhead, signature, or "From:" line)
 - senderClinic: the clinic or practice of the sender (usually in the letterhead)
 - senderProviderNumber: the Medicare provider number of the sender (if visible)
-- addresseeName: the doctor the letter is addressed TO (usually in the "Dear Dr..." or recipient block)
-- addresseeClinic: the clinic of the addressee (if mentioned)
+- ccNames: list of doctors on CC, "Copy to", "c/o", or carbon copy lines. Empty array if none.
+- addresseeName: the BJC Health doctor who should receive this document. Use these rules in priority order:
+  1. If "BJC Health" (or similar) appears as the clinic for either the primary recipient ("Dear Dr...") or a CC recipient, use that doctor
+  2. If a BJC_DOCTORS list is provided in the user prompt, check both the primary recipient and CC recipients against it — use the matching doctor
+  3. If neither clinic name nor doctor list resolves it, prefer the CC recipient (CC is more likely the local receiving doctor)
+  4. If no CC exists, use the primary recipient (assumed to be the BJC doctor)
+- addresseeClinic: the clinic of the resolved addressee
 - For consent_form and generic documents, return null for all sender/addressee fields
 
 - Always call the extract_patient_data tool`;
@@ -249,12 +261,19 @@ function normalizeSex(value: unknown): "M" | "F" | "U" {
   return value === "M" || value === "F" || value === "U" ? value : "U";
 }
 
-function buildPrompt(documentTypeHint?: DocumentType): string {
+function buildPrompt(documentTypeHint?: DocumentType, bjcDoctors?: string[]): string {
+  let prompt: string;
   if (!documentTypeHint) {
-    return "Classify this Australian medical PDF and extract the patient information using the extract_patient_data tool.";
+    prompt = "Classify this Australian medical PDF and extract the patient information using the extract_patient_data tool.";
+  } else {
+    prompt = `A document type hint was provided: ${documentTypeHint}. Use that classification unless the PDF clearly contradicts it, then extract the patient information using the extract_patient_data tool.`;
   }
 
-  return `A document type hint was provided: ${documentTypeHint}. Use that classification unless the PDF clearly contradicts it, then extract the patient information using the extract_patient_data tool.`;
+  if (bjcDoctors && bjcDoctors.length > 0) {
+    prompt += `\n\nBJC_DOCTORS list (doctors at the receiving clinic): ${bjcDoctors.join(", ")}.\nUse this list to determine which doctor (primary addressee or CC) is from BJC Health and set that doctor as the addresseeName.`;
+  }
+
+  return prompt;
 }
 
 export async function extractPatientDataWithVision(
@@ -263,11 +282,13 @@ export async function extractPatientDataWithVision(
     model?: string;
     timeoutMs?: number;
     documentTypeHint?: DocumentType;
+    bjcDoctors?: string[];
   }
 ): Promise<VisionExtractionResult> {
   const model = options?.model ?? DEFAULT_MODEL;
   const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const documentTypeHint = options?.documentTypeHint;
+  const bjcDoctors = options?.bjcDoctors;
   const warnings: string[] = [];
 
   const client = new BedrockRuntimeClient({ region: REGION });
@@ -283,7 +304,7 @@ export async function extractPatientDataWithVision(
           {
             role: "user",
             content: [
-              { text: buildPrompt(documentTypeHint) },
+              { text: buildPrompt(documentTypeHint, bjcDoctors) },
               {
                 document: {
                   name: "medical-document",
@@ -358,6 +379,9 @@ export async function extractPatientDataWithVision(
     if (raw.senderProviderNumber) referralInfo.senderProviderNumber = (raw.senderProviderNumber as string).trim();
     if (raw.addresseeName) referralInfo.addresseeName = (raw.addresseeName as string).trim();
     if (raw.addresseeClinic) referralInfo.addresseeClinic = (raw.addresseeClinic as string).trim();
+    if (Array.isArray(raw.ccNames) && raw.ccNames.length > 0) {
+      referralInfo.ccNames = (raw.ccNames as string[]).map((n) => n.trim()).filter(Boolean);
+    }
     const hasReferralInfo = Object.keys(referralInfo).length > 0;
 
     const hasName =

@@ -144,7 +144,7 @@ describe("POST /api/convert Bedrock flow", () => {
     );
     const data = await response.json();
 
-    expect(extractPatientDataMock).toHaveBeenCalledWith(expect.any(Buffer), "auto");
+    expect(extractPatientDataMock).toHaveBeenCalledWith(expect.any(Buffer), "auto", undefined);
     expect(response.status).toBe(200);
     expect(data).toEqual({
       success: true,
@@ -162,7 +162,8 @@ describe("POST /api/convert Bedrock flow", () => {
 
     expect(extractPatientDataMock).toHaveBeenCalledWith(
       expect.any(Buffer),
-      "gp_referral"
+      "gp_referral",
+      undefined
     );
   });
 
@@ -174,7 +175,7 @@ describe("POST /api/convert Bedrock flow", () => {
       })
     );
 
-    expect(extractPatientDataMock).toHaveBeenCalledWith(expect.any(Buffer), "auto");
+    expect(extractPatientDataMock).toHaveBeenCalledWith(expect.any(Buffer), "auto", undefined);
   });
 
   test("builds an HL7 payload from Bedrock extraction output", async () => {
@@ -381,5 +382,26 @@ describe("POST /api/convert Bedrock flow", () => {
       success: false,
       error: "Bedrock crashed",
     });
+  });
+
+  test("passes BJC_DOCTORS env var as doctor list to extraction", async () => {
+    const original = process.env.BJC_DOCTORS;
+    process.env.BJC_DOCTORS = "Maundrell, Ong, Swaraj";
+
+    try {
+      await POST(createConvertRequest());
+
+      expect(extractPatientDataMock).toHaveBeenCalledWith(
+        expect.any(Buffer),
+        "auto",
+        ["Maundrell", "Ong", "Swaraj"]
+      );
+    } finally {
+      if (original === undefined) {
+        delete process.env.BJC_DOCTORS;
+      } else {
+        process.env.BJC_DOCTORS = original;
+      }
+    }
   });
 });

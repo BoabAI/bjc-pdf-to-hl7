@@ -320,3 +320,167 @@ describe("extractPatientDataWithVision failure handling", () => {
     });
   });
 });
+
+describe("CC extraction and BJC doctor list", () => {
+  test("parses ccNames from extraction result", async () => {
+    sendMock.mockResolvedValue({
+      output: {
+        message: {
+          content: [
+            {
+              toolUse: {
+                input: {
+                  documentType: "gp_referral",
+                  firstName: "Jane",
+                  lastName: "Smith",
+                  dob: "05/06/1984",
+                  sex: "F",
+                  phone: null,
+                  address: null,
+                  suburb: null,
+                  state: null,
+                  postcode: null,
+                  medicareNo: null,
+                  medicareRef: null,
+                  senderName: "Dr Sarah Jones",
+                  senderClinic: "Springfield Medical",
+                  senderProviderNumber: null,
+                  addresseeName: "Dr A. Maundrell",
+                  addresseeClinic: "BJC Health",
+                  ccNames: ["Dr A. Maundrell", "Dr Lawrence Ong"],
+                },
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    const result = await extractPatientDataWithVision(PDF_BUFFER);
+
+    expect(result.referralInfo?.ccNames).toEqual([
+      "Dr A. Maundrell",
+      "Dr Lawrence Ong",
+    ]);
+    expect(result.referralInfo?.addresseeName).toBe("Dr A. Maundrell");
+    expect(result.referralInfo?.addresseeClinic).toBe("BJC Health");
+  });
+
+  test("returns no ccNames when CC array is empty", async () => {
+    sendMock.mockResolvedValue({
+      output: {
+        message: {
+          content: [
+            {
+              toolUse: {
+                input: {
+                  documentType: "gp_referral",
+                  firstName: "Jane",
+                  lastName: "Smith",
+                  dob: "05/06/1984",
+                  sex: "F",
+                  phone: null,
+                  address: null,
+                  suburb: null,
+                  state: null,
+                  postcode: null,
+                  medicareNo: null,
+                  medicareRef: null,
+                  senderName: "Dr Sarah Jones",
+                  addresseeName: "Dr Michael Brown",
+                  ccNames: [],
+                },
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    const result = await extractPatientDataWithVision(PDF_BUFFER);
+
+    expect(result.referralInfo?.ccNames).toBeUndefined();
+    expect(result.referralInfo?.addresseeName).toBe("Dr Michael Brown");
+  });
+
+  test("injects BJC doctor list into the user prompt", async () => {
+    sendMock.mockResolvedValue({
+      output: {
+        message: {
+          content: [
+            {
+              toolUse: {
+                input: {
+                  documentType: "gp_referral",
+                  firstName: "Jane",
+                  lastName: "Smith",
+                  dob: "05/06/1984",
+                  sex: "F",
+                  phone: null,
+                  address: null,
+                  suburb: null,
+                  state: null,
+                  postcode: null,
+                  medicareNo: null,
+                  medicareRef: null,
+                },
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    await extractPatientDataWithVision(PDF_BUFFER, {
+      bjcDoctors: ["Dr Maundrell", "Dr Ong", "Dr Swaraj"],
+    });
+
+    const [command] = sendMock.mock.calls[0]!;
+    const input = (command as ConverseCommandMock).input as any;
+    const userPrompt = input.messages[0].content[0].text;
+
+    expect(userPrompt).toContain("BJC_DOCTORS list");
+    expect(userPrompt).toContain("Dr Maundrell");
+    expect(userPrompt).toContain("Dr Ong");
+    expect(userPrompt).toContain("Dr Swaraj");
+  });
+
+  test("does not inject doctor list when bjcDoctors is empty", async () => {
+    sendMock.mockResolvedValue({
+      output: {
+        message: {
+          content: [
+            {
+              toolUse: {
+                input: {
+                  documentType: "generic",
+                  firstName: "Jane",
+                  lastName: "Smith",
+                  dob: "05/06/1984",
+                  sex: "F",
+                  phone: null,
+                  address: null,
+                  suburb: null,
+                  state: null,
+                  postcode: null,
+                  medicareNo: null,
+                  medicareRef: null,
+                },
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    await extractPatientDataWithVision(PDF_BUFFER, {
+      bjcDoctors: [],
+    });
+
+    const [command] = sendMock.mock.calls[0]!;
+    const input = (command as ConverseCommandMock).input as any;
+    const userPrompt = input.messages[0].content[0].text;
+
+    expect(userPrompt).not.toContain("BJC_DOCTORS");
+  });
+});

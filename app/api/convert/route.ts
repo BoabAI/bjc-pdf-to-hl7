@@ -53,8 +53,14 @@ export async function POST(request: NextRequest) {
         ? documentTypeParam
         : "auto";
 
+    // Parse BJC doctor list from env var (comma-separated surnames)
+    const bjcDoctorsEnv = process.env.BJC_DOCTORS;
+    const bjcDoctors = bjcDoctorsEnv
+      ? bjcDoctorsEnv.split(",").map((s) => s.trim()).filter(Boolean)
+      : undefined;
+
     // Extract patient data from PDF
-    const extraction = await extractPatientData(pdfBuffer, documentType);
+    const extraction = await extractPatientData(pdfBuffer, documentType, bjcDoctors);
 
     // If detect-only, return just the document type
     if (detectOnly) {

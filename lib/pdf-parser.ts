@@ -34,7 +34,8 @@ const DEFAULT_DATA: PatientData = {
 
 export async function extractPatientData(
   pdfBuffer: Buffer,
-  forceDocumentType?: DocumentType | "auto"
+  forceDocumentType?: DocumentType | "auto",
+  bjcDoctors?: string[]
 ): Promise<ExtractionResult> {
   const documentTypeHint =
     forceDocumentType && forceDocumentType !== "auto"
@@ -44,6 +45,7 @@ export async function extractPatientData(
   try {
     const visionResult = await extractPatientDataWithVision(pdfBuffer, {
       documentTypeHint,
+      bjcDoctors,
     });
 
     return {
@@ -77,6 +79,7 @@ export function formatExtractedData(data: PatientData, referralInfo?: ReferralIn
   medicareNo: string;
   sender?: string;
   addressee?: string;
+  cc?: string;
 } {
   const dob = data.dob;
   const formattedDob =
@@ -92,6 +95,7 @@ export function formatExtractedData(data: PatientData, referralInfo?: ReferralIn
     medicareNo: string;
     sender?: string;
     addressee?: string;
+    cc?: string;
   } = {
     firstName: data.firstName,
     lastName: data.lastName,
@@ -112,6 +116,10 @@ export function formatExtractedData(data: PatientData, referralInfo?: ReferralIn
     result.addressee = referralInfo.addresseeClinic
       ? `${referralInfo.addresseeName} (${referralInfo.addresseeClinic})`
       : referralInfo.addresseeName;
+  }
+
+  if (referralInfo?.ccNames && referralInfo.ccNames.length > 0) {
+    result.cc = referralInfo.ccNames.join(", ");
   }
 
   return result;
