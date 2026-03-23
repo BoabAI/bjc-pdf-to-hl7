@@ -4,6 +4,26 @@ import { useState, useCallback, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
+const DEFAULT_BJC_DOCTORS = [
+  "Dr Irwin Lim",
+  "Dr Herman Lau",
+  "Dr Andrew Jordan",
+  "Dr Ilana Ginges",
+  "Dr Roberto Russo",
+  "Dr Anne Chung",
+  "Dr Simran Kaur",
+  "Dr Shirley Yu",
+  "Dr Queenie Luu",
+  "Dr Adam Maundrell",
+  "Dr Hugh Caterson",
+  "Dr Pauline Habib",
+  "Dr Elaine Ng",
+  "Dr Kate Celkys",
+  "Dr Cellina Ching",
+  "Dr Vincent Wong",
+  "Dr Dahlia Davidoff",
+];
+
 interface ConversionResult {
   success: boolean;
   filename?: string;
@@ -16,6 +36,7 @@ interface ConversionResult {
     medicareNo: string;
     sender?: string;
     addressee?: string;
+    cc?: string;
     date?: string;
     messageType?: string;
     carrier?: string;
@@ -25,6 +46,7 @@ interface ConversionResult {
 }
 
 export default function Home() {
+  const [activeTab, setActiveTab] = useState<"converter" | "doctors">("converter");
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isConverting, setIsConverting] = useState(false);
@@ -36,16 +58,45 @@ export default function Home() {
   const [sendToDoctor, setSendToDoctor] = useState(false);
   const [providerNumber, setProviderNumber] = useState("");
   const [carrier, setCarrier] = useState("SMECAI");
+  const [doctors, setDoctors] = useState<string[]>(DEFAULT_BJC_DOCTORS);
+  const [newDoctorName, setNewDoctorName] = useState("");
 
-  // Load carrier from localStorage on mount
+  // Load carrier and doctors from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem("hl7_carrier");
     if (saved) setCarrier(saved);
+    const savedDoctors = localStorage.getItem("bjc_doctors");
+    if (savedDoctors) {
+      try {
+        setDoctors(JSON.parse(savedDoctors));
+      } catch { /* use defaults */ }
+    }
   }, []);
 
   const handleCarrierChange = (value: string) => {
     setCarrier(value);
     localStorage.setItem("hl7_carrier", value);
+  };
+
+  const saveDoctors = (updated: string[]) => {
+    setDoctors(updated);
+    localStorage.setItem("bjc_doctors", JSON.stringify(updated));
+  };
+
+  const handleAddDoctor = () => {
+    const name = newDoctorName.trim();
+    if (!name) return;
+    if (doctors.some((d) => d.toLowerCase() === name.toLowerCase())) return;
+    saveDoctors([...doctors, name]);
+    setNewDoctorName("");
+  };
+
+  const handleRemoveDoctor = (index: number) => {
+    saveDoctors(doctors.filter((_, i) => i !== index));
+  };
+
+  const handleResetDoctors = () => {
+    saveDoctors(DEFAULT_BJC_DOCTORS);
   };
 
   const detectDocumentType = useCallback(async (selectedFile: File) => {
@@ -123,6 +174,9 @@ export default function Home() {
       formData.append("carrier", carrier);
       if (sendToDoctor && providerNumber.trim()) {
         formData.append("orderingProvider", providerNumber.trim());
+      }
+      if (doctors.length > 0) {
+        formData.append("bjcDoctors", JSON.stringify(doctors));
       }
 
       const response = await fetch("/api/convert", {
@@ -209,10 +263,102 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="divider-subtle" />
+          {/* Tabs */}
+          <div className="px-7 flex gap-1 border-b border-[var(--border-light)]">
+            <button
+              onClick={() => setActiveTab("converter")}
+              className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                activeTab === "converter"
+                  ? "border-[var(--bjc-blue)] text-[var(--bjc-blue)]"
+                  : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+              }`}
+            >
+              Converter
+            </button>
+            <button
+              onClick={() => setActiveTab("doctors")}
+              className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                activeTab === "doctors"
+                  ? "border-[var(--bjc-blue)] text-[var(--bjc-blue)]"
+                  : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+              }`}
+            >
+              Doctors
+              <span className="ml-1.5 text-[11px] bg-[var(--bg-inner)] text-[var(--text-muted)] px-1.5 py-0.5 rounded-full">
+                {doctors.length}
+              </span>
+            </button>
+          </div>
 
           {/* Content */}
           <div className="px-7 py-6 space-y-5">
+
+          {/* ── Doctors Tab ── */}
+          {activeTab === "doctors" && (
+            <div className="space-y-4 animate-fade-in">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-semibold uppercase tracking-widest text-[var(--text-muted)]">
+                  BJC Health Doctors
+                </h3>
+                <button
+                  onClick={handleResetDoctors}
+                  className="text-[11px] text-[var(--bjc-blue)] hover:underline transition-colors"
+                >
+                  Reset to defaults
+                </button>
+              </div>
+
+              <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                The AI uses this list to identify which doctor on a referral letter belongs to BJC Health for correct Genie routing.
+              </p>
+
+              {/* Add doctor */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Dr First Last"
+                  value={newDoctorName}
+                  onChange={(e) => setNewDoctorName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddDoctor()}
+                  className="input-field flex-1 text-sm"
+                />
+                <button
+                  onClick={handleAddDoctor}
+                  disabled={!newDoctorName.trim()}
+                  className="btn-primary text-sm px-4 disabled:opacity-40"
+                >
+                  Add
+                </button>
+              </div>
+
+              {/* Doctor list */}
+              <div className="card-inner divide-y divide-[var(--border-light)] max-h-[400px] overflow-y-auto">
+                {doctors.map((name, i) => (
+                  <div key={i} className="flex items-center justify-between px-4 py-2.5 group">
+                    <span className="text-sm text-[var(--text-primary)]">{name}</span>
+                    <button
+                      onClick={() => handleRemoveDoctor(i)}
+                      className="text-[var(--text-faint)] hover:text-[var(--error)] transition-colors opacity-0 group-hover:opacity-100"
+                      title="Remove"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+                {doctors.length === 0 && (
+                  <div className="px-4 py-6 text-center text-sm text-[var(--text-muted)]">
+                    No doctors configured. Add doctors above or reset to defaults.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── Converter Tab ── */}
+          {activeTab === "converter" && (<>
+
 
             {/* Supported formats */}
             <div className="flex flex-wrap gap-2 animate-fade-in stagger-2">
@@ -514,6 +660,12 @@ export default function Home() {
                           <p className="text-[var(--text-primary)] font-medium">{result.extractedData.addressee}</p>
                         </div>
                       )}
+                      {result.extractedData.cc && (
+                        <div>
+                          <span className="text-[var(--text-muted)] text-xs">CC</span>
+                          <p className="text-[var(--text-primary)] font-medium">{result.extractedData.cc}</p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -530,6 +682,7 @@ export default function Home() {
                 </div>
               </div>
             )}
+          </>)}
           </div>
         </div>
 

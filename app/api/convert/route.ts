@@ -53,11 +53,19 @@ export async function POST(request: NextRequest) {
         ? documentTypeParam
         : "auto";
 
-    // Parse BJC doctor list from env var (comma-separated surnames)
+    // Parse BJC doctor list: prefer form data (from UI), fall back to env var
+    const bjcDoctorsParam = formData.get("bjcDoctors") as string | null;
     const bjcDoctorsEnv = process.env.BJC_DOCTORS;
-    const bjcDoctors = bjcDoctorsEnv
-      ? bjcDoctorsEnv.split(",").map((s) => s.trim()).filter(Boolean)
-      : undefined;
+    let bjcDoctors: string[] | undefined;
+    if (bjcDoctorsParam) {
+      try {
+        const parsed = JSON.parse(bjcDoctorsParam);
+        if (Array.isArray(parsed) && parsed.length > 0) bjcDoctors = parsed;
+      } catch { /* ignore malformed JSON */ }
+    }
+    if (!bjcDoctors && bjcDoctorsEnv) {
+      bjcDoctors = bjcDoctorsEnv.split(",").map((s) => s.trim()).filter(Boolean);
+    }
 
     // Extract patient data from PDF
     const extraction = await extractPatientData(pdfBuffer, documentType, bjcDoctors);
