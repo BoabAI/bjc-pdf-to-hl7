@@ -86,9 +86,16 @@ export async function POST(request: NextRequest) {
       ? "REF^I12" as const
       : "ORU^R01" as const;
 
+    // Map detected document type to Genie-friendly label for OBR-4 "Type" column
+    const documentTypeLabel = (extraction.documentType === "referral_letter" || extraction.documentType === "gp_referral")
+      ? "Referral"
+      : extraction.documentType === "consent_form"
+        ? "Correspondence"
+        : "Correspondence";
+
     // Build HL7 message with embedded PDF
     const hl7Content = buildHL7Message(extraction.data, pdfBuffer, {
-      documentTitle: file.name.replace(/\.pdf$/i, ""),
+      documentTitle: documentTypeLabel,
       resultStatus: autoFile ? "F" : "P", // F=Final (auto-file), P=Preliminary (queue)
       orderingProvider: orderingProvider || undefined,
       ...(carrier ? { sendingApplication: carrier } : {}),
