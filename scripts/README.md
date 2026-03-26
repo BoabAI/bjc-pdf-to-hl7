@@ -137,9 +137,9 @@ python pdf_to_hl7.py "C:\My Documents\consent form.pdf"
 The output follows the Australian Diagnostics and Referral Messaging (ADRM) specification:
 
 ```
-MSH|^~\&|MEDIHOST|BJCHEALTH|GENIE|CLINIC|20241220143022||ORU^R01|MSG...|P|2.4|||AL|NE|AUS|8859/1
+MSH|^~\&|BJCHEALTH|BJCHEALTH|GENIE|CLINIC|20241220143022||ORU^R01|MSG...|P|2.4|||AL|NE|AUS|8859/1
 PID|1||1234567890-1^^^Medicare^MC||SMITH^JOHN||19800315|M|||123 Main St^^Melbourne^VIC^3000^AUS|||0412345678
 PV1|1|O
-OBR|1||RPT20241220143022^MEDIHOST|PDF^Patient Consent Form^L|||20241220143022||||||||||||||||||20241220143022|||F
+OBR|1||RPT20241220143022^BJCHEALTH|PDF^Patient Consent Form^L|||20241220143022||||||||||||||||||20241220143022|||F
 OBX|1|ED|PDF^Display format in PDF^AUSPDI||^application^pdf^Base64^JVBERi0...base64data...||||||F
 ```

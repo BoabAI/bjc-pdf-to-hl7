@@ -354,12 +354,12 @@ Default: VIC (if postcode invalid or unavailable)
 ### 7.2 MSH - Message Header
 
 ```
-MSH|^~\&|MEDIHOST|BJCHEALTH|GENIE|CLINIC|{timestamp}||ORU^R01|{messageId}|P|2.4||AL|NE|AUS|8859/1
+MSH|^~\&|BJCHEALTH|BJCHEALTH|GENIE|CLINIC|{timestamp}||ORU^R01|{messageId}|P|2.4||AL|NE|AUS|8859/1
 ```
 
 | Field | Value | Description |
 |-------|-------|-------------|
-| MSH-3 | MEDIHOST | Sending application |
+| MSH-3 | BJCHEALTH | Sending application |
 | MSH-4 | BJCHEALTH | Sending facility |
 | MSH-5 | GENIE | Receiving application |
 | MSH-6 | CLINIC | Receiving facility |
@@ -404,12 +404,12 @@ Only included when `orderingProvider` parameter is provided.
 ### 7.5 OBR - Observation Request
 
 ```
-OBR|1||RPT{timestamp}^MEDIHOST|PDF^{title}^L|||{timestamp}|||||||||||||||||{timestamp}||{status}
+OBR|1||RPT{timestamp}^BJCHEALTH|PDF^{title}^L|||{timestamp}|||||||||||||||||{timestamp}||{status}
 ```
 
 | Field | Description |
 |-------|-------------|
-| OBR-3 | Filler order number: `RPT{timestamp}^MEDIHOST` |
+| OBR-3 | Filler order number: `RPT{timestamp}^BJCHEALTH` |
 | OBR-4 | Universal service ID: `PDF^{document title}^L` |
 | OBR-7 | Observation date/time |
 | OBR-22 | Results change date/time |
@@ -432,7 +432,7 @@ OBX|1|ED|PDF^Display format in PDF^AUSPDI||^application^pdf^Base64^{base64data}|
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| sendingApplication | `"MEDIHOST"` | MSH-3 value |
+| sendingApplication | `"BJCHEALTH"` | MSH-3 value |
 | sendingFacility | `"BJCHEALTH"` | MSH-4 value |
 | receivingApplication | `"GENIE"` | MSH-5 value |
 | receivingFacility | `"CLINIC"` | MSH-6 value |
@@ -631,7 +631,7 @@ Generated test PDFs include: standard forms, skewed layouts, grainy/fax-quality,
 ## Appendix A: File Structure
 
 ```
-medihost-pdf-to-hl7/
+bjc-pdf-to-hl7/
 +-- app/
 |   +-- api/
 |   |   +-- auth/route.ts              Authentication endpoint

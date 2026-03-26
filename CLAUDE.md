@@ -13,6 +13,8 @@ bun test --filter "consent"  # Run tests matching a pattern
 bun start        # Start production server
 ```
 
+**Bun is the only package manager.** There is no `package-lock.json`. Never use `npm ci`. Use `bun add`/`bun remove` for dependencies. On Amplify, `amplify.yml` uses `npm install` (not `npm ci`) because there's no lockfile.
+
 ## Testing the API
 
 ```bash
@@ -27,6 +29,9 @@ curl -X POST -F "pdf=@/path/to/file.pdf" -F "detectOnly=true" http://localhost:3
 
 # Convert with specific document type and Genie options
 curl -X POST -F "pdf=@/path/to/file.pdf" -F "documentType=gp_referral" -F "autoFile=true" http://localhost:3000/api/convert
+
+# Convert with carrier and doctor list for addressee resolution
+curl -X POST -F "pdf=@/path/to/file.pdf" -F "carrier=MYAPP" -F 'bjcDoctors=["Dr Irwin Lim","Dr Herman Lau"]' http://localhost:3000/api/convert
 ```
 
 ## Debug Scripts
@@ -35,9 +40,22 @@ curl -X POST -F "pdf=@/path/to/file.pdf" -F "documentType=gp_referral" -F "autoF
 bun run scripts/diagnose-pdfs.ts          # Extract patient data from all test PDFs
 bun run scripts/test-vision.ts            # Run live Bedrock extraction against mock referrals
 bun run scripts/generate-test-pdfs.ts     # Regenerate all 20 test PDFs (requires puppeteer)
+bun run scripts/generate-cc-test-pdfs.ts  # Generate CC/addressee resolution test PDFs
+bun run scripts/test-cc-scenarios.ts      # Live Bedrock test for CC addressee scenarios
 ```
 
 Tests use generated PDFs at `docs/input PDF/` (nested subdirectories with various formats).
+
+### Test Structure
+
+Tests are co-located with source files and use `bun:test` imports (`describe`, `expect`, `test` from `"bun:test"`). Key test files:
+- `lib/pdf-parser.test.ts` - Extraction logic (mocks Bedrock responses)
+- `lib/hl7-builder.test.ts` - HL7 message generation
+- `lib/vision-extractor.test.ts` - Vision extraction with mocked Bedrock client
+- `app/api/convert/route.test.ts` - API route integration tests
+- `lib/utils.test.ts` - Utility functions
+
+The `scripts/test-vision.ts` and `scripts/test-cc-scenarios.ts` are **live Bedrock tests** (not unit tests) — they require valid AWS credentials and make real API calls.
 
 ## Architecture
 
@@ -68,20 +86,24 @@ Four document types are classified by Bedrock vision:
 ### Core Modules
 
 **`lib/pdf-parser.ts`** - Bedrock extraction facade. Key functions:
-- `extractPatientData(pdfBuffer, documentType?)` - Main entry point, optionally passes a document type hint to Bedrock
-- `formatExtractedData()` - Formats PatientData into display-friendly key/value pairs for the UI
+- `extractPatientData(pdfBuffer, documentType?, bjcDoctors?)` - Main entry point, optionally passes document type hint and doctor list to Bedrock
+- `formatExtractedData()` - Formats PatientData + ReferralInfo into display-friendly key/value pairs for the UI
 
-**`lib/vision-extractor.ts`** - Sends PDFs to Bedrock Claude Sonnet 4.6 and returns:
+**`lib/vision-extractor.ts`** - Sends PDFs to Bedrock Claude Sonnet 4.6 via the Converse API. Constants: region `ap-southeast-2`, model `au.anthropic.claude-sonnet-4-6`, timeout 30s. Returns:
 - Classified document type
 - Structured patient fields
+- Referral info: sender, addressee, CC names (AI-resolved against BJC doctor list)
 - Runtime warnings for timeout, IAM, or credential failures
 - State inference from Australian postcodes when the model omits state
 
-**`lib/hl7-builder.ts`** - Generates HL7 v2.4 ORU^R01 messages per ADRM specification:
-- MSH: Message header with AUS country code, 8859/1 charset
-- PID: Patient identification with Medicare format (`number-ref^^^Medicare^MC`)
-- PV1: Patient visit (Outpatient), optionally routes to doctor via provider number
-- OBR: Observation request with result status (F=Final/auto-file, P=Preliminary/queue)
+**`lib/hl7-builder.ts`** - Generates HL7 v2.4 messages per ADRM specification. Supports two message types:
+- **ORU^R01** (results) for consent forms and generic documents
+- **REF^I12** (referrals) for referral_letter and gp_referral, with AU simplified REF profile in MSH-12
+- MSH: Message header with AUS country code, 8859/1 charset, configurable carrier (MSH-3)
+- PID: Patient identification with Medicare format (`number-ref^^^AUSHIC^MC`)
+- PV1: Patient visit (Outpatient), routes to doctor via provider number (PV1-9)
+- PRD: Provider roles for REF messages (sender as RP=Referring Provider, addressee as RT=Referred To)
+- OBR: Observation request with document type label and result status (F=Final/auto-file, P=Preliminary/queue)
 - OBX: Embedded PDF as Base64 in ED datatype with AUSPDI coding
 
 ### HL7 Format Notes
@@ -95,13 +117,38 @@ Four document types are classified by Bedrock vision:
 
 - `autoFile` (default true): Sets OBR-25 to F (Final/auto-file) or P (Preliminary/queue for review)
 - `orderingProvider`: Medicare Provider Number placed in PV1-9 to route document to a specific doctor's inbox
+- `carrier`: Overrides MSH-3 Sending Application (default "SMECAI")
+- `bjcDoctors`: JSON array of doctor names for AI-driven addressee resolution (falls back to `BJC_DOCTORS` env var)
+
+### Addressee Resolution
+
+The vision extractor uses AI to identify sender, addressee, and CC recipients from referral letters. When a `bjcDoctors` list is provided, the model resolves the addressee to the best-matching doctor from that list (e.g., "Dear Rheumatologist" → "Dr Irwin Lim"). The UI pre-populates a default BJC Health doctor list in `app/page.tsx`.
 
 ### Bedrock Runtime Notes
 
-- `/api/convert` is pinned to `nodejs` runtime for Amplify SSR
-- Bedrock auth comes from the Amplify compute role, not the Amplify service role
+- `/api/convert` is pinned to `nodejs` runtime (`export const runtime = "nodejs"`) for Amplify SSR
+- Bedrock auth comes from the Amplify **compute role**, not the service role
 - A missing compute role will surface as an AWS credential error at runtime
+- AU inference profiles (`au.anthropic.*`) route to `ap-southeast-4` (Melbourne) — IAM must allow **both** `ap-southeast-2` and `ap-southeast-4`
+
+### Environment Variables
+
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `APP_PASSWORD` | Yes | Password for login authentication |
+| `BJC_DOCTORS` | No | JSON array of doctor names (fallback when UI doesn't send `bjcDoctors`) |
+
+Locally, create `.env.local`. On Amplify, env vars are set at the app level and written to `.env.production` during build (see `amplify.yml`).
+
+### Reference Docs
+
+- `docs/functional_spec.md` - Full functional specification
+- `docs/research/genie-hl7-input-format.md` - Genie's HL7 input requirements
+- `docs/amplify-bedrock-credentials.md` - Amplify compute role + Bedrock auth setup
+- `docs/REFERRAL_LETTER_SUPPORT.md` - Referral letter parsing design
 
 ## Deployment
 
-Deploy to AWS Amplify with platform set to **WEB_COMPUTE** (required for SSR). The `amplify.yml` is pre-configured. Uses `output: "standalone"` in next.config.mjs for Amplify compatibility. Must create `.env.production` during build phase to pass `APP_PASSWORD` to Lambda runtime, and the app must have a compute role with Bedrock permissions attached.
+Deploy to AWS Amplify with platform set to **WEB_COMPUTE** (required for SSR). The `amplify.yml` is pre-configured. Uses `output: "standalone"` in `next.config.mjs` for Amplify compatibility. Must create `.env.production` during build phase to pass `APP_PASSWORD` to Lambda runtime, and the app must have a compute role with Bedrock permissions attached.
+
+The root layout uses `force-dynamic` and middleware sets `Cache-Control: no-store` on all responses to prevent CloudFront from caching pages and bypassing middleware auth.

@@ -67,7 +67,7 @@ class PatientData:
 @dataclass
 class HL7Options:
     """HL7 message configuration options"""
-    sending_application: str = "MEDIHOST"
+    sending_application: str = "BJCHEALTH"
     sending_facility: str = "BJCHEALTH"
     receiving_application: str = "GENIE"
     receiving_facility: str = "CLINIC"
