@@ -3,28 +3,24 @@
 import { useState, useCallback, useEffect } from "react";
 import { AppFooter } from "./components/AppFooter";
 import { ConversionOptions } from "./components/ConversionOptions";
-import {
-  ConversionResultPanel,
-  type ConversionResult,
-} from "./components/ConversionResultPanel";
+import { type ConversionResult } from "./components/ConversionResultPanel";
 import { DoctorsTab } from "./components/DoctorsTab";
+import { FileQueueItem, type FileEntry } from "./components/FileQueueItem";
 import { LogoStrip } from "./components/LogoStrip";
 import { UploadZone } from "./components/UploadZone";
 import {
   DEFAULT_BJC_DOCTORS,
   DEFAULT_CARRIER,
+  isDocumentType,
   type DocumentTypeOption,
 } from "@/lib/conversion-config";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"converter" | "doctors">("converter");
-  const [file, setFile] = useState<File | null>(null);
+  const [entries, setEntries] = useState<FileEntry[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isConverting, setIsConverting] = useState(false);
-  const [isDetecting, setIsDetecting] = useState(false);
-  const [result, setResult] = useState<ConversionResult | null>(null);
   const [documentType, setDocumentType] = useState<DocumentTypeOption>("auto");
-  const [detectedType, setDetectedType] = useState<string | null>(null);
   const [autoFile, setAutoFile] = useState(true);
   const [sendToDoctor, setSendToDoctor] = useState(false);
   const [providerNumber, setProviderNumber] = useState("");
@@ -70,31 +66,72 @@ export default function Home() {
     saveDoctors(DEFAULT_BJC_DOCTORS);
   };
 
-  const detectDocumentType = useCallback(async (selectedFile: File) => {
-    setIsDetecting(true);
-    try {
-      const formData = new FormData();
-      formData.append("pdf", selectedFile);
-      formData.append("detectOnly", "true");
+  const updateEntry = useCallback(
+    (id: string, patch: Partial<FileEntry>) => {
+      setEntries((prev) =>
+        prev.map((e) => (e.id === id ? { ...e, ...patch } : e))
+      );
+    },
+    []
+  );
 
-      const response = await fetch("/api/convert", {
-        method: "POST",
-        body: formData,
-      });
+  const detectDocumentType = useCallback(
+    async (entry: FileEntry) => {
+      updateEntry(entry.id, { status: "detecting" });
+      try {
+        const formData = new FormData();
+        formData.append("pdf", entry.file);
+        formData.append("detectOnly", "true");
 
-      const data = await response.json();
-      if (data.success && data.documentType) {
-        setDocumentType(data.documentType);
-        setDetectedType(data.documentType);
+        const response = await fetch("/api/convert", {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = await response.json();
+        if (data.success && isDocumentType(data.documentType)) {
+          updateEntry(entry.id, {
+            detectedType: data.documentType,
+            status: "ready",
+          });
+        } else {
+          updateEntry(entry.id, { status: "ready" });
+        }
+      } catch (error) {
+        console.error("Detection error:", error);
+        updateEntry(entry.id, { status: "ready" });
       }
-    } catch (error) {
-      console.error("Detection error:", error);
-      setDocumentType("auto");
-      setDetectedType(null);
-    } finally {
-      setIsDetecting(false);
-    }
-  }, []);
+    },
+    [updateEntry]
+  );
+
+  const addFiles = useCallback(
+    (incoming: File[]) => {
+      const pdfs = incoming.filter((f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"));
+      const skipped = incoming.length - pdfs.length;
+      if (skipped > 0) {
+        alert(`${skipped} file(s) skipped — PDFs only.`);
+      }
+      if (pdfs.length === 0) return;
+
+      const newEntries: FileEntry[] = pdfs.map((file) => ({
+        id:
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        file,
+        detectedType: null,
+        status: "queued",
+      }));
+
+      setEntries((prev) => [...prev, ...newEntries]);
+      // Kick off detection in parallel for each new entry
+      for (const entry of newEntries) {
+        void detectDocumentType(entry);
+      }
+    },
+    [detectDocumentType]
+  );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -106,70 +143,86 @@ export default function Home() {
     setIsDragging(false);
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-
-    const droppedFile = e.dataTransfer.files[0];
-    if (droppedFile?.type === "application/pdf") {
-      setFile(droppedFile);
-      setResult(null);
-      setDetectedType(null);
-      detectDocumentType(droppedFile);
-    } else {
-      alert("Please upload a PDF file");
-    }
-  }, [detectDocumentType]);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
+      addFiles(Array.from(e.dataTransfer.files));
+    },
+    [addFiles]
+  );
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      setResult(null);
-      setDetectedType(null);
-      detectDocumentType(selectedFile);
+    addFiles(Array.from(e.target.files ?? []));
+    // Reset input value so re-selecting the same file works
+    e.target.value = "";
+  };
+
+  const buildFormData = (file: File): FormData => {
+    const formData = new FormData();
+    formData.append("pdf", file);
+    formData.append("documentType", documentType);
+    formData.append("autoFile", autoFile.toString());
+    formData.append("carrier", carrier);
+    if (sendToDoctor && providerNumber.trim()) {
+      formData.append("orderingProvider", providerNumber.trim());
+    }
+    if (doctors.length > 0) {
+      formData.append("bjcDoctors", JSON.stringify(doctors));
+    }
+    return formData;
+  };
+
+  const convertEntry = async (entry: FileEntry): Promise<void> => {
+    updateEntry(entry.id, { status: "converting", result: undefined });
+    try {
+      const response = await fetch("/api/convert", {
+        method: "POST",
+        body: buildFormData(entry.file),
+      });
+      const data: ConversionResult = await response.json();
+      if (data.success) {
+        updateEntry(entry.id, { status: "done", result: data });
+      } else {
+        updateEntry(entry.id, {
+          status: "failed",
+          result: { success: false, error: data.error || "Conversion failed" },
+        });
+      }
+    } catch {
+      updateEntry(entry.id, {
+        status: "failed",
+        result: { success: false, error: "Network error. Please try again." },
+      });
     }
   };
 
   const handleConvert = async () => {
-    if (!file) return;
+    if (isConverting) return;
+    // Snapshot the entries that need conversion at the start of the batch.
+    // New files added while converting won't restart the batch.
+    const pending = entries.filter(
+      (e) => e.status === "queued" || e.status === "ready"
+    );
+    if (pending.length === 0) return;
 
     setIsConverting(true);
-    setResult(null);
-
     try {
-      const formData = new FormData();
-      formData.append("pdf", file);
-      formData.append("documentType", documentType);
-      formData.append("autoFile", autoFile.toString());
-      formData.append("carrier", carrier);
-      if (sendToDoctor && providerNumber.trim()) {
-        formData.append("orderingProvider", providerNumber.trim());
+      // Sequential to avoid Bedrock rate limits.
+      for (const entry of pending) {
+        await convertEntry(entry);
       }
-      if (doctors.length > 0) {
-        formData.append("bjcDoctors", JSON.stringify(doctors));
-      }
-
-      const response = await fetch("/api/convert", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setResult(data);
-      } else {
-        setResult({ success: false, error: data.error || "Conversion failed" });
-      }
-    } catch (error) {
-      setResult({ success: false, error: "Network error. Please try again." });
     } finally {
       setIsConverting(false);
     }
   };
 
-  const handleDownload = () => {
+  const handleRemove = (id: string) => {
+    setEntries((prev) => prev.filter((e) => e.id !== id));
+  };
+
+  const handleDownload = (entry: FileEntry) => {
+    const result = entry.result;
     if (!result?.hl7Content || !result.filename) return;
 
     const blob = new Blob([result.hl7Content], { type: "text/plain" });
@@ -183,18 +236,23 @@ export default function Home() {
     URL.revokeObjectURL(url);
   };
 
-  const handleReset = () => {
-    setFile(null);
-    setResult(null);
+  const handleResetAll = () => {
+    setEntries([]);
     setDocumentType("auto");
-    setDetectedType(null);
   };
 
-  const missingPatientData =
-    result?.success &&
-    !result.extractedData?.firstName &&
-    !result.extractedData?.lastName &&
-    !result.extractedData?.dob;
+  const pendingCount = entries.filter(
+    (e) => e.status === "queued" || e.status === "ready" || e.status === "detecting"
+  ).length;
+  const doneCount = entries.filter((e) => e.status === "done").length;
+  const failedCount = entries.filter((e) => e.status === "failed").length;
+  const completedCount = doneCount + failedCount;
+  const showSummary =
+    entries.length > 0 && completedCount > 0 && pendingCount === 0 && !isConverting;
+
+  // Use the first detected type for the shared options panel
+  const firstDetected = entries.find((e) => e.detectedType !== null)?.detectedType ?? null;
+  const anyDetecting = entries.some((e) => e.status === "detecting");
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-4 py-10">
@@ -286,28 +344,49 @@ export default function Home() {
             </div>
 
             <UploadZone
-              file={file}
               isDragging={isDragging}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               onFileChange={handleFileChange}
-              onReset={handleReset}
             />
 
-            {file && !result && (
+            {entries.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-semibold uppercase tracking-widest text-[var(--text-muted)]">
+                    Files ({entries.length})
+                  </h3>
+                  {showSummary && (
+                    <p className="text-xs text-[var(--text-secondary)]">
+                      {doneCount} of {entries.length} converted
+                      {failedCount > 0 ? ` · ${failedCount} failed` : ""}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-3">
+                  {entries.map((entry) => (
+                    <FileQueueItem
+                      key={entry.id}
+                      entry={entry}
+                      onRemove={() => handleRemove(entry.id)}
+                      onDownload={() => handleDownload(entry)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {entries.length > 0 && (
               <ConversionOptions
                 documentType={documentType}
-                detectedType={detectedType}
-                isDetecting={isDetecting}
+                detectedType={firstDetected}
+                isDetecting={anyDetecting}
                 carrier={carrier}
                 autoFile={autoFile}
                 sendToDoctor={sendToDoctor}
                 providerNumber={providerNumber}
-                onDocumentTypeChange={(value) => {
-                  setDocumentType(value);
-                  setDetectedType(null);
-                }}
+                onDocumentTypeChange={setDocumentType}
                 onCarrierChange={handleCarrierChange}
                 onAutoFileChange={setAutoFile}
                 onSendToDoctorChange={setSendToDoctor}
@@ -316,12 +395,12 @@ export default function Home() {
             )}
 
             {/* ── Convert button ── */}
-            {file && !result && (
-              <div className="text-center pt-1 animate-fade-in">
+            {entries.length > 0 && (
+              <div className="flex flex-col items-center gap-3 pt-1 animate-fade-in">
                 <button
                   onClick={handleConvert}
-                  disabled={isConverting}
-                  className="btn-primary w-full max-w-xs"
+                  disabled={isConverting || pendingCount === 0}
+                  className="btn-primary w-full max-w-xs disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isConverting ? (
                     <span className="flex items-center justify-center gap-2">
@@ -331,20 +410,20 @@ export default function Home() {
                       </svg>
                       Converting...
                     </span>
+                  ) : pendingCount > 0 ? (
+                    `Convert ${pendingCount} file${pendingCount === 1 ? "" : "s"}`
                   ) : (
-                    "Convert to HL7"
+                    "All converted"
                   )}
                 </button>
+                <button
+                  onClick={handleResetAll}
+                  disabled={isConverting}
+                  className="text-xs text-[var(--text-muted)] hover:text-[var(--error)] transition-colors disabled:opacity-50"
+                >
+                  Clear all
+                </button>
               </div>
-            )}
-
-            {result && (
-              <ConversionResultPanel
-                result={result}
-                missingPatientData={Boolean(missingPatientData)}
-                onDownload={handleDownload}
-                onReset={handleReset}
-              />
             )}
           </>)}
           </div>
