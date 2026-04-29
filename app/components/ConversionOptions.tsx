@@ -67,6 +67,8 @@ export function ConversionOptions({
           <option value="consent_form">Consent Form</option>
           <option value="referral_letter">Specialist Referral Letter</option>
           <option value="gp_referral">GP Referral Letter</option>
+          <option value="pathology_result">Pathology Result</option>
+          <option value="radiology_result">Radiology Result</option>
           <option value="generic">Other Document</option>
         </select>
       </div>

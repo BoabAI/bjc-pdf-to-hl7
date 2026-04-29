@@ -132,6 +132,37 @@ Always wrap file paths in quotes when they contain spaces:
 python pdf_to_hl7.py "C:\My Documents\consent form.pdf"
 ```
 
+## TypeScript Debug & Live Test Scripts
+
+These are run via Bun against the project's TypeScript modules.
+
+### Generators (puppeteer + system Chrome)
+
+| Script | Purpose |
+|--------|---------|
+| `generate-test-pdfs.ts` | Regenerate all 20 generic test referral / consent PDFs |
+| `generate-cc-test-pdfs.ts` | Generate CC / addressee resolution scenario PDFs |
+| `generate-result-test-pdfs.ts` | Generate 4 synthetic pathology + radiology result PDFs (saved to `docs/input PDF/results/`) |
+
+### Live Bedrock tests (run manually with `AWS_PROFILE` set)
+
+These call Bedrock (Claude Sonnet 4.6) for real and are NOT run by `bun test`.
+They require AWS credentials with `bedrock:InvokeModel` for
+`anthropic.claude-sonnet-4-6` in **both** `ap-southeast-2` and
+`ap-southeast-4` (AU inference profiles route to Melbourne).
+
+| Script | Purpose |
+|--------|---------|
+| `test-vision.ts` | Run vision extraction across all mock referral PDFs |
+| `test-cc-scenarios.ts` | Verify CC addressee resolution against the BJC doctor list |
+| `test-result-scenarios.ts` | Verify pathology/radiology classification + referring doctor resolution |
+
+Example:
+
+```bash
+AWS_PROFILE=bjc-dev bun scripts/test-result-scenarios.ts
+```
+
 ## HL7 Format Reference
 
 The output follows the Australian Diagnostics and Referral Messaging (ADRM) specification:

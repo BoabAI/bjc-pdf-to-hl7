@@ -7,6 +7,8 @@ export const DOCUMENT_TYPES: DocumentType[] = [
   "consent_form",
   "referral_letter",
   "gp_referral",
+  "pathology_result",
+  "radiology_result",
   "generic",
 ];
 
@@ -52,6 +54,40 @@ export function isReferralDocumentType(documentType: DocumentType): boolean {
   return documentType === "referral_letter" || documentType === "gp_referral";
 }
 
+export function isResultDocumentType(documentType: DocumentType): boolean {
+  return (
+    documentType === "pathology_result" || documentType === "radiology_result"
+  );
+}
+
 export function documentTypeLabel(documentType: DocumentType): string {
-  return isReferralDocumentType(documentType) ? "Referral" : "Correspondence";
+  switch (documentType) {
+    case "pathology_result":
+      return "Pathology Result";
+    case "radiology_result":
+      return "Radiology Result";
+    case "referral_letter":
+    case "gp_referral":
+      return "Referral";
+    case "consent_form":
+    case "generic":
+    default:
+      return "Correspondence";
+  }
+}
+
+export function diagnosticServiceSectionFor(
+  documentType: DocumentType
+): "LAB" | "RAD" | "PHY" | undefined {
+  switch (documentType) {
+    case "pathology_result":
+      return "LAB";
+    case "radiology_result":
+      return "RAD";
+    case "referral_letter":
+    case "gp_referral":
+      return "PHY";
+    default:
+      return undefined;
+  }
 }

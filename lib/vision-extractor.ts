@@ -19,6 +19,8 @@ export type DocumentType =
   | "consent_form"
   | "referral_letter"
   | "gp_referral"
+  | "pathology_result"
+  | "radiology_result"
   | "generic";
 
 const REGION = "ap-southeast-2";
@@ -65,7 +67,7 @@ const EXTRACTION_TOOL = {
             type: "string",
             enum: DOCUMENT_TYPES,
             description:
-              "Best-fit document type: consent_form, referral_letter, gp_referral, or generic",
+              "Best-fit document type: consent_form, referral_letter, gp_referral, pathology_result, radiology_result, or generic",
           },
           firstName: {
             type: ["string", "null"],
@@ -192,13 +194,26 @@ Document type classification guide:
   "RE:" line with patient name, clinical findings, investigation results, management plan,
   letter addressed to the referring GP or another specialist. The sender is a specialist.
 
+- pathology_result: Pathology / laboratory test results.
+  Visual cues: pathology lab letterhead (e.g. Douglass Hanly Moir, Laverty, Sonic Healthcare,
+  Sullivan Nicolaides, 4Cyte), reference ranges and units (mmol/L, g/L, x10^9/L), tabular
+  numeric results, "Specimen received" / "Collected" / "Reported" timestamps, NATA accreditation
+  marks, organism / susceptibility tables for microbiology. The sender is a pathologist or lab.
+
+- radiology_result: Radiology / imaging reports.
+  Visual cues: imaging provider letterhead (e.g. PRP Diagnostic Imaging, I-MED, Lumus Imaging,
+  Capital Radiology), modality keywords in the title (CT, MRI, X-ray, Ultrasound, DEXA, PET),
+  "Findings", "Impression", and "Conclusion" sections, a "Referrer:" / "Referring Doctor:" line
+  near the top of the report. The sender is a radiologist.
+
 - generic: Any other medical document that does not fit the above categories.
-  Use ONLY when the document is clearly not a consent form or referral letter.
+  Use ONLY when the document is clearly not a consent form, referral, pathology, or radiology report.
 
 Classification priority: If the document is a letter from one doctor to another about a patient,
 it is almost always a referral (gp_referral or referral_letter), NOT generic.
-Only use generic for documents like pathology reports, imaging reports, discharge summaries,
-or documents with no clear letter format.
+Pathology lab reports go to pathology_result; imaging / radiology reports go to radiology_result.
+Use generic only for residual cases (discharge summaries, hospital admission notes,
+miscellaneous correspondence) that don't fit any of the above categories.
 
 Patient extraction rules:
 - Look for the PATIENT's details, not the doctor's, recipient's, or clinic's
@@ -223,6 +238,7 @@ Sender/Addressee rules (for referral_letter and gp_referral only):
   3. If neither clinic name nor doctor list resolves it, prefer the CC recipient (CC is more likely the local receiving doctor)
   4. If no CC exists, use the primary recipient (assumed to be the BJC doctor)
 - addresseeClinic: the clinic of the resolved addressee
+- For pathology_result and radiology_result documents, the addressee is the referring doctor named on the report — usually after a "Reported to:", "Copy to:", "Referrer:", or "Referring Doctor:" label, or in the recipient block at the top. Resolve against BJC_DOCTORS the same way as for referrals.
 - For consent_form and generic documents, return null for all sender/addressee fields
 
 - Always call the extract_patient_data tool`;

@@ -1485,9 +1485,10 @@ describe("PRD (Provider Data) Segments", () => {
 // =============================================================================
 
 describe("OBR-24 (Diagnostic Service Section ID)", () => {
-  test("OBR-24 is PHY for REF^I12 messages (routes to Incoming Letters)", () => {
+  test("OBR-24 is PHY for REF^I12 messages when diagnosticServiceSection=PHY (routes to Incoming Letters)", () => {
     const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
       messageType: "REF^I12",
+      diagnosticServiceSection: "PHY",
     });
     const obr = getFields(getSegment(hl7, "OBR")!);
 
@@ -1501,9 +1502,21 @@ describe("OBR-24 (Diagnostic Service Section ID)", () => {
     expect(obr[24]).toBe("");
   });
 
+  test("OBR-24 is empty for REF^I12 messages when diagnosticServiceSection is omitted", () => {
+    // Source of truth is now `diagnosticServiceSection`, not `messageType`.
+    // Convert-service is responsible for passing PHY for referral types.
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      messageType: "REF^I12",
+    });
+    const obr = getFields(getSegment(hl7, "OBR")!);
+
+    expect(obr[24]).toBe("");
+  });
+
   test("OBR-25 is still correct after OBR-24 addition", () => {
     const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
       messageType: "REF^I12",
+      diagnosticServiceSection: "PHY",
       resultStatus: "P",
     });
     const obr = getFields(getSegment(hl7, "OBR")!);

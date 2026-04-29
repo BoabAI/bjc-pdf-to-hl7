@@ -3,6 +3,7 @@ import { extractPatientData, formatExtractedData } from "./pdf-parser";
 import {
   DEFAULT_CARRIER,
   MAX_PDF_SIZE_BYTES,
+  diagnosticServiceSectionFor,
   documentTypeLabel,
   isReferralDocumentType,
   parseDocumentTypeOption,
@@ -130,6 +131,10 @@ export async function convertPdf(request: ConvertRequest): Promise<ConvertResult
     ? ("REF^I12" as const)
     : ("ORU^R01" as const);
 
+  const diagnosticServiceSection = diagnosticServiceSectionFor(
+    extraction.documentType
+  );
+
   const hl7Content = buildHL7Message(extraction.data, request.pdfBuffer, {
     documentTitle: documentTypeLabel(extraction.documentType),
     resultStatus: request.autoFile ? "F" : "P",
@@ -137,6 +142,7 @@ export async function convertPdf(request: ConvertRequest): Promise<ConvertResult
     ...(request.carrier ? { sendingApplication: request.carrier } : {}),
     messageType,
     referralInfo: extraction.referralInfo,
+    ...(diagnosticServiceSection ? { diagnosticServiceSection } : {}),
   });
 
   const baseData = formatExtractedData(extraction.data, extraction.referralInfo);

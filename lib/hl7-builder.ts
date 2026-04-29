@@ -31,6 +31,12 @@ export interface HL7Options {
   orderingProvider?: string; // PV1-9: Medicare Provider Number for doctor routing
   messageType?: "ORU^R01" | "REF^I12"; // MSH-9: ORU for results, REF for referral letters
   referralInfo?: ReferralInfo; // Sender/addressee info for referral letters
+  // OBR-24: Diagnostic Service Section ID
+  //   LAB = Pathology lab result (routes to Genie pathology inbox)
+  //   RAD = Radiology / imaging result (routes to Genie radiology inbox)
+  //   PHY = Physician (routes to Genie REF Incoming Letters)
+  // When omitted, OBR-24 is left empty (preserves existing consent_form/generic behavior).
+  diagnosticServiceSection?: "LAB" | "RAD" | "PHY";
 }
 
 const DEFAULT_OPTIONS: HL7Options = {
@@ -289,10 +295,13 @@ function buildOBR(options: HL7Options): string {
   fields.push(""); // OBR-23
 
   // OBR-24: Diagnostic Service Section ID
-  // PHY = Physician (routes to Incoming Letters in Genie REF)
-  // Empty for ORU messages (routes to Pathology/Radiology by default)
-  const isREF = options.messageType === "REF^I12";
-  fields.push(isREF ? "PHY" : "");
+  //   LAB = Pathology lab result (routes to Genie pathology inbox)
+  //   RAD = Radiology / imaging result (routes to Genie radiology inbox)
+  //   PHY = Physician (routes to Genie REF Incoming Letters)
+  // Source of truth is `diagnosticServiceSection` (set by convert-service from
+  // the document type). When omitted, OBR-24 is left empty (consent_form/generic
+  // and any caller that hasn't opted in to results routing).
+  fields.push(options.diagnosticServiceSection ?? "");
 
   fields.push(options.resultStatus || "F"); // OBR-25: Result Status (F=Final/auto-file, P=Preliminary/queue)
 
