@@ -227,7 +227,7 @@ Patient extraction rules:
 - State must be one of NSW, VIC, QLD, SA, WA, TAS, NT, ACT
 - If a field cannot be determined, return null for that field
 
-Sender/Addressee rules (for referral_letter and gp_referral only):
+Sender/Addressee rules:
 - senderName: the doctor who WROTE/SIGNED the letter (usually in the letterhead, signature, or "From:" line)
 - senderClinic: the clinic or practice of the sender (usually in the letterhead)
 - senderProviderNumber: the Medicare provider number of the sender (if visible)

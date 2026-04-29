@@ -62,6 +62,7 @@ docs/input PDF/**/*.pdf
 !docs/input PDF/originals/Referral_dummy.pdf
 !docs/input PDF/mock-referrals/*.pdf
 !docs/input PDF/cc-scenarios/*.pdf
+!docs/input PDF/results/*.pdf
 
 # Supabase local
 supabase/.temp/
