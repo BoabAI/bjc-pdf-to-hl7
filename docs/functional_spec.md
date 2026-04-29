@@ -779,10 +779,10 @@ bun start        # Production server
 | Script | Purpose |
 |--------|---------|
 | `scripts/generate-test-pdfs.ts` | Creates 20 test PDFs with realistic content (currently regenerated on demand) |
-| `scripts/generate-cc-test-pdfs.ts` | Generates CC / addressee resolution test PDFs |
+| `scripts/generate-addressee-test-pdfs.ts` | Generates CC / addressee resolution test PDFs |
 | `scripts/diagnose-pdfs.ts` | Runs extraction across all test PDFs |
 | `scripts/test-vision.ts` | Live Bedrock extraction against mock referrals (requires AWS creds) |
-| `scripts/test-cc-scenarios.ts` | Live Bedrock test for CC addressee scenarios |
+| `scripts/test-addressee-scenarios.ts` | Live Bedrock test for CC addressee scenarios |
 
 ### 11.3 Test PDF Inventory
 
@@ -791,7 +791,7 @@ Test PDFs live under `docs/input PDF/`:
 | Subdirectory | Purpose |
 |--------------|---------|
 | `mock-referrals/` | Five generated mock referral PDFs (`test_mock_referral1.pdf`–`5`) |
-| `cc-scenarios/` | Three CC / addressee resolution scenarios (BJC primary, BJC in CC, both BJC) |
+| `addressee-scenarios/` | Three CC / addressee resolution scenarios (BJC primary, BJC in CC, both BJC) |
 | `originals/` | Sample original PDFs used as fixtures |
 
 ---
@@ -885,10 +885,10 @@ bjc-pdf-to-hl7/
 |   +-- main.tf                          Terraform: audit table + IAM policy
 +-- scripts/
 |   +-- generate-test-pdfs.ts            Test PDF generator
-|   +-- generate-cc-test-pdfs.ts         CC scenario PDF generator
+|   +-- generate-addressee-test-pdfs.ts         Addressee resolution PDF generator
 |   +-- diagnose-pdfs.ts                 Extraction diagnostics
 |   +-- test-vision.ts                   Live Bedrock test (mock referrals)
-|   +-- test-cc-scenarios.ts             Live Bedrock test (CC addressee scenarios)
+|   +-- test-addressee-scenarios.ts             Live Bedrock test (addressee resolution scenarios)
 +-- docs/
 |   +-- functional_spec.md               This document
 |   +-- amplify-bedrock-credentials.md   Compute role + Bedrock auth setup
@@ -898,7 +898,7 @@ bjc-pdf-to-hl7/
 |   |   +-- genie-hl7-input-format.md            Genie HL7 input requirements
 |   |   +-- genie-desktop-results-workflow.md    Genie desktop results research
 |   |   +-- sister-system-pdf-to-directory.md    Sister system reference
-|   +-- input PDF/                       Test PDF fixtures (mock-referrals/, cc-scenarios/, originals/)
+|   +-- input PDF/                       Test PDF fixtures (mock-referrals/, addressee-scenarios/, originals/)
 |   +-- archive/                         Historical / superseded docs
 +-- middleware.ts                        Auth + cache-control middleware
 +-- middleware.test.ts                   Middleware tests

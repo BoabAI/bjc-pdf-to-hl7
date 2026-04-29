@@ -132,7 +132,7 @@ export function ConversionOptions({
             disabled={doctors.length === 0}
           />
           <span className="text-sm text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
-            Send to specific doctor
+            Assign to doctor
           </span>
         </label>
 

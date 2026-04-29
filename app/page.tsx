@@ -1,20 +1,16 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { AppFooter } from "./components/AppFooter";
+import { AppNav } from "./components/AppNav";
 import { ConversionOptions } from "./components/ConversionOptions";
 import { type ConversionResult } from "./components/ConversionResultPanel";
-import { ReferenceDataTab } from "./components/ReferenceDataTab";
 import { FileQueueItem, type FileEntry } from "./components/FileQueueItem";
 import { LogoStrip } from "./components/LogoStrip";
 import { UploadZone } from "./components/UploadZone";
+import { useReferenceData } from "./components/useReferenceData";
 import {
-  DEFAULT_BJC_DOCTORS,
-  DEFAULT_CARRIERS,
-  DEFAULT_CARRIER,
   isDocumentType,
-  type Carrier,
-  type Doctor,
   type DocumentTypeOption,
 } from "@/lib/conversion-config";
 
@@ -25,7 +21,6 @@ function newId(): string {
 }
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<"converter" | "reference">("converter");
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isConverting, setIsConverting] = useState(false);
@@ -33,179 +28,16 @@ export default function Home() {
   const [autoFile, setAutoFile] = useState(true);
   const [sendToDoctor, setSendToDoctor] = useState(false);
   const [selectedDoctorId, setSelectedDoctorId] = useState("");
-  const [carrier, setCarrier] = useState(DEFAULT_CARRIER);
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [carriers, setCarriers] = useState<Carrier[]>([]);
-  const [referenceLoaded, setReferenceLoaded] = useState(false);
-
-  // Load doctors and carriers from the server. The server seeds defaults on
-  // first read, so we only fall back to bundled defaults if the API is
-  // unreachable (offline / dev without AWS creds).
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const response = await fetch("/api/reference-data", { cache: "no-store" });
-        const data = await response.json();
-        if (cancelled) return;
-        if (data.success) {
-          setDoctors(data.doctors as Doctor[]);
-          setCarriers(data.carriers as Carrier[]);
-          const defaultCarrier = (data.carriers as Carrier[]).find((c) => c.isDefault);
-          if (defaultCarrier) setCarrier(defaultCarrier.value);
-        } else {
-          setDoctors(DEFAULT_BJC_DOCTORS);
-          setCarriers(DEFAULT_CARRIERS);
-        }
-      } catch {
-        if (cancelled) return;
-        setDoctors(DEFAULT_BJC_DOCTORS);
-        setCarriers(DEFAULT_CARRIERS);
-      } finally {
-        if (!cancelled) setReferenceLoaded(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const {
+    doctors,
+    carriers,
+    carrier,
+    setCarrier,
+    loaded: referenceLoaded,
+  } = useReferenceData();
 
   const handleCarrierChange = (value: string) => {
     setCarrier(value);
-  };
-
-  // Doctor mutations — optimistic local update + API write. On failure we
-  // log; the next page load will re-sync from the server.
-  const handleAddDoctor = async (name: string, providerNumber: string) => {
-    const doctor: Doctor = { id: newId(), name, providerNumber };
-    setDoctors((prev) => [...prev, doctor]);
-    try {
-      await fetch("/api/reference-data", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ kind: "DOCTOR", item: doctor }),
-      });
-    } catch (error) {
-      console.error("Failed to save doctor:", error);
-    }
-  };
-
-  const handleRemoveDoctor = async (id: string) => {
-    setDoctors((prev) => prev.filter((d) => d.id !== id));
-    if (selectedDoctorId === id) setSelectedDoctorId("");
-    try {
-      await fetch(
-        `/api/reference-data?kind=DOCTOR&id=${encodeURIComponent(id)}`,
-        { method: "DELETE" }
-      );
-    } catch (error) {
-      console.error("Failed to delete doctor:", error);
-    }
-  };
-
-  const handleResetDoctors = async () => {
-    const previous = doctors;
-    setDoctors(DEFAULT_BJC_DOCTORS);
-    setSelectedDoctorId("");
-    try {
-      await Promise.all(
-        previous.map((d) =>
-          fetch(`/api/reference-data?kind=DOCTOR&id=${encodeURIComponent(d.id)}`, {
-            method: "DELETE",
-          })
-        )
-      );
-      await Promise.all(
-        DEFAULT_BJC_DOCTORS.map((d) =>
-          fetch("/api/reference-data", {
-            method: "PUT",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ kind: "DOCTOR", item: d }),
-          })
-        )
-      );
-    } catch (error) {
-      console.error("Failed to reset doctors:", error);
-    }
-  };
-
-  const handleAddCarrier = async (value: string, label: string) => {
-    const carrierItem: Carrier = { id: newId(), value, label };
-    setCarriers((prev) => [...prev, carrierItem]);
-    try {
-      await fetch("/api/reference-data", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ kind: "CARRIER", item: carrierItem }),
-      });
-    } catch (error) {
-      console.error("Failed to save carrier:", error);
-    }
-  };
-
-  const handleRemoveCarrier = async (id: string) => {
-    const target = carriers.find((c) => c.id === id);
-    if (target?.isDefault) return; // UI also disables the button, double-guard here.
-    setCarriers((prev) => prev.filter((c) => c.id !== id));
-    if (target && carrier === target.value) {
-      const fallback = carriers.find((c) => c.id !== id && c.isDefault);
-      setCarrier(fallback?.value ?? DEFAULT_CARRIER);
-    }
-    try {
-      await fetch(
-        `/api/reference-data?kind=CARRIER&id=${encodeURIComponent(id)}`,
-        { method: "DELETE" }
-      );
-    } catch (error) {
-      console.error("Failed to delete carrier:", error);
-    }
-  };
-
-  const handleSetDefaultCarrier = async (id: string) => {
-    const updated = carriers.map((c) => ({ ...c, isDefault: c.id === id }));
-    setCarriers(updated);
-    const newDefault = updated.find((c) => c.id === id);
-    if (newDefault) setCarrier(newDefault.value);
-    try {
-      await Promise.all(
-        updated.map((c) =>
-          fetch("/api/reference-data", {
-            method: "PUT",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ kind: "CARRIER", item: c }),
-          })
-        )
-      );
-    } catch (error) {
-      console.error("Failed to update default carrier:", error);
-    }
-  };
-
-  const handleResetCarriers = async () => {
-    const previous = carriers;
-    setCarriers(DEFAULT_CARRIERS);
-    const def = DEFAULT_CARRIERS.find((c) => c.isDefault);
-    if (def) setCarrier(def.value);
-    try {
-      await Promise.all(
-        previous.map((c) =>
-          fetch(`/api/reference-data?kind=CARRIER&id=${encodeURIComponent(c.id)}`, {
-            method: "DELETE",
-          })
-        )
-      );
-      await Promise.all(
-        DEFAULT_CARRIERS.map((c) =>
-          fetch("/api/reference-data", {
-            method: "PUT",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ kind: "CARRIER", item: c }),
-          })
-        )
-      );
-    } catch (error) {
-      console.error("Failed to reset carriers:", error);
-    }
   };
 
   const updateEntry = useCallback(
@@ -407,6 +239,8 @@ export default function Home() {
   const anyDetecting = entries.some((e) => e.status === "detecting");
 
   return (
+    <>
+    <AppNav />
     <main className="min-h-screen flex flex-col items-center justify-center px-4 py-10">
       <div className="w-full max-w-[580px]">
 
@@ -416,7 +250,7 @@ export default function Home() {
         <div className="card mt-6 animate-fade-in-up stagger-1">
 
           {/* Header */}
-          <div className="px-7 pt-7 pb-5">
+          <div className="px-7 pt-7 pb-5 border-b border-[var(--border-light)]">
             <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">
               PDF to HL7 Converter
             </h1>
@@ -425,54 +259,8 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Tabs */}
-          <div className="px-7 flex gap-1 border-b border-[var(--border-light)]">
-            <button
-              onClick={() => setActiveTab("converter")}
-              className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
-                activeTab === "converter"
-                  ? "border-[var(--bjc-blue)] text-[var(--bjc-blue)]"
-                  : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-              }`}
-            >
-              Converter
-            </button>
-            <button
-              onClick={() => setActiveTab("reference")}
-              className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
-                activeTab === "reference"
-                  ? "border-[var(--bjc-blue)] text-[var(--bjc-blue)]"
-                  : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-              }`}
-            >
-              Reference Data
-              <span className="ml-1.5 text-[11px] bg-[var(--bg-inner)] text-[var(--text-muted)] px-1.5 py-0.5 rounded-full">
-                {doctors.length + carriers.length}
-              </span>
-            </button>
-          </div>
-
           {/* Content */}
           <div className="px-7 py-6 space-y-5">
-
-          {/* ── Reference Data Tab ── */}
-          {activeTab === "reference" && (
-            <ReferenceDataTab
-              doctors={doctors}
-              carriers={carriers}
-              onAddDoctor={handleAddDoctor}
-              onRemoveDoctor={handleRemoveDoctor}
-              onResetDoctors={handleResetDoctors}
-              onAddCarrier={handleAddCarrier}
-              onRemoveCarrier={handleRemoveCarrier}
-              onSetDefaultCarrier={handleSetDefaultCarrier}
-              onResetCarriers={handleResetCarriers}
-            />
-          )}
-
-          {/* ── Converter Tab ── */}
-          {activeTab === "converter" && (<>
-
 
             {/* Supported formats */}
             <div className="flex flex-wrap gap-2 animate-fade-in stagger-2">
@@ -594,12 +382,12 @@ export default function Home() {
                 </button>
               </div>
             )}
-          </>)}
           </div>
         </div>
 
         <AppFooter />
       </div>
     </main>
+    </>
   );
 }

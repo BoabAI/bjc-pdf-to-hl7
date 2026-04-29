@@ -6,7 +6,7 @@
  * 2. External specialist as primary, BJC doctor in CC
  * 3. Both primary and CC are BJC doctors
  *
- * Run with: bun scripts/generate-cc-test-pdfs.ts
+ * Run with: bun scripts/generate-addressee-test-pdfs.ts
  */
 
 import puppeteer from "puppeteer";
@@ -60,7 +60,7 @@ interface ScenarioData {
 const SCENARIOS: ScenarioData[] = [
   // Scenario 1: BJC doctor as primary addressee, no CC
   {
-    filename: "test_cc_scenario1_bjc_primary.pdf",
+    filename: "test_addressee1_bjc_primary.pdf",
     description: "BJC doctor as primary addressee (no CC)",
     patient: {
       firstName: "Sarah",
@@ -100,7 +100,7 @@ const SCENARIOS: ScenarioData[] = [
 
   // Scenario 2: External specialist as primary, BJC doctor in CC
   {
-    filename: "test_cc_scenario2_bjc_in_cc.pdf",
+    filename: "test_addressee2_bjc_in_cc.pdf",
     description: "External specialist primary, BJC doctor in CC",
     patient: {
       firstName: "Michael",
@@ -147,7 +147,7 @@ const SCENARIOS: ScenarioData[] = [
 
   // Scenario 3: Both primary and CC are BJC doctors
   {
-    filename: "test_cc_scenario3_both_bjc.pdf",
+    filename: "test_addressee3_both_bjc.pdf",
     description: "Both primary and CC are BJC Health doctors",
     patient: {
       firstName: "Patricia",
@@ -292,7 +292,7 @@ function buildHTML(data: ScenarioData): string {
 }
 
 async function generatePDFs() {
-  const outputDir = path.join(__dirname, "../docs/input PDF/cc-scenarios");
+  const outputDir = path.join(__dirname, "../docs/input PDF/addressee-scenarios");
 
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });

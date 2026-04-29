@@ -2,14 +2,14 @@
 /**
  * Test CC addressee resolution against Bedrock.
  *
- * Usage: AWS_PROFILE=your-profile bun scripts/test-cc-scenarios.ts
+ * Usage: AWS_PROFILE=your-profile bun scripts/test-addressee-scenarios.ts
  */
 
 import { readFileSync } from "fs";
 import { join } from "path";
 import { extractPatientDataWithVision } from "../lib/vision-extractor";
 
-const CC_DIR = join(import.meta.dir, "..", "docs", "input PDF", "cc-scenarios");
+const ADDRESSEE_DIR = join(import.meta.dir, "..", "docs", "input PDF", "addressee-scenarios");
 
 const BJC_DOCTORS = [
   "Dr Irwin Lim",
@@ -21,19 +21,19 @@ const BJC_DOCTORS = [
 
 const SCENARIOS = [
   {
-    file: "test_cc_scenario1_bjc_primary.pdf",
+    file: "test_addressee1_bjc_primary.pdf",
     description: "BJC doctor as primary (no CC)",
     expectedAddressee: "Maundrell",
     expectedCC: null,
   },
   {
-    file: "test_cc_scenario2_bjc_in_cc.pdf",
+    file: "test_addressee2_bjc_in_cc.pdf",
     description: "External primary, BJC doctor in CC",
     expectedAddressee: "Lim",
     expectedCC: "Lim",
   },
   {
-    file: "test_cc_scenario3_both_bjc.pdf",
+    file: "test_addressee3_both_bjc.pdf",
     description: "Both primary and CC are BJC",
     expectedAddressee: "Ginges",
     expectedCC: "Chung",
@@ -49,7 +49,7 @@ let passed = 0;
 let failed = 0;
 
 for (const scenario of SCENARIOS) {
-  const pdfPath = join(CC_DIR, scenario.file);
+  const pdfPath = join(ADDRESSEE_DIR, scenario.file);
   const pdfBuffer = readFileSync(pdfPath);
 
   console.log(`\n--- ${scenario.description} ---`);

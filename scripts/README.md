@@ -141,8 +141,9 @@ These are run via Bun against the project's TypeScript modules.
 | Script | Purpose |
 |--------|---------|
 | `generate-test-pdfs.ts` | Regenerate all 20 generic test referral / consent PDFs |
-| `generate-cc-test-pdfs.ts` | Generate CC / addressee resolution scenario PDFs |
+| `generate-addressee-test-pdfs.ts` | Generate addressee resolution scenario PDFs |
 | `generate-result-test-pdfs.ts` | Generate 4 synthetic pathology + radiology result PDFs (saved to `docs/input PDF/results/`) |
+| `generate-redacted-style-test-pdfs.ts` | Generate 5 synthetic result PDFs that mimic the layouts of redacted real-world samples — DHM serial trend, MMI multi-page MRI, PRP combined CT/X-ray, NSW Health multi-panel fax, I-MED DEXA letter (saved to `docs/input PDF/results/redacted-style/`) |
 
 ### Live Bedrock tests (run manually with `AWS_PROFILE` set)
 
@@ -154,7 +155,7 @@ They require AWS credentials with `bedrock:InvokeModel` for
 | Script | Purpose |
 |--------|---------|
 | `test-vision.ts` | Run vision extraction across all mock referral PDFs |
-| `test-cc-scenarios.ts` | Verify CC addressee resolution against the BJC doctor list |
+| `test-addressee-scenarios.ts` | Verify addressee resolution against the BJC doctor list |
 | `test-result-scenarios.ts` | Verify pathology/radiology classification + referring doctor resolution |
 
 Example:

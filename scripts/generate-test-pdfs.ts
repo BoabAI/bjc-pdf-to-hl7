@@ -1,18 +1,21 @@
 /**
- * Generate realistic test PDFs for all document types and edge cases.
- * Uses Puppeteer to create PDFs with extractable text content.
+ * LEGACY GENERATOR — kept for reference, not part of the active test suite.
  *
- * Outputs into nested directory structure:
- *   docs/input PDF/
+ * Produces a broad set of synthetic test PDFs originally used to stress-test
+ * the regex / pdf-parse extraction pipeline. With Bedrock vision in place these
+ * fixtures are no longer needed for active tests; they're written into
+ * docs/input PDF/archive/ to keep the top-level tidy.
+ *
+ * Active focused generators are:
+ *   - scripts/generate-result-test-pdfs.ts (pathology / radiology results)
+ *   - scripts/generate-addressee-test-pdfs.ts (addressee resolution scenarios)
+ *
+ * Output (under docs/input PDF/archive/):
  *   ├── specialist-referrals/
  *   ├── gp-referrals/
  *   ├── consent-forms/
  *   └── edge-cases/
- *       ├── skewed/
- *       ├── grainy/
- *       ├── multicultural/
- *       ├── minimal/
- *       └── states/
+ *       ├── skewed/ ├── grainy/ ├── multicultural/ ├── minimal/ └── states/
  *
  * Usage: bun run scripts/generate-test-pdfs.ts
  */
@@ -21,7 +24,7 @@ import puppeteer from "puppeteer";
 import { mkdirSync } from "fs";
 import { join } from "path";
 
-const BASE_DIR = join(import.meta.dir, "../docs/input PDF");
+const BASE_DIR = join(import.meta.dir, "../docs/input PDF/archive");
 
 // Create all subdirectories
 const DIRS = {

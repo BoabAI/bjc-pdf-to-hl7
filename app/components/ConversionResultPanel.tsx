@@ -18,6 +18,7 @@ export interface ConversionResult {
     carrier?: string;
   };
   extractionMethod?: "vision";
+  documentType?: string;
   error?: string;
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AppNav } from "../components/AppNav";
 import { LogoStrip } from "../components/LogoStrip";
 
 const EFFECTIVE_DATE = "20 March 2026";
@@ -400,25 +401,14 @@ export default function PrivacyPolicyPage() {
   ];
 
   return (
-    <main className="min-h-screen flex flex-col items-center px-4 py-10">
-      <div className="w-full max-w-[680px]">
-        <LogoStrip />
+    <>
+      <AppNav />
+      <main className="min-h-screen flex flex-col items-center px-4 py-8">
+        <div className="w-full max-w-[680px]">
+          <LogoStrip />
 
-        {/* Back link */}
-        <div className="mt-4 animate-fade-in-up">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 text-sm text-[var(--bjc-blue)] hover:text-[var(--bjc-navy)] transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-            </svg>
-            Back to Converter
-          </Link>
-        </div>
-
-        {/* Main card */}
-        <div className="card mt-4 animate-fade-in-up stagger-1">
+          {/* Main card */}
+          <div className="card mt-4 animate-fade-in-up stagger-1">
           {/* Header */}
           <div className="px-7 pt-7 pb-5">
             <div className="flex items-center gap-3 mb-2">
@@ -508,7 +498,8 @@ export default function PrivacyPolicyPage() {
             HL7 v2.4 &middot; ADRM Compliant &middot; Genie Compatible &middot; IRAP PROTECTED Infrastructure
           </p>
         </footer>
-      </div>
-    </main>
+        </div>
+      </main>
+    </>
   );
 }

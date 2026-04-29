@@ -22,6 +22,10 @@ const BJC_DOCTORS = [
   "Dr Ilana Ginges",
   "Dr Anne Chung",
   "Dr Herman Lau",
+  "Dr Kate Celkys",
+  "Dr Elaine Ng",
+  "Dr Pauline Habib",
+  "Dr Vincent Wong",
 ];
 
 interface Scenario {
@@ -29,32 +33,68 @@ interface Scenario {
   description: string;
   expectedDocumentType: "pathology_result" | "radiology_result";
   expectedAddressee: string;
+  /** Optional: substring that must appear in at least one ccNames entry. */
+  expectedCc?: string;
 }
 
 const SCENARIOS: Scenario[] = [
   {
-    file: "result_pathology_chemistry.pdf",
+    file: "test_result1_pathology_chemistry.pdf",
     description: "Pathology — U&E + LFT panel (DHM)",
     expectedDocumentType: "pathology_result",
     expectedAddressee: "Lim",
   },
   {
-    file: "result_pathology_microbiology.pdf",
+    file: "test_result2_pathology_microbiology.pdf",
     description: "Pathology — Urine MCS (Laverty)",
     expectedDocumentType: "pathology_result",
     expectedAddressee: "Maundrell",
   },
   {
-    file: "result_radiology_mri.pdf",
+    file: "test_result3_radiology_mri.pdf",
     description: "Radiology — MRI right knee (PRP)",
     expectedDocumentType: "radiology_result",
     expectedAddressee: "Lau",
   },
   {
-    file: "result_radiology_ultrasound.pdf",
+    file: "test_result4_radiology_ultrasound.pdf",
     description: "Radiology — Abdominal ultrasound (I-MED)",
     expectedDocumentType: "radiology_result",
     expectedAddressee: "Chung",
+  },
+  // Redacted-style scenarios — mimic real-world layouts from field samples.
+  {
+    file: "redacted-style/test_redacted1_dhm_haematology_serial.pdf",
+    description: "Pathology — DHM haematology serial (5-date trend)",
+    expectedDocumentType: "pathology_result",
+    expectedAddressee: "Lau",
+  },
+  {
+    file: "redacted-style/test_redacted2_mmi_mri_brain.pdf",
+    description: "Radiology — MMI MRI brain (multi-page, To/Copies-To header)",
+    expectedDocumentType: "radiology_result",
+    expectedAddressee: "Celkys",
+    expectedCc: "Wong",
+  },
+  {
+    file: "redacted-style/test_redacted3_prp_ct_xray_combined.pdf",
+    description: "Radiology — PRP CT lumbar + X-ray wrist combined",
+    expectedDocumentType: "radiology_result",
+    expectedAddressee: "Celkys",
+  },
+  {
+    file: "redacted-style/test_redacted4_nswhp_multipanel_fax.pdf",
+    description: "Pathology — NSW Health Pathology Hunter (3-panel fax)",
+    expectedDocumentType: "pathology_result",
+    expectedAddressee: "Ng",
+  },
+  {
+    file: "redacted-style/test_redacted5_imed_dexa_letter.pdf",
+    description:
+      "Radiology — I-MED DEXA letter (addressee external, CC = BJC Habib)",
+    expectedDocumentType: "radiology_result",
+    expectedAddressee: "Dhabuwala",
+    expectedCc: "Habib",
   },
 ];
 
@@ -100,7 +140,14 @@ for (const scenario of SCENARIOS) {
     .toLowerCase()
     .includes(scenario.expectedAddressee.toLowerCase());
 
-  const status = typeOk && addresseeOk ? "PASS" : "FAIL";
+  const ccNames = result.referralInfo?.ccNames || [];
+  const ccOk = scenario.expectedCc
+    ? ccNames.some((cc) =>
+        cc.toLowerCase().includes(scenario.expectedCc!.toLowerCase())
+      )
+    : true;
+
+  const status = typeOk && addresseeOk && ccOk ? "PASS" : "FAIL";
   if (status === "PASS") passed++;
   else failed++;
 
@@ -110,6 +157,11 @@ for (const scenario of SCENARIOS) {
   console.log(
     `  Addressee check: ${addresseeOk ? "PASS" : "FAIL"} (expected "${scenario.expectedAddressee}" in "${addressee}")`
   );
+  if (scenario.expectedCc) {
+    console.log(
+      `  CC check: ${ccOk ? "PASS" : "FAIL"} (expected "${scenario.expectedCc}" in [${ccNames.join(", ")}])`
+    );
+  }
   console.log(`  Result: ${status}`);
 }
 

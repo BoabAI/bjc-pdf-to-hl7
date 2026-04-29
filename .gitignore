@@ -61,8 +61,14 @@ bun.lockb
 docs/input PDF/**/*.pdf
 !docs/input PDF/originals/Referral_dummy.pdf
 !docs/input PDF/mock-referrals/*.pdf
-!docs/input PDF/cc-scenarios/*.pdf
+!docs/input PDF/addressee-scenarios/*.pdf
 !docs/input PDF/results/*.pdf
+
+# Real BJC HL7 / PDF samples — local reference only, NEVER commit
+/samples/
+
+# Claude Code local state (settings, worktrees with vendored node_modules)
+.claude/
 
 # Supabase local
 supabase/.temp/

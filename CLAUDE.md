@@ -19,7 +19,7 @@ bun start        # Start production server
 
 ### Local AWS Credentials (Bedrock)
 
-Vision extraction calls Bedrock at runtime, even in local dev. To run `bun dev` or live test scripts (`scripts/test-vision.ts`, `scripts/test-cc-scenarios.ts`):
+Vision extraction calls Bedrock at runtime, even in local dev. To run `bun dev` or live test scripts (`scripts/test-vision.ts`, `scripts/test-addressee-scenarios.ts`):
 
 - Export `AWS_PROFILE=<profile>` (or `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`) before starting the dev server
 - Credentials need `bedrock:InvokeModel` on `anthropic.claude-sonnet-4-6` in **both** `ap-southeast-2` and `ap-southeast-4` (AU inference profiles route to Melbourne)
@@ -50,8 +50,8 @@ curl -X POST -F "pdf=@/path/to/file.pdf" -F "carrier=MYAPP" -F 'bjcDoctors=["Dr 
 bun run scripts/diagnose-pdfs.ts          # Extract patient data from all test PDFs
 bun run scripts/test-vision.ts            # Run live Bedrock extraction against mock referrals
 bun run scripts/generate-test-pdfs.ts     # Regenerate all 20 test PDFs (requires puppeteer)
-bun run scripts/generate-cc-test-pdfs.ts  # Generate CC/addressee resolution test PDFs
-bun run scripts/test-cc-scenarios.ts      # Live Bedrock test for CC addressee scenarios
+bun run scripts/generate-addressee-test-pdfs.ts  # Generate CC/addressee resolution test PDFs
+bun run scripts/test-addressee-scenarios.ts      # Live Bedrock test for CC addressee scenarios
 ```
 
 Tests use generated PDFs at `docs/input PDF/` (nested subdirectories with various formats).
@@ -65,7 +65,7 @@ Tests are co-located with source files and use `bun:test` imports (`describe`, `
 - `app/api/convert/route.test.ts` - API route integration tests
 - `lib/utils.test.ts` - Utility functions
 
-The `scripts/test-vision.ts` and `scripts/test-cc-scenarios.ts` are **live Bedrock tests** (not unit tests) — they require valid AWS credentials and make real API calls.
+The `scripts/test-vision.ts` and `scripts/test-addressee-scenarios.ts` are **live Bedrock tests** (not unit tests) — they require valid AWS credentials and make real API calls.
 
 ### Bun mock.module Limitation
 
