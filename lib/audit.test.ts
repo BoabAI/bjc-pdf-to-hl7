@@ -94,6 +94,27 @@ describe("hashFilename", () => {
     expect(hashFilename("a.pdf")).not.toBe(hashFilename("b.pdf"));
   });
 
+  test("uses sha256 (not a substring or reversible encoding)", async () => {
+    // Anti-tautology: a hex string can't contain alphabetic substrings anyway,
+    // so "hash doesn't contain 'Smith'" is vacuous unless we also pin the
+    // algorithm. Compute the expected sha256 prefix and compare directly.
+    const { createHash } = await import("node:crypto");
+    const cases = [
+      "Smith_John_19800123.pdf",
+      "anything.pdf",
+      "Müller_José_19850605.pdf",
+    ];
+    for (const filename of cases) {
+      const expected = createHash("sha256")
+        .update(filename)
+        .digest("hex")
+        .slice(0, 12);
+      expect(hashFilename(filename)).toBe(expected);
+      // Sanity: not a substring/passthrough of input.
+      expect(hashFilename(filename)).not.toBe(filename.slice(0, 12));
+    }
+  });
+
   test("does not leak patient name or DOB from filename", () => {
     // CRITICAL PHI TEST: realistic Best Practice / specialist export filenames
     // must hash to a 12-char hex with NO patient-identifying substring leaking
@@ -104,34 +125,33 @@ describe("hashFilename", () => {
       "OBRIEN, Mary - DOB 14071982 - referral.pdf",
       "MEDICARE_2950123456_Henderson_Patricia.pdf",
       "Karim_Amira_08111985_GP_referral.pdf",
+      // Apostrophe surnames
+      "O'Brien_Mary_14-07-1982.pdf",
+      // Hyphenated / compound names
+      "McDonald-Jane_19800123.pdf",
+      // Diacritics — verify UTF-8 normalization doesn't leak through
+      "Müller_José_19850605.pdf",
+      // Filename with combined Medicare + name + DOB tokens
+      "Smith_John_DOB19800123_MEDICARE2950123456.pdf",
     ];
 
     const sensitiveTokens = [
-      "Smith",
-      "smith",
-      "John",
-      "john",
-      "19800123",
-      "1980",
-      "OBRIEN",
-      "obrien",
-      "Mary",
-      "mary",
-      "14071982",
-      "1982",
-      "Henderson",
-      "henderson",
-      "Patricia",
-      "patricia",
+      "Smith", "smith",
+      "John", "john",
+      "19800123", "1980",
+      "OBRIEN", "obrien", "O'Brien", "OBrien",
+      "Mary", "mary",
+      "14071982", "14-07-1982", "1982",
+      "Henderson", "henderson",
+      "Patricia", "patricia",
       "2950123456",
-      "Karim",
-      "karim",
-      "Amira",
-      "amira",
-      "08111985",
-      "1985",
-      "DOB",
-      "MEDICARE",
+      "Karim", "karim",
+      "Amira", "amira",
+      "08111985", "1985",
+      "McDonald", "mcdonald", "Jane", "jane",
+      "Müller", "müller", "muller", "José", "jose",
+      "19850605", "05-06-1985",
+      "DOB", "MEDICARE",
     ];
 
     for (const filename of realisticFilenames) {
@@ -146,9 +166,16 @@ describe("hashFilename", () => {
 });
 
 describe("extractFilenameExt", () => {
-  test("returns lowercased extension with leading dot", () => {
+  test("returns '.pdf' for PDF filenames (case-insensitive)", () => {
     expect(extractFilenameExt("file.PDF")).toBe(".pdf");
     expect(extractFilenameExt("file.pdf")).toBe(".pdf");
+    expect(extractFilenameExt("REPORT.Pdf")).toBe(".pdf");
+  });
+
+  test("returns empty string for non-PDF extensions", () => {
+    expect(extractFilenameExt("file.png")).toBe("");
+    expect(extractFilenameExt("file.docx")).toBe("");
+    expect(extractFilenameExt("file.exe")).toBe("");
   });
 
   test("returns empty string for filenames without extension", () => {
@@ -161,6 +188,18 @@ describe("extractFilenameExt", () => {
 
   test("returns empty string for hidden file with no real extension", () => {
     expect(extractFilenameExt(".env")).toBe("");
+  });
+
+  // Critical PHI safety: filenames that LOOK like they have an extension but
+  // actually carry a patient name/DOB after the last dot must NEVER write
+  // that token to DynamoDB. Without an allowlist, "Referral.Smith" would
+  // leak ".smith".
+  test("does not leak patient suffix when filename has no real extension", () => {
+    expect(extractFilenameExt("Referral.Smith")).toBe("");
+    expect(extractFilenameExt("OBrien.John")).toBe("");
+    expect(extractFilenameExt("DOB19800123.PATRICIA")).toBe("");
+    expect(extractFilenameExt("Note.JOHN")).toBe("");
+    expect(extractFilenameExt("Smith_John_19800123")).toBe("");
   });
 });
 

@@ -547,28 +547,67 @@ describe("POST /api/convert audit logging", () => {
   });
 
   test("audit row contains hashed filename + extension, never raw PHI", async () => {
+    // Use a filename with name + DOB + Medicare number bundled together —
+    // the worst-case real export filename pattern.
     await POST(
-      createConvertRequest({ filename: "Smith_John_19800123.pdf" })
+      createConvertRequest({
+        filename: "Smith_John_DOB19800123_MEDICARE2950123456.pdf",
+      })
     );
 
     const row = recordConversionMock.mock.calls[0][0];
+
+    // Whitelist the allowed audit row keys. Anything else is a contract
+    // violation — additions must go through code review.
+    const allowedKeys = [
+      "month",
+      "ts",
+      "documentType",
+      "outcome",
+      "source",
+      "messageType",
+      "diagnosticServiceSection",
+      "filenameHash",
+      "filenameExt",
+      "fileSizeBytes",
+      "durationMs",
+      "warningCount",
+    ].sort();
+    expect(Object.keys(row).sort().filter((k) => row[k] !== undefined))
+      .toEqual(
+        expect.arrayContaining(["month", "ts", "outcome", "source", "filenameHash", "filenameExt"]),
+      );
+    for (const key of Object.keys(row)) {
+      expect(allowedKeys).toContain(key);
+    }
+
     expect(row.filenameHash).toMatch(/^[0-9a-f]{12}$/);
     expect(row.filenameExt).toBe(".pdf");
-    // No PHI fields allowed
+
+    // No PHI fields allowed — defensive, even though allowedKeys check covers it
     expect(row).not.toHaveProperty("filename");
     expect(row).not.toHaveProperty("firstName");
     expect(row).not.toHaveProperty("lastName");
     expect(row).not.toHaveProperty("dob");
     expect(row).not.toHaveProperty("medicareNo");
     expect(row).not.toHaveProperty("address");
-    // No PHI substrings in any string value
-    const sensitive = ["Smith", "John", "19800123", "1980"];
-    for (const value of Object.values(row)) {
-      if (typeof value === "string") {
-        for (const token of sensitive) {
-          expect(value).not.toContain(token);
-        }
-      }
+
+    // No PHI substring leaks through ANY field — stringify the entire row
+    // (the most aggressive check).
+    const serialized = JSON.stringify(row);
+    const sensitive = [
+      "Smith",
+      "smith",
+      "John",
+      "john",
+      "19800123",
+      "1980",
+      "2950123456",
+      "MEDICARE",
+      "DOB",
+    ];
+    for (const token of sensitive) {
+      expect(serialized).not.toContain(token);
     }
   });
 

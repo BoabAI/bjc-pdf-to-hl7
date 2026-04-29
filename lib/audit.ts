@@ -62,16 +62,16 @@ export function hashFilename(filename: string): string {
 }
 
 /**
- * Extract the file extension (with leading ".") or empty string if none.
- * Lowercased to keep the audit log consistent.
+ * Extract the file extension. Strictly allowlisted: returns ".pdf" only when
+ * the filename ends in .pdf (case-insensitive); empty string otherwise.
+ *
+ * This is intentionally NOT generic. Free-form `lastIndexOf(".")` parsing
+ * leaks PHI when filenames contain a name suffix (e.g. `Referral.Smith.pdf`
+ * or, worse, a name without a real extension like `Note.JOHN`).
+ * /api/convert only accepts application/pdf, so .pdf is the only valid value.
  */
 export function extractFilenameExt(filename: string): string {
-  const lastDot = filename.lastIndexOf(".");
-  if (lastDot < 0 || lastDot === filename.length - 1) return "";
-  // Reject if the dot is part of a directory traversal-style name with no
-  // actual extension (e.g. ".env" — return "" because there's no name part)
-  if (lastDot === 0) return "";
-  return filename.slice(lastDot).toLowerCase();
+  return filename.toLowerCase().endsWith(".pdf") ? ".pdf" : "";
 }
 
 /**
