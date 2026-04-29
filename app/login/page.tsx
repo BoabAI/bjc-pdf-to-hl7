@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
+import { LogoStrip } from "../components/LogoStrip";
 
 export default function LoginPage() {
   const [password, setPassword] = useState("");
@@ -44,26 +44,7 @@ export default function LoginPage() {
     <main className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-[420px]">
 
-        {/* ── Logo strip ── */}
-        <div className="logo-strip animate-fade-in-up">
-          <Image
-            src="/bjc_health_logo.png"
-            alt="BJC Health - Connected Care"
-            width={220}
-            height={63}
-            className="h-12 w-auto"
-            priority
-          />
-          <div className="logo-divider" />
-          <Image
-            src="/smec_ai_logo_horizontal.png"
-            alt="SMEC AI"
-            width={180}
-            height={42}
-            className="h-10 w-auto"
-            priority
-          />
-        </div>
+        <LogoStrip />
 
         {/* ── Login card ── */}
         <div className="card mt-6 animate-fade-in-up stagger-1">

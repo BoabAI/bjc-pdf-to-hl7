@@ -13,6 +13,7 @@ import {
   ConverseCommand,
 } from "@aws-sdk/client-bedrock-runtime";
 import type { PatientData } from "./hl7-builder";
+import { DOCUMENT_TYPES } from "./conversion-config";
 
 export type DocumentType =
   | "consent_form"
@@ -23,12 +24,6 @@ export type DocumentType =
 const REGION = "ap-southeast-2";
 const DEFAULT_MODEL = "au.anthropic.claude-sonnet-4-6";
 const DEFAULT_TIMEOUT_MS = 30_000;
-const DOCUMENT_TYPES: DocumentType[] = [
-  "consent_form",
-  "referral_letter",
-  "gp_referral",
-  "generic",
-];
 
 export interface ReferralInfo {
   senderName?: string;
@@ -47,6 +42,14 @@ export interface VisionExtractionResult {
   documentType: DocumentType;
   referralInfo?: ReferralInfo;
   tokensUsed?: { input: number; output: number };
+}
+
+type ExtractionToolInput = Record<string, unknown>;
+
+interface ToolUseContentBlock {
+  toolUse: {
+    input: ExtractionToolInput;
+  };
 }
 
 const EXTRACTION_TOOL = {
@@ -261,6 +264,40 @@ function normalizeSex(value: unknown): "M" | "F" | "U" {
   return value === "M" || value === "F" || value === "U" ? value : "U";
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isToolUseContentBlock(value: unknown): value is ToolUseContentBlock {
+  return (
+    isRecord(value) &&
+    isRecord(value.toolUse) &&
+    isRecord(value.toolUse.input)
+  );
+}
+
+function nullableString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function cleanPhone(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  return value.replace(/[^\d ]/g, "").trim() || undefined;
+}
+
+function cleanMedicareNumber(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  return value.replace(/\s/g, "") || undefined;
+}
+
+function cleanStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const strings = value
+    .map((item) => nullableString(item))
+    .filter((item): item is string => Boolean(item));
+  return strings.length > 0 ? strings : undefined;
+}
+
 function buildPrompt(documentTypeHint?: DocumentType, bjcDoctors?: string[]): string {
   let prompt: string;
   if (!documentTypeHint) {
@@ -323,10 +360,8 @@ export async function extractPatientDataWithVision(
       { abortSignal: controller.signal }
     );
 
-    const content = response.output?.message?.content ?? [];
-    const toolUseBlock = content.find((block: any) => block.toolUse !== undefined) as
-      | { toolUse: { input: Record<string, unknown> } }
-      | undefined;
+    const content: unknown[] = response.output?.message?.content ?? [];
+    const toolUseBlock = content.find(isToolUseContentBlock);
 
     if (!toolUseBlock?.toolUse?.input) {
       warnings.push("Bedrock returned no tool use result");
@@ -352,20 +387,17 @@ export async function extractPatientDataWithVision(
     }
 
     const data: PatientData = {
-      firstName: (raw.firstName as string | null)?.trim() || "UNKNOWN",
-      lastName: (raw.lastName as string | null)?.trim() || "PATIENT",
-      dob: raw.dob ? convertDateToHL7(raw.dob as string) : "19000101",
+      firstName: nullableString(raw.firstName) || "UNKNOWN",
+      lastName: nullableString(raw.lastName) || "PATIENT",
+      dob: typeof raw.dob === "string" ? convertDateToHL7(raw.dob) : "19000101",
       sex: normalizeSex(raw.sex),
-      phone: raw.phone
-        ? (raw.phone as string).replace(/[^\d ]/g, "").trim() || undefined
-        : undefined,
-      address: (raw.address as string | null)?.trim() || undefined,
-      suburb: (raw.suburb as string | null)?.trim() || undefined,
-      state: (raw.state as string | null)?.trim() || undefined,
-      postcode: (raw.postcode as string | null)?.trim() || undefined,
-      medicareNo:
-        (raw.medicareNo as string | null)?.replace(/\s/g, "") || undefined,
-      medicareRef: (raw.medicareRef as string | null)?.trim() || undefined,
+      phone: cleanPhone(raw.phone),
+      address: nullableString(raw.address),
+      suburb: nullableString(raw.suburb),
+      state: nullableString(raw.state),
+      postcode: nullableString(raw.postcode),
+      medicareNo: cleanMedicareNumber(raw.medicareNo),
+      medicareRef: nullableString(raw.medicareRef),
     };
 
     if (!data.state && data.postcode) {
@@ -374,14 +406,19 @@ export async function extractPatientDataWithVision(
 
     // Parse referral info (optional, only present for referral letters)
     const referralInfo: ReferralInfo = {};
-    if (raw.senderName) referralInfo.senderName = (raw.senderName as string).trim();
-    if (raw.senderClinic) referralInfo.senderClinic = (raw.senderClinic as string).trim();
-    if (raw.senderProviderNumber) referralInfo.senderProviderNumber = (raw.senderProviderNumber as string).trim();
-    if (raw.addresseeName) referralInfo.addresseeName = (raw.addresseeName as string).trim();
-    if (raw.addresseeClinic) referralInfo.addresseeClinic = (raw.addresseeClinic as string).trim();
-    if (Array.isArray(raw.ccNames) && raw.ccNames.length > 0) {
-      referralInfo.ccNames = (raw.ccNames as string[]).map((n) => n.trim()).filter(Boolean);
-    }
+    const senderName = nullableString(raw.senderName);
+    const senderClinic = nullableString(raw.senderClinic);
+    const senderProviderNumber = nullableString(raw.senderProviderNumber);
+    const addresseeName = nullableString(raw.addresseeName);
+    const addresseeClinic = nullableString(raw.addresseeClinic);
+    const ccNames = cleanStringArray(raw.ccNames);
+
+    if (senderName) referralInfo.senderName = senderName;
+    if (senderClinic) referralInfo.senderClinic = senderClinic;
+    if (senderProviderNumber) referralInfo.senderProviderNumber = senderProviderNumber;
+    if (addresseeName) referralInfo.addresseeName = addresseeName;
+    if (addresseeClinic) referralInfo.addresseeClinic = addresseeClinic;
+    if (ccNames) referralInfo.ccNames = ccNames;
     const hasReferralInfo = Object.keys(referralInfo).length > 0;
 
     const hasName =

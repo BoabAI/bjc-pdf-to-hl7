@@ -1,0 +1,38 @@
+[
+  {
+    "sceneId": "title",
+    "text": "B J C Health referral automation. From email inbox to Genie, with zero manual handling."
+  },
+  {
+    "sceneId": "problem",
+    "text": "Processing hundreds of referral letters each month takes hours of staff time. Reading each P D F, entering patient details, filing to the right doctor. It all adds up."
+  },
+  {
+    "sceneId": "transition",
+    "text": "Here's how the automation changes that."
+  },
+  {
+    "sceneId": "demo-01",
+    "text": "Referral emails arrive in a dedicated mailbox. Every fifteen minutes, the system picks up each new P D F attachment automatically."
+  },
+  {
+    "sceneId": "demo-02",
+    "text": "A I reads the letter and extracts the patient's name, date of birth, Medicare number, the referring doctor, and which B J C Health doctor should receive it."
+  },
+  {
+    "sceneId": "demo-03",
+    "text": "A Genie-compatible H L 7 file is created with patient details and the original P D F attached. It's saved directly to the Genie import folder on the server."
+  },
+  {
+    "sceneId": "demo-04",
+    "text": "Processed emails move to the Linked folder automatically. If the system can't read a letter, it goes to Review, and staff receive a notification."
+  },
+  {
+    "sceneId": "security",
+    "text": "No patient documents are stored in the cloud. Everything is processed in memory, in Australian data centres, and discarded immediately after conversion."
+  },
+  {
+    "sceneId": "cta",
+    "text": "Built by SMECK A I for B J C Health."
+  }
+]

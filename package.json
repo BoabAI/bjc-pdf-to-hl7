@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "check": "bun run typecheck && bun run lint && bun test",
     "test": "bun test"
   },
   "dependencies": {

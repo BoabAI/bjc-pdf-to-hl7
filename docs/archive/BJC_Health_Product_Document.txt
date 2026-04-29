@@ -4,8 +4,8 @@
 
   Prepared for:    BJC Health (Connected Care)
   Prepared by:     SMEC AI
-  Date:            18 February 2026
-  Version:         1.0.0 (Proof of Concept)
+  Date:            18 February 2026 (updated 26 March 2026)
+  Version:         1.1.0
   Classification:  Confidential
 
 ================================================================================
@@ -43,9 +43,14 @@ clinical workflow.
 The PDF to HL7 Converter is a secure web application that:
 
   - Accepts PDF uploads via drag-and-drop or file browser
-  - Automatically detects the document type
+  - Automatically detects the document type (consent form, referral, GP letter,
+    or generic medical document)
   - Extracts patient demographics (name, DOB, sex, Medicare, address, phone)
-  - Generates a standards-compliant HL7 v2.4 ORU^R01 message
+  - Extracts sender, addressee, and CC recipients from referral letters
+  - Resolves the addressee against a configurable BJC Health doctor list
+  - Generates standards-compliant HL7 v2.4 messages:
+      - ORU^R01 (results) for consent forms and generic documents
+      - REF^I12 (referrals) for referral and GP referral letters
   - Embeds the original PDF as a Base64 attachment within the HL7 message
   - Produces a downloadable .hl7 file ready for Genie import
 
@@ -60,46 +65,63 @@ The entire process takes seconds and requires no technical knowledge.
   Consent Form           BJC Health Patient Information and   Automatic
                          Consent Forms (standard BJC format)
 
-  Specialist Referral    Letters from specialists, e.g.       Automatic
-                         NeuroSpine Clinic format
-                         (RE: FirstName LASTNAME - DOB:)
+  Specialist Referral    Letters from specialists about a     Automatic
+                         patient (clinical findings, plans)
 
   GP Referral            GP/Best Practice referral letters    Automatic
                          (re. Mr/Mrs/Ms FirstName LastName)
 
-Document type is auto-detected on upload. Users can also manually override
-the detection if needed.
+  Generic                Any other medical PDF (pathology     Automatic
+                         reports, imaging, discharge notes)
+
+Document type is auto-detected on upload using AI classification. Users can
+also manually override the detection if needed.
 
 ================================================================================
   5. DATA EXTRACTED
 ================================================================================
 
-The following patient data fields are extracted from PDFs:
+The following patient data fields are extracted from PDFs using AI vision:
 
-  Field              Consent Form    Specialist Ref    GP Referral
-  -----------------  -------------   ---------------   ---------------
-  First Name         Yes             Yes               Yes
-  Last Name          Yes             Yes               Yes
-  Date of Birth      Yes             Yes               Yes
-  Sex                From title      From pronouns     From title
-  Medicare Number    Yes             No                Yes
-  Medicare Ref No    Yes             No                Yes
-  Address            Yes             Yes               Yes
-  Suburb/State       Yes             Yes               Yes
-  Postcode           Yes             Yes               Yes
-  Phone/Mobile       Yes             Yes               Yes
+  Field              Consent Form    Referral Letters    Generic
+  -----------------  -------------   ---------------     --------
+  First Name         Yes             Yes                 Yes
+  Last Name          Yes             Yes                 Yes
+  Date of Birth      Yes             Yes                 Yes
+  Sex                From title      From pronouns       If available
+  Medicare Number    Yes             If visible          If visible
+  Medicare Ref No    Yes             If visible          If visible
+  Address            Yes             Yes                 If visible
+  Suburb/State       Yes             Yes                 If visible
+  Postcode           Yes             Yes                 If visible
+  Phone/Mobile       Yes             Yes                 If visible
+
+For referral letters (specialist and GP), additional fields are extracted:
+
+  Field              Description
+  -----------------  ---------------------------------------------------
+  Sender Name        Doctor who wrote/signed the letter
+  Sender Clinic      Clinic or practice of the sender
+  Provider Number    Medicare provider number of the sender (if visible)
+  Addressee Name     BJC Health doctor who should receive the document
+  Addressee Clinic   Clinic of the resolved addressee
+  CC Recipients      Doctors on the CC/Copy-to line
 
 ================================================================================
   6. HL7 OUTPUT SPECIFICATION
 ================================================================================
 
   Standard:            HL7 v2.4
-  Message Type:        ORU^R01 (Observation Result)
   Target System:       Genie (Australian clinical software)
   Character Set:       8859/1
   Country Code:        AUS
 
-  Segments Generated:
+  Message Types:
+  -------------------
+  ORU^R01    Observation Result - for consent forms and generic documents
+  REF^I12    Patient Referral - for specialist and GP referral letters
+
+  ORU^R01 Segments:
   -------------------
   MSH   Message Header (sender, receiver, timestamp, message type)
   PID   Patient Identification (name, DOB, sex, address, Medicare)
@@ -107,7 +129,15 @@ The following patient data fields are extracted from PDFs:
   OBR   Observation Request (document title, result status)
   OBX   Observation Result (original PDF embedded as Base64)
 
-  Medicare Format:     <number>-<ref>^^^Medicare^MC
+  REF^I12 Segments (additional):
+  -------------------
+  RF1   Referral Information (effective date)
+  PRD   Provider Data - Sender (Referring Provider + Authoring Provider)
+  PRD   Provider Data - Addressee (Referred-To + Intended Recipient)
+
+  REF^I12 uses the Australian Simplified REF profile identifier in MSH-12.
+
+  Medicare Format:     <number>-<ref>^^^AUSHIC^MC
   Date Format:         YYYYMMDD (converted from Australian DD/MM/YYYY)
   Segment Terminator:  CR only (per HL7 specification)
   PDF Encoding:        Base64 in OBX-5 ED datatype (^application^pdf^Base64^)
@@ -116,8 +146,8 @@ The following patient data fields are extracted from PDFs:
   7. GENIE INTEGRATION OPTIONS
 ================================================================================
 
-The converter provides two options that control how Genie handles the imported
-document:
+The converter provides several options that control how Genie handles the
+imported document:
 
   Option                 Description                          Default
   ---------------------  -----------------------------------  --------
@@ -130,6 +160,16 @@ document:
   Send to Doctor         Routes the document to a specific    OFF
                          doctor's inbox using their Medicare
                          Provider Number (placed in PV1-9).
+
+  Carrier                Sets the Sending Application name    SMECAI
+                         in MSH-3. Can be customised per
+                         integration (e.g., Email, Fax).
+
+  Doctor List            A configurable list of BJC Health    Pre-populated
+                         doctors used for AI-driven
+                         addressee resolution. The system
+                         matches the letter's recipient
+                         against this list.
 
 ================================================================================
   8. SECURITY & ACCESS CONTROL
@@ -164,45 +204,59 @@ document:
 
   Step 1:  Navigate to the application URL in your web browser
   Step 2:  Enter the access password
-  Step 3:  Drag and drop a PDF (or click "Browse Files")
-  Step 4:  The document type is auto-detected (override if needed)
-  Step 5:  Configure options:
+  Step 3:  (Optional) Switch to Doctors tab to manage the BJC doctor list
+  Step 4:  Drag and drop a PDF (or click "Browse Files")
+  Step 5:  The document type is auto-detected (override if needed)
+  Step 6:  Configure options:
+             - Carrier (sending application name)
              - Auto-file ON/OFF
              - Optionally enter a doctor's Provider Number
-  Step 6:  Click "Convert to HL7"
-  Step 7:  Review the extracted patient details shown on screen
-  Step 8:  Click "Download HL7 File"
-  Step 9:  Import the .hl7 file into Genie
+  Step 7:  Click "Convert to HL7"
+  Step 8:  Review the extracted patient details shown on screen
+  Step 9:  Click "Download HL7 File"
+  Step 10: Import the .hl7 file into Genie
 
 ================================================================================
-  11. CURRENT LIMITATIONS (POC)
+  11. CURRENT LIMITATIONS
 ================================================================================
 
   - Only processes one PDF at a time (no batch upload)
-  - Requires the PDF to contain machine-readable text (not scanned images)
-  - Document type detection relies on specific formatting conventions
   - Patient sex is inferred from title (Mr/Mrs/Ms) or pronoun analysis
     when no title is available
   - No direct Genie integration (manual .hl7 file import required)
 
 ================================================================================
-  12. FUTURE ENHANCEMENTS (ROADMAP)
+  12. DELIVERED ENHANCEMENTS (since v1.0.0)
+================================================================================
+
+  The following features have been delivered since the initial proof of concept:
+
+  - AI vision extraction via AWS Bedrock Claude Sonnet 4.6 (replaces regex)
+  - REF^I12 referral message type with sender/addressee provider data
+  - Automatic document type classification (4 types)
+  - Addressee resolution against configurable BJC Health doctor list
+  - CC recipient extraction from referral letters
+  - Carrier (sending application) configuration
+  - Generic document type support
+  - State inference from Australian postcodes
+
+================================================================================
+  13. FUTURE ENHANCEMENTS (ROADMAP)
 ================================================================================
 
   Phase 2 - Planned:
+    - Automated Power Automate Desktop workflow (email to HL7, no manual upload)
     - Batch PDF upload and conversion
-    - Direct Genie integration (auto-import via watched folder or API)
-    - OCR support for scanned/image-based PDFs
+    - Direct Genie integration (auto-import via watched folder)
     - Audit logging for compliance
-    - User accounts with role-based access
 
   Phase 3 - Proposed:
-    - AI-powered extraction for unstructured document formats
     - Additional document type support (pathology, imaging reports)
     - Integration with other practice management systems
+    - User accounts with role-based access
 
 ================================================================================
-  13. SUPPORT & CONTACT
+  14. SUPPORT & CONTACT
 ================================================================================
 
   SMEC AI

@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
+import { LogoStrip } from "../components/LogoStrip";
 
 interface ComplianceSection {
   icon: React.ReactNode;
@@ -89,9 +89,9 @@ export default function CompliancePage() {
       title: "Data Sovereignty & Australian Infrastructure",
       items: [
         {
-          label: "100% Australian infrastructure",
+          label: "Australian AWS infrastructure",
           detail:
-            "The application is deployed on AWS Amplify in the ap-southeast-2 (Sydney) region. All server-side processing occurs within Australian data centres.",
+            "The application is deployed on AWS Amplify in the ap-southeast-2 (Sydney) region. Bedrock is invoked through the Australian inference profile and may process within Australian AWS regions, including Sydney and Melbourne.",
         },
         {
           label: "IRAP PROTECTED-assessed infrastructure",
@@ -101,7 +101,7 @@ export default function CompliancePage() {
         {
           label: "AI processing stays in Australia",
           detail:
-            "Document classification and data extraction uses AWS Bedrock in the Sydney region. AWS Bedrock does not store or log prompts and completions, and does not use customer data for model training.",
+            "Document classification and data extraction uses AWS Bedrock through Australian regional infrastructure. AWS Bedrock does not store or log prompts and completions, and does not use customer data for model training.",
         },
         {
           label: "No cross-border data transfer (APP 8)",
@@ -209,26 +209,7 @@ export default function CompliancePage() {
   return (
     <main className="min-h-screen flex flex-col items-center px-4 py-10">
       <div className="w-full max-w-[680px]">
-        {/* Logo strip */}
-        <div className="logo-strip animate-fade-in-up">
-          <Image
-            src="/bjc_health_logo.png"
-            alt="BJC Health - Connected Care"
-            width={220}
-            height={63}
-            className="h-12 w-auto"
-            priority
-          />
-          <div className="logo-divider" />
-          <Image
-            src="/smec_ai_logo_horizontal.png"
-            alt="SMEC AI"
-            width={180}
-            height={42}
-            className="h-10 w-auto"
-            priority
-          />
-        </div>
+        <LogoStrip />
 
         {/* Back link */}
         <div className="mt-4 animate-fade-in-up">

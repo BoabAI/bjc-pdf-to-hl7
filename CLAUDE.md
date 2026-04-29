@@ -8,12 +8,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 bun dev          # Start development server (localhost:3000)
 bun run build    # Production build
 bun run lint     # ESLint check
+bun run typecheck  # Typecheck (bun test does NOT typecheck)
 bun test         # Run all tests (Bun test runner)
+bun run check    # Typecheck, lint, then test
 bun test --filter "consent"  # Run tests matching a pattern
 bun start        # Start production server
 ```
 
 **Bun is the only package manager.** There is no `package-lock.json`. Never use `npm ci`. Use `bun add`/`bun remove` for dependencies. On Amplify, `amplify.yml` uses `npm install` (not `npm ci`) because there's no lockfile.
+
+### Local AWS Credentials (Bedrock)
+
+Vision extraction calls Bedrock at runtime, even in local dev. To run `bun dev` or live test scripts (`scripts/test-vision.ts`, `scripts/test-cc-scenarios.ts`):
+
+- Export `AWS_PROFILE=<profile>` (or `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`) before starting the dev server
+- Credentials need `bedrock:InvokeModel` on `anthropic.claude-sonnet-4-6` in **both** `ap-southeast-2` and `ap-southeast-4` (AU inference profiles route to Melbourne)
+- Without credentials, `/api/convert` returns a credential warning instead of crashing — useful for non-Bedrock UI work
 
 ## Testing the API
 
@@ -57,6 +67,10 @@ Tests are co-located with source files and use `bun:test` imports (`describe`, `
 
 The `scripts/test-vision.ts` and `scripts/test-cc-scenarios.ts` are **live Bedrock tests** (not unit tests) — they require valid AWS credentials and make real API calls.
 
+### Bun mock.module Limitation
+
+Tests use `mock.module()` for Bedrock and PDF parser mocking. Keep mocks declared before importing the module under test. `bun test` currently passes as a full suite.
+
 ## Architecture
 
 Next.js 14 App Router application that converts PDF patient documents to Australian HL7 v2.4 format (Genie-compatible).
@@ -64,15 +78,14 @@ Next.js 14 App Router application that converts PDF patient documents to Austral
 ### Data Flow
 
 ```
-PDF Upload → /api/convert → pdf-parser.ts → vision-extractor.ts (Bedrock classify + extract) → hl7-builder.ts → HL7 Download
+PDF Upload → /api/convert → convert-service.ts → pdf-parser.ts → vision-extractor.ts (Bedrock classify + extract) → hl7-builder.ts → HL7 Download
 ```
 
 ### Authentication
 
-Simple password-based auth using Next.js middleware (`middleware.ts`):
-- `APP_PASSWORD` env var checked against user input
-- Sets `app_authenticated` httpOnly cookie (7-day expiry)
-- `/login` page and `/api/auth` are public; everything else requires auth
+Password auth via Next.js middleware (`middleware.ts`):
+- **Browser (cookie):** `APP_PASSWORD` env var checked against user input → sets `app_authenticated` httpOnly cookie (7-day expiry)
+- `/login` and `/api/auth` are public; everything else requires the cookie session
 - Login: `POST /api/auth` with `{ password }`, Logout: `DELETE /api/auth`
 
 ### Document Type System
@@ -84,6 +97,12 @@ Four document types are classified by Bedrock vision:
 - **`generic`** - Any other medical PDF or unclear case
 
 ### Core Modules
+
+**`lib/convert-service.ts`** - Conversion form parsing and orchestration (no HTTP response objects, no auth). Key functions:
+- `convertPdf(req: ConvertRequest): Promise<ConvertResult>` - Orchestrates extraction → HL7 build → format response
+- `parseConvertFormData(formData: FormData): Promise<{ data: ConvertRequest } | { error: string }>` - Validates and parses upload FormData
+
+**`lib/conversion-config.ts`** - Shared document types, default carrier, default doctor list, and routing helpers.
 
 **`lib/pdf-parser.ts`** - Bedrock extraction facade. Key functions:
 - `extractPatientData(pdfBuffer, documentType?, bjcDoctors?)` - Main entry point, optionally passes document type hint and doctor list to Bedrock
@@ -120,9 +139,17 @@ Four document types are classified by Bedrock vision:
 - `carrier`: Overrides MSH-3 Sending Application (default "SMECAI")
 - `bjcDoctors`: JSON array of doctor names for AI-driven addressee resolution (falls back to `BJC_DOCTORS` env var)
 
+### UI & API Routes
+
+- `/` - Converter UI with localStorage-backed carrier and doctor list settings
+- `/login` - Password login page
+- `/compliance` and `/privacy` - Static information pages
+- `/api/auth` (POST/DELETE) - Login/logout
+- `/api/convert` (GET/POST) - Service health / PDF conversion
+
 ### Addressee Resolution
 
-The vision extractor uses AI to identify sender, addressee, and CC recipients from referral letters. When a `bjcDoctors` list is provided, the model resolves the addressee to the best-matching doctor from that list (e.g., "Dear Rheumatologist" → "Dr Irwin Lim"). The UI pre-populates a default BJC Health doctor list in `app/page.tsx`.
+The vision extractor uses AI to identify sender, addressee, and CC recipients from referral letters. When a `bjcDoctors` list is provided, the model resolves the addressee to the best-matching doctor from that list (e.g., "Dear Rheumatologist" → "Dr Irwin Lim"). The UI pre-populates a default BJC Health doctor list from `lib/conversion-config.ts`.
 
 ### Bedrock Runtime Notes
 
@@ -136,7 +163,7 @@ The vision extractor uses AI to identify sender, addressee, and CC recipients fr
 | Variable | Required | Purpose |
 |----------|----------|---------|
 | `APP_PASSWORD` | Yes | Password for login authentication |
-| `BJC_DOCTORS` | No | JSON array of doctor names (fallback when UI doesn't send `bjcDoctors`) |
+| `BJC_DOCTORS` | No | Comma-separated doctor names (fallback when UI doesn't send `bjcDoctors`) |
 
 Locally, create `.env.local`. On Amplify, env vars are set at the app level and written to `.env.production` during build (see `amplify.yml`).
 
@@ -145,7 +172,9 @@ Locally, create `.env.local`. On Amplify, env vars are set at the app level and 
 - `docs/functional_spec.md` - Full functional specification
 - `docs/research/genie-hl7-input-format.md` - Genie's HL7 input requirements
 - `docs/amplify-bedrock-credentials.md` - Amplify compute role + Bedrock auth setup
-- `docs/REFERRAL_LETTER_SUPPORT.md` - Referral letter parsing design
+- `docs/workflow/bjc-pdf-to-hl7-requirements.md` - Automation workflow requirements
+- `docs/workflow/bjc-pdf-to-directory.md` - Sister automation (consent forms via PAD)
+- `docs/archive/` - Historical/superseded docs (cost analysis, pricing research, refactor plans, PDF dups)
 
 ## Deployment
 

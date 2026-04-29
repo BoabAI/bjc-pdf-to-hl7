@@ -1,0 +1,39 @@
+{
+  "company": "SMEC AI",
+  "productName": "BJC PDF-to-HL7 Automated Workflow",
+  "clientName": "BJC Health",
+  "logoPath": "logo.png",
+  "url": "smecai.au",
+  "tagline": "From inbox to Genie. Automatically.",
+  "colors": {
+    "bgPrimary": "#0d0618",
+    "bgSecondary": "#1a0a2e",
+    "accent": "rgba(139, 92, 246, 0.15)",
+    "accentSolid": "#a78bfa",
+    "accentSecondary": "#818cf8",
+    "negative": "#f87171",
+    "negativeAccent": "#ef4444",
+    "positive": "#34d399",
+    "positiveBg": "rgba(52, 211, 153, 0.12)",
+    "textPrimary": "#f1f0f3",
+    "textSecondary": "#a09cb0"
+  },
+  "font": {
+    "display": "Outfit",
+    "body": "DM Sans"
+  },
+  "style": {
+    "tone": "dark-cinematic",
+    "backgroundType": "gradient-mesh",
+    "motionStyle": "calm-confident",
+    "layoutStyle": "editorial-centered"
+  },
+  "voice": {
+    "id": "spZS54yMfsj80VHtUQFY",
+    "name": "Chris - Australian Executive",
+    "stability": 0.6,
+    "similarityBoost": 0.8,
+    "style": 0.15,
+    "speed": 1.05
+  }
+}

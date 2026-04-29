@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
+import { LogoStrip } from "../components/LogoStrip";
 
 const EFFECTIVE_DATE = "20 March 2026";
 const ENTITY_NAME = "SMEC AI";
@@ -110,7 +110,7 @@ export default function PrivacyPolicyPage() {
             <strong>AI-assisted extraction:</strong> The Application uses Amazon Web
             Services (AWS) Bedrock, a cloud-based AI service, to classify uploaded
             documents and extract structured patient data from PDF content. This AI
-            processing occurs within Australia (AWS Sydney region, ap-southeast-2).
+            processing occurs through AWS Bedrock Australian regional infrastructure.
             AWS Bedrock does not store, log, or use patient data for model training.
           </p>
         </>
@@ -181,7 +181,7 @@ export default function PrivacyPolicyPage() {
             We do not disclose patient personal information to any third party.
           </p>
           <p>
-            Patient data is transmitted to AWS Bedrock (Sydney region) for AI-assisted
+            Patient data is transmitted to AWS Bedrock Australian regional infrastructure for AI-assisted
             extraction as part of the conversion process. AWS acts as a sub-processor
             under its standard customer agreement. AWS Bedrock does not retain or log
             the data, and does not use it for model training.
@@ -199,15 +199,15 @@ export default function PrivacyPolicyPage() {
       content: (
         <>
           <p>
-            All data processing occurs within Australia using AWS infrastructure in
-            the ap-southeast-2 (Sydney) region. Patient data is not intentionally
+            Data processing occurs within Australia using AWS infrastructure in
+            Australian regions, including ap-southeast-2 (Sydney). Patient data is not intentionally
             transferred to any overseas recipient.
           </p>
           <p>
             AWS, as a global infrastructure provider headquartered in the United
             States, has operational staff in multiple countries. However, the AWS
             services used by this Application are IRAP-assessed at the PROTECTED
-            level for the Sydney region, and AWS contractual commitments provide
+            level for supported Australian regions, and AWS contractual commitments provide
             reasonable steps to ensure data protection in accordance with APP 8.
           </p>
         </>
@@ -402,26 +402,7 @@ export default function PrivacyPolicyPage() {
   return (
     <main className="min-h-screen flex flex-col items-center px-4 py-10">
       <div className="w-full max-w-[680px]">
-        {/* Logo strip */}
-        <div className="logo-strip animate-fade-in-up">
-          <Image
-            src="/bjc_health_logo.png"
-            alt="BJC Health - Connected Care"
-            width={220}
-            height={63}
-            className="h-12 w-auto"
-            priority
-          />
-          <div className="logo-divider" />
-          <Image
-            src="/smec_ai_logo_horizontal.png"
-            alt="SMEC AI"
-            width={180}
-            height={42}
-            className="h-10 w-auto"
-            priority
-          />
-        </div>
+        <LogoStrip />
 
         {/* Back link */}
         <div className="mt-4 animate-fade-in-up">

@@ -1,49 +1,20 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import Image from "next/image";
-import Link from "next/link";
-
-const DEFAULT_BJC_DOCTORS = [
-  "Dr Irwin Lim",
-  "Dr Herman Lau",
-  "Dr Andrew Jordan",
-  "Dr Ilana Ginges",
-  "Dr Roberto Russo",
-  "Dr Anne Chung",
-  "Dr Simran Kaur",
-  "Dr Shirley Yu",
-  "Dr Queenie Luu",
-  "Dr Adam Maundrell",
-  "Dr Hugh Caterson",
-  "Dr Pauline Habib",
-  "Dr Elaine Ng",
-  "Dr Kate Celkys",
-  "Dr Cellina Ching",
-  "Dr Vincent Wong",
-  "Dr Dahlia Davidoff",
-];
-
-interface ConversionResult {
-  success: boolean;
-  filename?: string;
-  hl7Content?: string;
-  extractedData?: {
-    firstName: string;
-    lastName: string;
-    dob: string;
-    sex: string;
-    medicareNo: string;
-    sender?: string;
-    addressee?: string;
-    cc?: string;
-    date?: string;
-    messageType?: string;
-    carrier?: string;
-  };
-  extractionMethod?: "vision";
-  error?: string;
-}
+import { AppFooter } from "./components/AppFooter";
+import { ConversionOptions } from "./components/ConversionOptions";
+import {
+  ConversionResultPanel,
+  type ConversionResult,
+} from "./components/ConversionResultPanel";
+import { DoctorsTab } from "./components/DoctorsTab";
+import { LogoStrip } from "./components/LogoStrip";
+import { UploadZone } from "./components/UploadZone";
+import {
+  DEFAULT_BJC_DOCTORS,
+  DEFAULT_CARRIER,
+  type DocumentTypeOption,
+} from "@/lib/conversion-config";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"converter" | "doctors">("converter");
@@ -52,12 +23,12 @@ export default function Home() {
   const [isConverting, setIsConverting] = useState(false);
   const [isDetecting, setIsDetecting] = useState(false);
   const [result, setResult] = useState<ConversionResult | null>(null);
-  const [documentType, setDocumentType] = useState<"auto" | "consent_form" | "referral_letter" | "gp_referral" | "generic">("auto");
+  const [documentType, setDocumentType] = useState<DocumentTypeOption>("auto");
   const [detectedType, setDetectedType] = useState<string | null>(null);
   const [autoFile, setAutoFile] = useState(true);
   const [sendToDoctor, setSendToDoctor] = useState(false);
   const [providerNumber, setProviderNumber] = useState("");
-  const [carrier, setCarrier] = useState("SMECAI");
+  const [carrier, setCarrier] = useState(DEFAULT_CARRIER);
   const [doctors, setDoctors] = useState<string[]>(DEFAULT_BJC_DOCTORS);
   const [newDoctorName, setNewDoctorName] = useState("");
 
@@ -229,26 +200,7 @@ export default function Home() {
     <main className="min-h-screen flex flex-col items-center justify-center px-4 py-10">
       <div className="w-full max-w-[580px]">
 
-        {/* ── Logo strip ── */}
-        <div className="logo-strip animate-fade-in-up">
-          <Image
-            src="/bjc_health_logo.png"
-            alt="BJC Health - Connected Care"
-            width={220}
-            height={63}
-            className="h-12 w-auto"
-            priority
-          />
-          <div className="logo-divider" />
-          <Image
-            src="/smec_ai_logo_horizontal.png"
-            alt="SMEC AI"
-            width={180}
-            height={42}
-            className="h-10 w-auto"
-            priority
-          />
-        </div>
+        <LogoStrip />
 
         {/* ── Main card ── */}
         <div className="card mt-6 animate-fade-in-up stagger-1">
@@ -295,65 +247,14 @@ export default function Home() {
 
           {/* ── Doctors Tab ── */}
           {activeTab === "doctors" && (
-            <div className="space-y-4 animate-fade-in">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold uppercase tracking-widest text-[var(--text-muted)]">
-                  BJC Health Doctors
-                </h3>
-                <button
-                  onClick={handleResetDoctors}
-                  className="text-[11px] text-[var(--bjc-blue)] hover:underline transition-colors"
-                >
-                  Reset to defaults
-                </button>
-              </div>
-
-              <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-                The AI uses this list to identify which doctor on a referral letter belongs to BJC Health for correct Genie routing.
-              </p>
-
-              {/* Add doctor */}
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Dr First Last"
-                  value={newDoctorName}
-                  onChange={(e) => setNewDoctorName(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleAddDoctor()}
-                  className="input-field flex-1 text-sm"
-                />
-                <button
-                  onClick={handleAddDoctor}
-                  disabled={!newDoctorName.trim()}
-                  className="btn-primary text-sm px-4 disabled:opacity-40"
-                >
-                  Add
-                </button>
-              </div>
-
-              {/* Doctor list */}
-              <div className="card-inner divide-y divide-[var(--border-light)] max-h-[400px] overflow-y-auto">
-                {doctors.map((name, i) => (
-                  <div key={i} className="flex items-center justify-between px-4 py-2.5 group">
-                    <span className="text-sm text-[var(--text-primary)]">{name}</span>
-                    <button
-                      onClick={() => handleRemoveDoctor(i)}
-                      className="text-[var(--text-faint)] hover:text-[var(--error)] transition-colors opacity-0 group-hover:opacity-100"
-                      title="Remove"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-                {doctors.length === 0 && (
-                  <div className="px-4 py-6 text-center text-sm text-[var(--text-muted)]">
-                    No doctors configured. Add doctors above or reset to defaults.
-                  </div>
-                )}
-              </div>
-            </div>
+            <DoctorsTab
+              doctors={doctors}
+              newDoctorName={newDoctorName}
+              onNewDoctorNameChange={setNewDoctorName}
+              onAddDoctor={handleAddDoctor}
+              onRemoveDoctor={handleRemoveDoctor}
+              onResetDoctors={handleResetDoctors}
+            />
           )}
 
           {/* ── Converter Tab ── */}
@@ -376,166 +277,34 @@ export default function Home() {
               </span>
             </div>
 
-            {/* ── Upload zone ── */}
-            <div
+            <UploadZone
+              file={file}
+              isDragging={isDragging}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              className={`upload-zone p-8 text-center ${isDragging ? "dragging" : ""} ${file ? "has-file" : ""}`}
-            >
-              {file ? (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-center gap-2.5 text-[var(--success)]">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span className="font-semibold text-sm">{file.name}</span>
-                  </div>
-                  <p className="text-xs text-[var(--text-muted)] mono">
-                    {(file.size / 1024).toFixed(1)} KB
-                  </p>
-                  <button
-                    onClick={handleReset}
-                    className="text-xs text-[var(--error)] hover:underline transition-colors"
-                  >
-                    Remove file
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex justify-center">
-                    <div className="w-12 h-12 rounded-full flex items-center justify-center bg-[var(--blue-50)] border border-[var(--blue-200)]">
-                      <svg className="w-5 h-5 text-[var(--bjc-blue)]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                      </svg>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-[var(--text-primary)]">
-                      Drag and drop your PDF here
-                    </p>
-                    <p className="text-xs text-[var(--text-muted)] mt-1">or</p>
-                  </div>
-                  <label className="inline-block">
-                    <span className="btn-primary inline-block text-sm">
-                      Browse Files
-                    </span>
-                    <input
-                      type="file"
-                      accept=".pdf"
-                      onChange={handleFileChange}
-                      className="hidden"
-                    />
-                  </label>
-                  <p className="text-[11px] text-[var(--text-faint)] tracking-wide uppercase">
-                    PDF files only &middot; Max 10MB
-                  </p>
-                </div>
-              )}
-            </div>
+              onFileChange={handleFileChange}
+              onReset={handleReset}
+            />
 
-            {/* ── Conversion options ── */}
             {file && !result && (
-              <div className="card-inner p-5 space-y-4 animate-fade-in">
-                <h3 className="text-xs font-semibold uppercase tracking-widest text-[var(--text-muted)]">
-                  Conversion Options
-                </h3>
-
-                {/* Document Type */}
-                <div className="space-y-1.5">
-                  <label htmlFor="documentType" className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-                    Document Type
-                    {isDetecting && (
-                      <span className="badge badge-blue text-[11px]">
-                        <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                        </svg>
-                        detecting
-                      </span>
-                    )}
-                    {detectedType && !isDetecting && (
-                      <span className="badge badge-success text-[11px]">auto-detected</span>
-                    )}
-                  </label>
-                  <select
-                    id="documentType"
-                    value={documentType}
-                    onChange={(e) => {
-                      setDocumentType(e.target.value as "auto" | "consent_form" | "referral_letter" | "gp_referral" | "generic");
-                      setDetectedType(null);
-                    }}
-                    disabled={isDetecting}
-                    className="select-field w-full max-w-xs disabled:opacity-50 disabled:cursor-wait"
-                  >
-                    <option value="auto">Auto-detect</option>
-                    <option value="consent_form">Consent Form</option>
-                    <option value="referral_letter">Specialist Referral Letter</option>
-                    <option value="gp_referral">GP Referral Letter</option>
-                    <option value="generic">Other Document</option>
-                  </select>
-                </div>
-
-                {/* Carrier */}
-                <div className="space-y-1.5">
-                  <label htmlFor="carrier" className="text-sm text-[var(--text-secondary)]">
-                    Carrier
-                  </label>
-                  <select
-                    id="carrier"
-                    value={carrier}
-                    onChange={(e) => handleCarrierChange(e.target.value)}
-                    className="select-field w-full max-w-xs"
-                  >
-                    <option value="SMECAI">SMECAI</option>
-                    <option value="EMAIL">Email</option>
-                    <option value="FAX">Fax</option>
-                    <option value="POST">Post</option>
-                    <option value="HAND">Hand Delivered</option>
-                  </select>
-                </div>
-
-                <div className="divider-subtle" />
-
-                <label className="flex items-center gap-3 cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    checked={autoFile}
-                    onChange={(e) => setAutoFile(e.target.checked)}
-                    className="checkbox-custom"
-                  />
-                  <span className="text-sm text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
-                    Auto-file to patient record
-                  </span>
-                  <span className="text-[11px] text-[var(--text-muted)]">(Final result)</span>
-                </label>
-
-                <div className="space-y-2.5">
-                  <label className="flex items-center gap-3 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={sendToDoctor}
-                      onChange={(e) => setSendToDoctor(e.target.checked)}
-                      className="checkbox-custom"
-                    />
-                    <span className="text-sm text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
-                      Send to specific doctor
-                    </span>
-                  </label>
-
-                  {sendToDoctor && (
-                    <div className="ml-[30px] animate-fade-in">
-                      <input
-                        type="text"
-                        placeholder="Medicare Provider Number (e.g., 1234567A)"
-                        value={providerNumber}
-                        onChange={(e) => setProviderNumber(e.target.value)}
-                        className="input-field max-w-xs text-sm"
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
+              <ConversionOptions
+                documentType={documentType}
+                detectedType={detectedType}
+                isDetecting={isDetecting}
+                carrier={carrier}
+                autoFile={autoFile}
+                sendToDoctor={sendToDoctor}
+                providerNumber={providerNumber}
+                onDocumentTypeChange={(value) => {
+                  setDocumentType(value);
+                  setDetectedType(null);
+                }}
+                onCarrierChange={handleCarrierChange}
+                onAutoFileChange={setAutoFile}
+                onSendToDoctorChange={setSendToDoctor}
+                onProviderNumberChange={setProviderNumber}
+              />
             )}
 
             {/* ── Convert button ── */}
@@ -561,158 +330,19 @@ export default function Home() {
               </div>
             )}
 
-            {/* ── Extraction Failed ── */}
-            {result && !result.success && (
-              <div className="space-y-5 animate-fade-in-up">
-                <div className="p-5 rounded-xl bg-[var(--error-bg)] border border-[var(--error-border)]">
-                  <div className="flex items-center gap-2.5 mb-3">
-                    <svg className="w-5 h-5 text-[var(--error)]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                    </svg>
-                    <h3 className="font-semibold text-sm text-[var(--error)]">
-                      Extraction Failed
-                    </h3>
-                  </div>
-                  <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-                    {result.error}
-                  </p>
-                </div>
-
-                <div className="flex gap-3 justify-center">
-                  <button onClick={handleReset} className="btn-primary">
-                    Try Another File
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* ── Success ── */}
-            {result?.success && (
-              <div className="space-y-5 animate-fade-in-up">
-                <div className={`p-5 rounded-xl border ${missingPatientData ? "bg-[var(--error-bg)] border-[var(--error-border)]" : "bg-[var(--success-bg)] border-[var(--success-border)]"}`}>
-                  <div className="flex items-center gap-2.5 mb-3">
-                    {missingPatientData ? (
-                      <svg className="w-5 h-5 text-[var(--error)]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5 text-[var(--success)]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    )}
-                    <h3 className={`font-semibold text-sm ${missingPatientData ? "text-[var(--error)]" : "text-[var(--success)]"}`}>
-                      {missingPatientData ? "Could not extract patient data" : "Conversion Successful"}
-                    </h3>
-                    {!missingPatientData && result.extractionMethod === "vision" && (
-                      <span className="badge text-[10px] px-2 py-0.5 bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700">
-                        AI Vision
-                      </span>
-                    )}
-                  </div>
-                  {missingPatientData && (
-                    <p className="text-sm text-[var(--error)]">
-                      The patient name and date of birth could not be found in this PDF. Please check the document format or try a different file.
-                    </p>
-                  )}
-                  {result.extractedData && (
-                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                      <div>
-                        <span className="text-[var(--text-muted)] text-xs">Date</span>
-                        <p className="text-[var(--text-primary)] font-medium mono">{result.extractedData.date}</p>
-                      </div>
-                      <div>
-                        <span className="text-[var(--text-muted)] text-xs">Type</span>
-                        <p className="text-[var(--text-primary)] font-medium">{result.extractedData.messageType}</p>
-                      </div>
-                      <div>
-                        <span className="text-[var(--text-muted)] text-xs">Surname</span>
-                        <p className="text-[var(--text-primary)] font-medium">{result.extractedData.lastName}</p>
-                      </div>
-                      <div>
-                        <span className="text-[var(--text-muted)] text-xs">First Name</span>
-                        <p className="text-[var(--text-primary)] font-medium">{result.extractedData.firstName}</p>
-                      </div>
-                      <div>
-                        <span className="text-[var(--text-muted)] text-xs">DOB</span>
-                        <p className="text-[var(--text-primary)] font-medium mono">{result.extractedData.dob}</p>
-                      </div>
-                      <div>
-                        <span className="text-[var(--text-muted)] text-xs">Sex</span>
-                        <p className="text-[var(--text-primary)] font-medium">{result.extractedData.sex}</p>
-                      </div>
-                      <div>
-                        <span className="text-[var(--text-muted)] text-xs">Medicare</span>
-                        <p className="text-[var(--text-primary)] font-medium mono">{result.extractedData.medicareNo}</p>
-                      </div>
-                      <div>
-                        <span className="text-[var(--text-muted)] text-xs">Carrier</span>
-                        <p className="text-[var(--text-primary)] font-medium">{result.extractedData.carrier}</p>
-                      </div>
-                      {result.extractedData.sender && (
-                        <div>
-                          <span className="text-[var(--text-muted)] text-xs">Sender</span>
-                          <p className="text-[var(--text-primary)] font-medium">{result.extractedData.sender}</p>
-                        </div>
-                      )}
-                      {result.extractedData.addressee && (
-                        <div>
-                          <span className="text-[var(--text-muted)] text-xs">Addressee</span>
-                          <p className="text-[var(--text-primary)] font-medium">{result.extractedData.addressee}</p>
-                        </div>
-                      )}
-                      {result.extractedData.cc && (
-                        <div>
-                          <span className="text-[var(--text-muted)] text-xs">CC</span>
-                          <p className="text-[var(--text-primary)] font-medium">{result.extractedData.cc}</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex gap-3 justify-center">
-                  {!missingPatientData && (
-                    <button onClick={handleDownload} className="btn-success">
-                      Download HL7 File
-                    </button>
-                  )}
-                  <button onClick={handleReset} className="btn-secondary">
-                    Convert Another
-                  </button>
-                </div>
-              </div>
+            {result && (
+              <ConversionResultPanel
+                result={result}
+                missingPatientData={Boolean(missingPatientData)}
+                onDownload={handleDownload}
+                onReset={handleReset}
+              />
             )}
           </>)}
           </div>
         </div>
 
-        {/* ── Footer ── */}
-        <footer className="mt-6 text-center animate-fade-in stagger-3 space-y-1.5">
-          <p className="text-[11px] text-[var(--text-muted)] tracking-wide">
-            HL7 v2.4 &middot; Genie Compatible &middot; AI hosted in Sydney, Australia
-          </p>
-          <div className="flex items-center justify-center gap-3">
-            <Link
-              href="/compliance"
-              className="inline-flex items-center gap-1 text-[11px] text-[var(--bjc-blue)] hover:text-[var(--bjc-navy)] transition-colors tracking-wide"
-            >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-              </svg>
-              Data Handling &amp; Compliance
-            </Link>
-            <span className="text-[var(--border-medium)]">&middot;</span>
-            <Link
-              href="/privacy"
-              className="inline-flex items-center gap-1 text-[11px] text-[var(--bjc-blue)] hover:text-[var(--bjc-navy)] transition-colors tracking-wide"
-            >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-              </svg>
-              Privacy Policy
-            </Link>
-          </div>
-        </footer>
+        <AppFooter />
       </div>
     </main>
   );

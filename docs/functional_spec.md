@@ -15,12 +15,13 @@ The PDF to HL7 Converter is a web application that converts patient PDF document
 
 ### 1.1 Key Capabilities
 
-- Automatic document type detection (consent forms, specialist referrals, GP referrals)
-- Patient data extraction via AWS Bedrock vision (name, DOB, sex, Medicare, address, phone)
-- HL7 v2.4 ORU^R01 message generation per Australian ADRM specification
+- Automatic document type detection (consent forms, specialist referrals, GP referrals, generic)
+- Patient data extraction via AWS Bedrock Claude Sonnet 4.6 vision (name, DOB, sex, Medicare, address, phone, sender, addressee, CC)
+- HL7 v2.4 message generation per Australian ADRM specification: ORU^R01 (results) and REF^I12 (referrals)
 - PDF embedding as Base64 in OBX segment for Genie import
+- Addressee resolution against configurable BJC Health doctor list
 - Password-protected web interface with drag-and-drop upload
-- Configurable auto-filing and doctor routing options
+- Configurable carrier, auto-filing, and doctor routing options
 
 ### 1.2 Technology Stack
 
@@ -32,7 +33,7 @@ The PDF to HL7 Converter is a web application that converts patient PDF document
 | PDF Extraction | AWS Bedrock Claude Sonnet 4.6 |
 | Styling | Tailwind CSS 3 + Custom CSS |
 | Deployment | AWS Amplify (WEB_COMPUTE / SSR) |
-| Testing | Bun test runner (244 tests) |
+| Testing | Bun test runner (187 tests across 7 files) |
 
 ---
 
@@ -41,9 +42,10 @@ The PDF to HL7 Converter is a web application that converts patient PDF document
 ### 2.1 Data Flow
 
 ```
-PDF Upload --> /api/convert --> pdf-parser.ts --> hl7-builder.ts --> HL7 Download
-     |              |               |                  |               |
-  Browser      API Route      Extract Data       Build Message    .hl7 File
+PDF Upload --> /api/convert --> pdf-parser.ts --> vision-extractor.ts --> hl7-builder.ts --> HL7 Download
+     |              |               |                    |                    |               |
+  Browser      API Route        Facade          Bedrock Vision         Build Message    .hl7 File
+                                              (classify + extract)    (ORU or REF)
 ```
 
 ### 2.2 Component Overview
@@ -55,7 +57,8 @@ PDF Upload --> /api/convert --> pdf-parser.ts --> hl7-builder.ts --> HL7 Downloa
 | `app/api/convert/route.ts` | PDF conversion API endpoint |
 | `app/api/auth/route.ts` | Authentication API endpoint |
 | `lib/pdf-parser.ts` | Bedrock-backed PDF extraction facade |
-| `lib/hl7-builder.ts` | HL7 v2.4 message generation |
+| `lib/vision-extractor.ts` | Bedrock document classification + patient/referral extraction |
+| `lib/hl7-builder.ts` | HL7 v2.4 message generation (ORU^R01 + REF^I12) |
 | `middleware.ts` | Route protection and session validation |
 
 ---
@@ -115,9 +118,11 @@ Converts a PDF document to an HL7 v2.4 message with the original PDF embedded.
 |-----------|------|----------|---------|-------------|
 | `pdf` | File | Yes | - | PDF file to convert (max 10MB) |
 | `detectOnly` | string | No | `"false"` | If `"true"`, returns detected document type only |
-| `documentType` | string | No | `"auto"` | `"auto"`, `"consent_form"`, `"referral_letter"`, `"gp_referral"` |
+| `documentType` | string | No | `"auto"` | `"auto"`, `"consent_form"`, `"referral_letter"`, `"gp_referral"`, `"generic"` |
 | `autoFile` | string | No | `"true"` | `"true"` = auto-file (Final), `"false"` = queue for review (Preliminary) |
 | `orderingProvider` | string | No | - | Medicare Provider Number (e.g., `"1234567A"`) for doctor routing |
+| `carrier` | string | No | `"SMECAI"` | Sending Application name for MSH-3 |
+| `bjcDoctors` | JSON string | No | env `BJC_DOCTORS` | Array of doctor names for addressee resolution |
 
 **Success Response (200):**
 
@@ -131,9 +136,16 @@ Converts a PDF document to an HL7 v2.4 message with the original PDF embedded.
     "lastName": "Smith",
     "dob": "23/02/1980",
     "sex": "Male",
-    "medicareNo": "1234567890-1"
+    "medicareNo": "1234567890-1",
+    "sender": "Dr Jane Wilson (Lakeside Medical)",
+    "addressee": "Dr Irwin Lim (BJC Health)",
+    "cc": "Dr Herman Lau",
+    "date": "26/03/2026",
+    "messageType": "REF (Referral)",
+    "carrier": "SMECAI"
   },
-  "warnings": []
+  "warnings": [],
+  "extractionMethod": "vision"
 }
 ```
 
@@ -187,42 +199,23 @@ Clears session cookie.
 
 ### 5.1 Supported Document Types
 
-| Type | Identifier | Description | Example Source |
-|------|-----------|-------------|----------------|
-| Consent Form | `consent_form` | Patient information and consent forms | BJC Health intake forms |
-| Specialist Referral | `referral_letter` | Specialist referral letters | NeuroSpine, specialist clinics |
-| GP Referral | `gp_referral` | General practitioner referral letters | Best Practice exports |
+| Type | Identifier | HL7 Message | Description | Example Source |
+|------|-----------|-------------|-------------|----------------|
+| Consent Form | `consent_form` | ORU^R01 | Patient information and consent forms | BJC Health intake forms |
+| Specialist Referral | `referral_letter` | REF^I12 | Specialist referral letters | NeuroSpine, specialist clinics |
+| GP Referral | `gp_referral` | REF^I12 | General practitioner referral letters | Best Practice exports |
+| Generic | `generic` | ORU^R01 | Other medical documents | Pathology, imaging, discharge notes |
 
 ### 5.2 Detection Logic
 
-Auto-detection examines extracted PDF text using this decision tree:
+Document classification is performed by AWS Bedrock Claude Sonnet 4.6 using vision analysis. The model examines the full PDF and classifies based on visual and textual cues:
 
-```
-1. Check for referral indicators:
-   - "Dear Dr/Professor" OR "Dear [Name]," present?
-   - "RE:" or "re." present?
+- **consent_form**: Checkboxes, signature lines, "I consent to...", patient declaration sections, BJC Health branding, intake questionnaires
+- **gp_referral**: "re." line with patient name, "Dear Dr..." addressing a specialist, GP clinic letterhead, Medicare provider number, medication lists, "Yours sincerely" from a GP
+- **referral_letter**: Specialist clinic letterhead, clinical findings, investigation results, management plan, letter addressed to referring GP or another specialist
+- **generic**: Any other medical document (pathology reports, imaging reports, discharge summaries, non-letter formats)
 
-2. If BOTH present --> Referral type
-   - Check for GP format: "re. Mr/Mrs/Miss/Ms [Name]"
-   - Check for Medicare number in text
-   - If GP format OR Medicare present --> gp_referral
-   - Otherwise --> referral_letter
-
-3. If NOT both present --> consent_form
-```
-
-### 5.3 Detection Patterns
-
-**Referral indicators:**
-
-- `Dear Dr/Professor`: `/Dear\s+(?:Dr|Professor)/i`
-- `Dear [Name]`: `/Dear\s+[A-Z][a-z]+,/m`
-- `RE/re line`: `/\b(?:RE|re)[:\.]?\s+/i`
-
-**GP Referral distinguishers:**
-
-- Title + name format: `/\bre\.?\s+(?:Mr|Mrs|Miss|Ms|Dr)\s+[A-Za-z]+\s+[A-Za-z][A-Za-z'-]*/i`
-- Medicare presence: `/Medicare\s*No[:\s]+\d{10,11}/i`
+**Classification priority**: If the document is a letter from one doctor to another about a patient, it is classified as a referral (gp_referral or referral_letter), not generic. Generic is only used for documents with no clear letter format.
 
 ---
 
@@ -244,64 +237,33 @@ Auto-detection examines extracted PDF text using this decision tree:
 | medicareNo | string | No | - | 10-11 digit Medicare number |
 | medicareRef | string | No | - | Single reference digit |
 
-### 6.2 Consent Form Extraction
+### 6.2 Bedrock Vision Extraction
 
-Parses BJC Health consent forms with labelled fields:
+All document types are processed by AWS Bedrock Claude Sonnet 4.6 using the Converse API with tool calling. The model receives the full PDF as a document and extracts structured data via a tool schema.
 
-| Field | Pattern | Example Match |
-|-------|---------|---------------|
-| Title | `/^\s*(Mr\|Mrs\|Miss\|Ms)\s*$/m` | `Mr` |
-| First Name | `/First Name\s*\*?\s*\n?\s*([A-Za-z]+)/i` | `John` |
-| Last Name | `/Last Name\s*\*?\s*\n?\s*([A-Za-z]+)/i` | `Smith` |
-| DOB | `/Date of Birth\s*\*?\s*\n?\s*(\d{1,2}\/\d{1,2}\/\d{4})/i` | `23/02/1980` |
-| Mobile | `/Mobile Phone\s*\*?\s*\n?\s*([\d ]{10,14})/i` | `0412 345 678` |
-| Medicare No | `/Medicare Card No\.?\s*\*?\s*\n?\s*(\d{10,11})/i` | `2673291844` |
-| Medicare Ref | `/Medicare Ref\s*(?:Number)?\s*\*?\s*\n?\s*(\d)/i` | `1` |
-| Address | `/Address\s*\*?\s*\n?\s*(.+?)(?=\n*Postcode\|\n*City)/is` | `42 George St` |
-| Postcode | `/Postcode\s*\*?\s*\n?\s*(\d{4})/i` | `2000` |
-| Suburb | `/City\s*\/?\s*Suburb\s*\*?\s*\n?\s*([A-Za-z\s]+?)(?=\n\|State)/i` | `Sydney` |
+**Extraction is format-agnostic** — the model uses visual and textual understanding to locate patient details regardless of document layout. There are no regex patterns or format-specific parsing rules.
 
-### 6.3 Specialist Referral Extraction
+### 6.3 Referral Information Extraction
 
-Parses specialist referral letters (e.g., NeuroSpine format):
+For `referral_letter` and `gp_referral` documents, additional fields are extracted:
 
-**Primary pattern - RE: line with DOB:**
+| Field | Description |
+|-------|-------------|
+| senderName | Doctor who wrote/signed the letter (letterhead, signature, "From:" line) |
+| senderClinic | Clinic or practice of the sender (letterhead) |
+| senderProviderNumber | Medicare provider number of the sender (if visible) |
+| addresseeName | BJC Health doctor who should receive this document |
+| addresseeClinic | Clinic of the resolved addressee |
+| ccNames | Doctors on CC, "Copy to", "c/o" lines (array) |
 
-`/RE:\s*(?:([A-Za-z][A-Za-z'-]*)\s+([A-Z][A-Z'-]+)|([A-Z][A-Z'-]+),\s*([A-Za-z][A-Za-z'-]*))\s*[-]\s*DOB:\s*(\d{1,2}\/\d{1,2}\/\d{4})/i`
+**Addressee resolution priority** (when a BJC doctor list is provided):
 
-Matches both formats:
-- `RE: Scott LAWLER - DOB: 15/03/1985`
-- `RE: LAWLER, Scott - DOB: 15/03/1985`
+1. If "BJC Health" appears as clinic for primary recipient or CC → use that doctor
+2. If doctor list provided → match primary recipient or CC against the list
+3. If no match, prefer CC recipient (more likely the local receiving doctor)
+4. Fall back to primary recipient
 
-**Secondary patterns:**
-
-| Field | Pattern |
-|-------|---------|
-| Phone | `/(?:Mobile\|Ph\|Tel\|Phone)[:\s]+(\d[\d ]{9,14})/i` |
-| Address | `/^\s*(\d+[^,\n]+),\s*([A-Z][A-Za-z\s]+),\s*([A-Z]{2,3}),?\s*(\d{4})\s*$/m` |
-| Provider No | `/Provider\s*No[:\.]?\s*(\d{6}[A-Z]{2})/i` |
-| Letter Date | `/(\d{1,2}\s+(?:January\|February\|...)\s+\d{4})/i` |
-
-### 6.4 GP Referral Extraction
-
-Parses Best Practice GP referral letters:
-
-**Primary pattern - re. line with title:**
-
-`/\bre\.?\s+(Mr|Mrs|Miss|Ms|Dr)\s+([A-Za-z]+)\s+([A-Za-z][A-Za-z'-]*)/i`
-
-Example: `re. Mr Tim Ball`
-
-**Additional patterns:**
-
-| Field | Pattern |
-|-------|---------|
-| DOB | `/\bDOB:\s*(\d{1,2}\/\d{1,2}\/\d{4})/i` |
-| Medicare | `/Medicare\s*No[:\s]+(\d{10,11})/i` |
-| Mobile | `/Mobile:\s*([\d ]{10,14})/i` |
-| Provider No | `/^\s*(\d{6}[A-Z]{2})\s*$/m` |
-
-**Address extraction** is scoped to text between the `re.` line and `Dear` line to avoid matching clinic letterhead addresses.
+For `consent_form` and `generic` documents, all sender/addressee fields return null.
 
 ### 6.5 Sex Determination
 
@@ -336,10 +298,15 @@ Default: VIC (if postcode invalid or unavailable)
 | Property | Value |
 |----------|-------|
 | Standard | HL7 v2.4 |
-| Message Type | ORU^R01 (Observation Result, Unsolicited) |
+| Message Types | ORU^R01 (results) for consent_form/generic; REF^I12 (referral) for referral_letter/gp_referral |
 | Specification | Australian ADRM |
 | Segment Terminator | `\r` (CR only, no LF) |
 | Encoding | ISO 8859/1 (Latin-1) |
+
+**Segment order by message type:**
+
+- **ORU^R01**: MSH → PID → PV1 → OBR → OBX
+- **REF^I12**: MSH → RF1 → PRD (sender) → PRD (addressee) → PID → OBR → OBX → PV1
 
 **HL7 Encoding Characters:**
 
@@ -354,20 +321,23 @@ Default: VIC (if postcode invalid or unavailable)
 ### 7.2 MSH - Message Header
 
 ```
-MSH|^~\&|BJCHEALTH|BJCHEALTH|GENIE|CLINIC|{timestamp}||ORU^R01|{messageId}|P|2.4||AL|NE|AUS|8859/1
+MSH|^~\&|SMECAI|BJCHEALTH|GENIE|CLINIC|{timestamp}||ORU^R01|{messageId}|P|2.4|||AL|NE|AUS|8859/1
 ```
+
+For REF^I12 messages, MSH-9 is `REF^I12` and MSH-12 includes the AU simplified REF profile:
+`2.4^AUS&Australia&ISO3166_1^HL7AU-OO-REF-SIMPLIFIED-201706&&L`
 
 | Field | Value | Description |
 |-------|-------|-------------|
-| MSH-3 | BJCHEALTH | Sending application |
+| MSH-3 | SMECAI (configurable via `carrier`) | Sending application |
 | MSH-4 | BJCHEALTH | Sending facility |
 | MSH-5 | GENIE | Receiving application |
 | MSH-6 | CLINIC | Receiving facility |
 | MSH-7 | YYYYMMDDHHMMSS | Message timestamp |
-| MSH-9 | ORU^R01 | Message type |
+| MSH-9 | ORU^R01 or REF^I12 | Message type |
 | MSH-10 | MSG{timestamp}{4 random chars} | Unique message ID |
 | MSH-11 | P | Processing ID (Production) |
-| MSH-12 | 2.4 | HL7 version |
+| MSH-12 | 2.4 (or extended AU REF profile for REF^I12) | HL7 version |
 | MSH-15 | AL | Accept acknowledgement (logging level) |
 | MSH-16 | NE | No application acknowledgement |
 | MSH-17 | AUS | Country code |
@@ -381,7 +351,7 @@ PID|1||{medicare}-{ref}^^^Medicare^MC||{lastName}^{firstName}||{dob}|{sex}|||{ad
 
 | Field | Description | Format |
 |-------|-------------|--------|
-| PID-3 | Medicare identifier | `{number}-{ref}^^^Medicare^MC` |
+| PID-3 | Medicare identifier | `{number}-{ref}^^^AUSHIC^MC` |
 | PID-5 | Patient name | `{lastName}^{firstName}` |
 | PID-7 | Date of birth | `YYYYMMDD` |
 | PID-8 | Sex | `M`, `F`, or `U` |
@@ -394,12 +364,17 @@ Minimal format (no provider): `PV1|1|O`
 
 With ordering provider: `PV1|1|O|||||||{providerNo}^^^AUSHICPR`
 
+With addressee name (no provider number): `PV1|1|O|||||||^{lastName}^{firstName}^^^DR`
+
 | Field | Description |
 |-------|-------------|
 | PV1-2 | Patient class: `O` (Outpatient) |
-| PV1-9 | Consulting doctor: Medicare Provider Number with AUSHICPR identifier |
+| PV1-9 | Consulting doctor — routes to this doctor's inbox in Genie |
 
-Only included when `orderingProvider` parameter is provided.
+**PV1-9 resolution priority:**
+1. If `orderingProvider` param provided → Medicare Provider Number format
+2. Else if referral addressee resolved → doctor name format
+3. Otherwise → PV1-9 empty
 
 ### 7.5 OBR - Observation Request
 
@@ -428,17 +403,57 @@ OBX|1|ED|PDF^Display format in PDF^AUSPDI||^application^pdf^Base64^{base64data}|
 | OBX-5 | PDF as Base64 in ED format: `^application^pdf^Base64^{data}` |
 | OBX-11 | Observation result status: `F` (Final) |
 
-### 7.7 HL7 Options
+### 7.7 RF1 - Referral Information (REF^I12 only)
+
+```
+RF1|||||||{timestamp}
+```
+
+Contains the referral effective date in RF1-7.
+
+### 7.8 PRD - Provider Data (REF^I12 only)
+
+Two PRD segments are generated for referral messages:
+
+**Sender (Referring Provider):**
+```
+PRD|RP~AP|{lastName}^{firstName}^^^DR|||||{providerNo}^AUSHICPR^UPIN
+```
+
+**Addressee (Referred-To Provider):**
+```
+PRD|RT~IR|{lastName}^{firstName}^^^DR
+```
+
+| Field | Sender | Addressee |
+|-------|--------|-----------|
+| PRD-1 | `RP~AP` (Referring + Authoring) | `RT~IR` (Referred-To + Intended Recipient) |
+| PRD-2 | Sender doctor name (XPN format) | Addressee doctor name (XPN format) |
+| PRD-7 | Provider number if available | (empty) |
+
+### 7.9 OBR - Observation Request (additional REF^I12 fields)
+
+For REF^I12 messages, OBR includes additional fields:
+
+| Field | Value | Description |
+|-------|-------|-------------|
+| OBR-4 | `PDF^Referral^L` | Document type label ("Referral" for REF, "Correspondence" for ORU) |
+| OBR-16 | Sender doctor details | Ordering provider with name and optional provider number |
+| OBR-24 | `PHY` | Diagnostic Service Section ID — routes to Incoming Letters in Genie |
+
+### 7.10 HL7 Options
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| sendingApplication | `"BJCHEALTH"` | MSH-3 value |
+| sendingApplication | `"SMECAI"` (configurable via `carrier`) | MSH-3 value |
 | sendingFacility | `"BJCHEALTH"` | MSH-4 value |
 | receivingApplication | `"GENIE"` | MSH-5 value |
 | receivingFacility | `"CLINIC"` | MSH-6 value |
 | documentTitle | `"Patient Consent Form"` | OBR-4 display name |
 | resultStatus | `"F"` or `"P"` | Auto-file vs queue for review |
 | orderingProvider | - | Medicare Provider Number for doctor routing |
+| messageType | Derived from document type | `ORU^R01` or `REF^I12` |
+| referralInfo | Extracted by Bedrock | Sender/addressee for REF messages |
 
 ### 7.8 Filename Generation
 
@@ -488,10 +503,21 @@ The main converter interface with drag-and-drop upload and conversion options.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| Document Type | Select | Auto-detect | Choose: Auto, Consent Form, Specialist Referral, GP Referral |
+| Document Type | Select | Auto-detect | Choose: Auto, Consent Form, Specialist Referral, GP Referral, Generic |
+| Carrier | Select | SMECAI | Sending Application for MSH-3 (SMECAI, Email, Fax, Post, Hand Delivered) |
 | Auto-file | Checkbox | Checked | When checked, document auto-files in Genie. When unchecked, queues for review |
 | Send to Doctor | Checkbox | Unchecked | Enables provider number input |
 | Provider Number | Text input | Empty | Medicare Provider Number for routing (shown only if Send to Doctor checked) |
+
+**Doctors Tab:**
+
+A second tab allows managing the BJC Health doctor list used for addressee resolution:
+
+- Pre-populated with default BJC Health doctors (17 doctors)
+- Add/remove individual doctors
+- Reset to defaults
+- Stored in browser localStorage
+- Passed to the API as `bjcDoctors` for each conversion
 
 **Convert Button:**
 - Full-width primary style
@@ -500,7 +526,7 @@ The main converter interface with drag-and-drop upload and conversion options.
 
 **Success Display:**
 - Green success box with checkmark
-- Patient data grid: Name, DOB, Sex, Medicare number
+- Patient data grid: Name, DOB, Sex, Medicare number, Sender, Addressee, CC, Message Type, Carrier
 - "Download HL7 File" button (green)
 - "Convert Another" button (secondary)
 
@@ -555,7 +581,7 @@ The main converter interface with drag-and-drop upload and conversion options.
 bun dev          # Development server (localhost:3000)
 bun run build    # Production build
 bun run lint     # ESLint check
-bun test         # Run test suite (244 tests)
+bun test         # Run test suite (187 tests)
 bun start        # Production server
 ```
 
@@ -587,7 +613,7 @@ bun start        # Production server
 | Constraint | Detail |
 |------------|--------|
 | Extraction method | AWS Bedrock vision extraction |
-| Document formats | Three supported formats only |
+| Document formats | Four supported types (consent_form, referral_letter, gp_referral, generic) |
 | Missing fields | Defaults used when extraction fails (warnings generated) |
 | Address parsing | Scoped to patient block to avoid letterhead addresses |
 | Medicare ref | Defaults to "1" if not found |
@@ -597,7 +623,7 @@ bun start        # Production server
 | Constraint | Detail |
 |------------|--------|
 | Standard | HL7 v2.4 only |
-| Message type | ORU^R01 only |
+| Message types | ORU^R01 (results) and REF^I12 (referrals) |
 | Target system | Genie clinical software |
 | Timestamp | Server local time (no timezone conversion) |
 
@@ -609,10 +635,13 @@ bun start        # Production server
 
 | Test File | Count | Coverage |
 |-----------|-------|----------|
-| `lib/pdf-parser.test.ts` | 6 | Bedrock facade behavior and display formatting |
-| `lib/hl7-builder.test.ts` | 100+ | All segments, encoding, escaping |
-| `app/api/convert/route.test.ts` | 12 | API validation and Bedrock integration flows |
-| **Total** | **117** | |
+| `lib/pdf-parser.test.ts` | Bedrock facade behavior and display formatting |
+| `lib/hl7-builder.test.ts` | All segments (ORU + REF), encoding, escaping |
+| `lib/vision-extractor.test.ts` | Bedrock tool extraction, date conversion, state inference |
+| `app/api/convert/route.test.ts` | API validation, detect-only, document type handling |
+| `lib/utils.test.ts` | Utility functions |
+| `middleware.test.ts` | Auth flow, caching headers |
+| **Total** | **187 tests across 7 files** |
 
 ### 11.2 Test Infrastructure
 
@@ -645,8 +674,11 @@ bjc-pdf-to-hl7/
 |   +-- pdf-parser.ts                  Bedrock extraction facade
 |   +-- pdf-parser.test.ts             Bedrock facade tests
 |   +-- vision-extractor.ts            Bedrock document classification + extraction
-|   +-- hl7-builder.ts                 HL7 generation
+|   +-- vision-extractor.test.ts       Bedrock extraction tests
+|   +-- hl7-builder.ts                 HL7 generation (ORU^R01 + REF^I12)
 |   +-- hl7-builder.test.ts            Builder tests
+|   +-- utils.ts                       Utility functions
+|   +-- utils.test.ts                  Utility tests
 +-- scripts/
 |   +-- generate-test-pdfs.ts          Test PDF generator
 |   +-- diagnose-pdfs.ts               Extraction diagnostics

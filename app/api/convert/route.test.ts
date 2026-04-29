@@ -1,8 +1,10 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
 
 const extractPatientDataMock = mock();
 const formatExtractedDataMock = mock();
+const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
 
 mock.module("@/lib/pdf-parser", () => ({
   extractPatientData: extractPatientDataMock,
@@ -87,6 +89,13 @@ beforeEach(() => {
   formatExtractedDataMock.mockReset();
   extractPatientDataMock.mockResolvedValue(baseExtraction);
   formatExtractedDataMock.mockReturnValue(baseFormattedData);
+  console.error = (() => {}) as typeof console.error;
+  console.warn = (() => {}) as typeof console.warn;
+});
+
+afterEach(() => {
+  console.error = originalConsoleError;
+  console.warn = originalConsoleWarn;
 });
 
 describe("GET /api/convert", () => {

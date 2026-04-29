@@ -4,10 +4,16 @@ const { DELETE, POST } = await import("./route");
 
 const originalAppPassword = process.env.APP_PASSWORD;
 const originalNodeEnv = process.env.NODE_ENV;
+const originalConsoleError = console.error;
+type MutableProcessEnv = Omit<NodeJS.ProcessEnv, "NODE_ENV"> & {
+  NODE_ENV?: string;
+};
+const mutableEnv = process.env as MutableProcessEnv;
 
 beforeEach(() => {
   process.env.APP_PASSWORD = "secret";
-  process.env.NODE_ENV = "test";
+  mutableEnv.NODE_ENV = "test";
+  console.error = (() => {}) as typeof console.error;
 });
 
 afterEach(() => {
@@ -18,10 +24,12 @@ afterEach(() => {
   }
 
   if (originalNodeEnv === undefined) {
-    delete process.env.NODE_ENV;
+    delete mutableEnv.NODE_ENV;
   } else {
-    process.env.NODE_ENV = originalNodeEnv;
+    mutableEnv.NODE_ENV = originalNodeEnv;
   }
+
+  console.error = originalConsoleError;
 });
 
 function createAuthRequest(body: string): Request {
@@ -47,7 +55,7 @@ describe("POST /api/auth", () => {
   });
 
   test("sets a secure cookie in production", async () => {
-    process.env.NODE_ENV = "production";
+    mutableEnv.NODE_ENV = "production";
 
     const response = await POST(
       createAuthRequest(JSON.stringify({ password: "secret" }))

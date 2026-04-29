@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 const sendMock = mock();
 const clientConfigs: Array<{ region: string }> = [];
+const originalConsoleError = console.error;
 
 class BedrockRuntimeClientMock {
   send = sendMock;
@@ -31,6 +32,11 @@ const PDF_BUFFER = Buffer.from("%PDF-1.4 test");
 beforeEach(() => {
   sendMock.mockReset();
   clientConfigs.length = 0;
+  console.error = (() => {}) as typeof console.error;
+});
+
+afterEach(() => {
+  console.error = originalConsoleError;
 });
 
 describe("extractPatientDataWithVision success path", () => {
