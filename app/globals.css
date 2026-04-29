@@ -312,6 +312,54 @@ body::before {
   font-family: 'JetBrains Mono', monospace;
 }
 
+/* ── Icon button ── */
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.icon-btn:hover {
+  background: var(--blue-50);
+  color: var(--bjc-blue);
+}
+
+.icon-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.icon-btn:disabled:hover {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.icon-btn-danger:hover {
+  background: var(--error-bg);
+  color: var(--error);
+}
+
+/* ── Section count pill ── */
+.section-pill {
+  display: inline-flex;
+  align-items: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--bg-inner);
+  color: var(--text-muted);
+  border: 1px solid var(--border-light);
+}
+
 /* ── Badge ── */
 .badge {
   display: inline-flex;
