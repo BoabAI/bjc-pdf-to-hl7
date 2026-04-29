@@ -1,0 +1,13 @@
+# Terraform local state and provider plugins.
+# Move state to a remote backend (S3 + DynamoDB lock) before this is shared.
+.terraform/
+*.tfstate
+*.tfstate.backup
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc

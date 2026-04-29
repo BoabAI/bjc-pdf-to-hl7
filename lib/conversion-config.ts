@@ -14,33 +14,72 @@ export const DOCUMENT_TYPES: DocumentType[] = [
 
 export type DocumentTypeOption = DocumentType | "auto";
 
-export const DEFAULT_BJC_DOCTORS = [
-  "Dr Irwin Lim",
-  "Dr Herman Lau",
-  "Dr Andrew Jordan",
-  "Dr Ilana Ginges",
-  "Dr Roberto Russo",
-  "Dr Anne Chung",
-  "Dr Simran Kaur",
-  "Dr Shirley Yu",
-  "Dr Queenie Luu",
-  "Dr Adam Maundrell",
-  "Dr Hugh Caterson",
-  "Dr Pauline Habib",
-  "Dr Elaine Ng",
-  "Dr Kate Celkys",
-  "Dr Cellina Ching",
-  "Dr Vincent Wong",
-  "Dr Dahlia Davidoff",
+export interface Doctor {
+  /** UUID — stable across renames. */
+  id: string;
+  /** Display name, e.g. "Dr Irwin Lim". Used by Bedrock for AI addressee resolution. */
+  name: string;
+  /**
+   * Medicare provider number — placed in PV1-9 as `<num>^^^AUSHICPR`.
+   * Real allocations are 8 chars (6 digits + check digit + location char).
+   * Seeded values lead with `9` so they are clearly fictional.
+   */
+  providerNumber: string;
+}
+
+export interface Carrier {
+  /** UUID — stable across label edits. */
+  id: string;
+  /** MSH-3 wire value, e.g. "SMECAI". */
+  value: string;
+  /** UI label shown in the dropdown. */
+  label: string;
+  /** Exactly one carrier should carry this flag — drives initial selection. */
+  isDefault?: boolean;
+}
+
+/**
+ * Seeded BJC doctors used on first DynamoDB read (seedDefaults). Provider
+ * numbers are deliberately fictional — they all start with `9`, which is not
+ * used for real Australian provider-number allocations. Replace before going
+ * to production.
+ */
+export const DEFAULT_BJC_DOCTORS: Doctor[] = [
+  { id: "doctor-irwin-lim",       name: "Dr Irwin Lim",       providerNumber: "9000001Z" },
+  { id: "doctor-herman-lau",      name: "Dr Herman Lau",      providerNumber: "9000002Z" },
+  { id: "doctor-andrew-jordan",   name: "Dr Andrew Jordan",   providerNumber: "9000003Z" },
+  { id: "doctor-ilana-ginges",    name: "Dr Ilana Ginges",    providerNumber: "9000004Z" },
+  { id: "doctor-roberto-russo",   name: "Dr Roberto Russo",   providerNumber: "9000005Z" },
+  { id: "doctor-anne-chung",      name: "Dr Anne Chung",      providerNumber: "9000006Z" },
+  { id: "doctor-simran-kaur",     name: "Dr Simran Kaur",     providerNumber: "9000007Z" },
+  { id: "doctor-shirley-yu",      name: "Dr Shirley Yu",      providerNumber: "9000008Z" },
+  { id: "doctor-queenie-luu",     name: "Dr Queenie Luu",     providerNumber: "9000009Z" },
+  { id: "doctor-adam-maundrell",  name: "Dr Adam Maundrell",  providerNumber: "9000010Z" },
+  { id: "doctor-hugh-caterson",   name: "Dr Hugh Caterson",   providerNumber: "9000011Z" },
+  { id: "doctor-pauline-habib",   name: "Dr Pauline Habib",   providerNumber: "9000012Z" },
+  { id: "doctor-elaine-ng",       name: "Dr Elaine Ng",       providerNumber: "9000013Z" },
+  { id: "doctor-kate-celkys",     name: "Dr Kate Celkys",     providerNumber: "9000014Z" },
+  { id: "doctor-cellina-ching",   name: "Dr Cellina Ching",   providerNumber: "9000015Z" },
+  { id: "doctor-vincent-wong",    name: "Dr Vincent Wong",    providerNumber: "9000016Z" },
+  { id: "doctor-dahlia-davidoff", name: "Dr Dahlia Davidoff", providerNumber: "9000017Z" },
 ];
 
-export const CARRIER_OPTIONS = [
-  { value: DEFAULT_CARRIER, label: "SMECAI" },
-  { value: "EMAIL", label: "Email" },
-  { value: "FAX", label: "Fax" },
-  { value: "POST", label: "Post" },
-  { value: "HAND", label: "Hand Delivered" },
+/**
+ * Seeded carriers used on first DynamoDB read. Exactly one row carries
+ * `isDefault: true` — that value drives the initial selection in the UI.
+ */
+export const DEFAULT_CARRIERS: Carrier[] = [
+  { id: "carrier-smecai", value: DEFAULT_CARRIER, label: "SMECAI",         isDefault: true },
+  { id: "carrier-email",  value: "EMAIL",         label: "Email"          },
+  { id: "carrier-fax",    value: "FAX",           label: "Fax"            },
+  { id: "carrier-post",   value: "POST",          label: "Post"           },
+  { id: "carrier-hand",   value: "HAND",          label: "Hand Delivered" },
 ];
+
+/** Returns just the doctor names — what the Bedrock prompt expects. */
+export function doctorNames(doctors: Doctor[]): string[] {
+  return doctors.map((d) => d.name);
+}
 
 export function isDocumentType(value: unknown): value is DocumentType {
   return typeof value === "string" && DOCUMENT_TYPES.includes(value as DocumentType);

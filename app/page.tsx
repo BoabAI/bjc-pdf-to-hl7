@@ -4,66 +4,208 @@ import { useState, useCallback, useEffect } from "react";
 import { AppFooter } from "./components/AppFooter";
 import { ConversionOptions } from "./components/ConversionOptions";
 import { type ConversionResult } from "./components/ConversionResultPanel";
-import { DoctorsTab } from "./components/DoctorsTab";
+import { ReferenceDataTab } from "./components/ReferenceDataTab";
 import { FileQueueItem, type FileEntry } from "./components/FileQueueItem";
 import { LogoStrip } from "./components/LogoStrip";
 import { UploadZone } from "./components/UploadZone";
 import {
   DEFAULT_BJC_DOCTORS,
+  DEFAULT_CARRIERS,
   DEFAULT_CARRIER,
   isDocumentType,
+  type Carrier,
+  type Doctor,
   type DocumentTypeOption,
 } from "@/lib/conversion-config";
 
+function newId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<"converter" | "doctors">("converter");
+  const [activeTab, setActiveTab] = useState<"converter" | "reference">("converter");
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isConverting, setIsConverting] = useState(false);
   const [documentType, setDocumentType] = useState<DocumentTypeOption>("auto");
   const [autoFile, setAutoFile] = useState(true);
   const [sendToDoctor, setSendToDoctor] = useState(false);
-  const [providerNumber, setProviderNumber] = useState("");
+  const [selectedDoctorId, setSelectedDoctorId] = useState("");
   const [carrier, setCarrier] = useState(DEFAULT_CARRIER);
-  const [doctors, setDoctors] = useState<string[]>(DEFAULT_BJC_DOCTORS);
-  const [newDoctorName, setNewDoctorName] = useState("");
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [carriers, setCarriers] = useState<Carrier[]>([]);
+  const [referenceLoaded, setReferenceLoaded] = useState(false);
 
-  // Load carrier and doctors from localStorage on mount
+  // Load doctors and carriers from the server. The server seeds defaults on
+  // first read, so we only fall back to bundled defaults if the API is
+  // unreachable (offline / dev without AWS creds).
   useEffect(() => {
-    const saved = localStorage.getItem("hl7_carrier");
-    if (saved) setCarrier(saved);
-    const savedDoctors = localStorage.getItem("bjc_doctors");
-    if (savedDoctors) {
+    let cancelled = false;
+    void (async () => {
       try {
-        setDoctors(JSON.parse(savedDoctors));
-      } catch { /* use defaults */ }
-    }
+        const response = await fetch("/api/reference-data", { cache: "no-store" });
+        const data = await response.json();
+        if (cancelled) return;
+        if (data.success) {
+          setDoctors(data.doctors as Doctor[]);
+          setCarriers(data.carriers as Carrier[]);
+          const defaultCarrier = (data.carriers as Carrier[]).find((c) => c.isDefault);
+          if (defaultCarrier) setCarrier(defaultCarrier.value);
+        } else {
+          setDoctors(DEFAULT_BJC_DOCTORS);
+          setCarriers(DEFAULT_CARRIERS);
+        }
+      } catch {
+        if (cancelled) return;
+        setDoctors(DEFAULT_BJC_DOCTORS);
+        setCarriers(DEFAULT_CARRIERS);
+      } finally {
+        if (!cancelled) setReferenceLoaded(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleCarrierChange = (value: string) => {
     setCarrier(value);
-    localStorage.setItem("hl7_carrier", value);
   };
 
-  const saveDoctors = (updated: string[]) => {
-    setDoctors(updated);
-    localStorage.setItem("bjc_doctors", JSON.stringify(updated));
+  // Doctor mutations — optimistic local update + API write. On failure we
+  // log; the next page load will re-sync from the server.
+  const handleAddDoctor = async (name: string, providerNumber: string) => {
+    const doctor: Doctor = { id: newId(), name, providerNumber };
+    setDoctors((prev) => [...prev, doctor]);
+    try {
+      await fetch("/api/reference-data", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind: "DOCTOR", item: doctor }),
+      });
+    } catch (error) {
+      console.error("Failed to save doctor:", error);
+    }
   };
 
-  const handleAddDoctor = () => {
-    const name = newDoctorName.trim();
-    if (!name) return;
-    if (doctors.some((d) => d.toLowerCase() === name.toLowerCase())) return;
-    saveDoctors([...doctors, name]);
-    setNewDoctorName("");
+  const handleRemoveDoctor = async (id: string) => {
+    setDoctors((prev) => prev.filter((d) => d.id !== id));
+    if (selectedDoctorId === id) setSelectedDoctorId("");
+    try {
+      await fetch(
+        `/api/reference-data?kind=DOCTOR&id=${encodeURIComponent(id)}`,
+        { method: "DELETE" }
+      );
+    } catch (error) {
+      console.error("Failed to delete doctor:", error);
+    }
   };
 
-  const handleRemoveDoctor = (index: number) => {
-    saveDoctors(doctors.filter((_, i) => i !== index));
+  const handleResetDoctors = async () => {
+    const previous = doctors;
+    setDoctors(DEFAULT_BJC_DOCTORS);
+    setSelectedDoctorId("");
+    try {
+      await Promise.all(
+        previous.map((d) =>
+          fetch(`/api/reference-data?kind=DOCTOR&id=${encodeURIComponent(d.id)}`, {
+            method: "DELETE",
+          })
+        )
+      );
+      await Promise.all(
+        DEFAULT_BJC_DOCTORS.map((d) =>
+          fetch("/api/reference-data", {
+            method: "PUT",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ kind: "DOCTOR", item: d }),
+          })
+        )
+      );
+    } catch (error) {
+      console.error("Failed to reset doctors:", error);
+    }
   };
 
-  const handleResetDoctors = () => {
-    saveDoctors(DEFAULT_BJC_DOCTORS);
+  const handleAddCarrier = async (value: string, label: string) => {
+    const carrierItem: Carrier = { id: newId(), value, label };
+    setCarriers((prev) => [...prev, carrierItem]);
+    try {
+      await fetch("/api/reference-data", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind: "CARRIER", item: carrierItem }),
+      });
+    } catch (error) {
+      console.error("Failed to save carrier:", error);
+    }
+  };
+
+  const handleRemoveCarrier = async (id: string) => {
+    const target = carriers.find((c) => c.id === id);
+    if (target?.isDefault) return; // UI also disables the button, double-guard here.
+    setCarriers((prev) => prev.filter((c) => c.id !== id));
+    if (target && carrier === target.value) {
+      const fallback = carriers.find((c) => c.id !== id && c.isDefault);
+      setCarrier(fallback?.value ?? DEFAULT_CARRIER);
+    }
+    try {
+      await fetch(
+        `/api/reference-data?kind=CARRIER&id=${encodeURIComponent(id)}`,
+        { method: "DELETE" }
+      );
+    } catch (error) {
+      console.error("Failed to delete carrier:", error);
+    }
+  };
+
+  const handleSetDefaultCarrier = async (id: string) => {
+    const updated = carriers.map((c) => ({ ...c, isDefault: c.id === id }));
+    setCarriers(updated);
+    const newDefault = updated.find((c) => c.id === id);
+    if (newDefault) setCarrier(newDefault.value);
+    try {
+      await Promise.all(
+        updated.map((c) =>
+          fetch("/api/reference-data", {
+            method: "PUT",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ kind: "CARRIER", item: c }),
+          })
+        )
+      );
+    } catch (error) {
+      console.error("Failed to update default carrier:", error);
+    }
+  };
+
+  const handleResetCarriers = async () => {
+    const previous = carriers;
+    setCarriers(DEFAULT_CARRIERS);
+    const def = DEFAULT_CARRIERS.find((c) => c.isDefault);
+    if (def) setCarrier(def.value);
+    try {
+      await Promise.all(
+        previous.map((c) =>
+          fetch(`/api/reference-data?kind=CARRIER&id=${encodeURIComponent(c.id)}`, {
+            method: "DELETE",
+          })
+        )
+      );
+      await Promise.all(
+        DEFAULT_CARRIERS.map((c) =>
+          fetch("/api/reference-data", {
+            method: "PUT",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ kind: "CARRIER", item: c }),
+          })
+        )
+      );
+    } catch (error) {
+      console.error("Failed to reset carriers:", error);
+    }
   };
 
   const updateEntry = useCallback(
@@ -115,20 +257,27 @@ export default function Home() {
       if (pdfs.length === 0) return;
 
       const newEntries: FileEntry[] = pdfs.map((file) => ({
-        id:
-          typeof crypto !== "undefined" && "randomUUID" in crypto
-            ? crypto.randomUUID()
-            : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        id: newId(),
         file,
         detectedType: null,
         status: "queued",
       }));
 
-      setEntries((prev) => [...prev, ...newEntries]);
-      // Kick off detection in parallel for each new entry
-      for (const entry of newEntries) {
-        void detectDocumentType(entry);
-      }
+      setEntries((prev) => {
+        const next = [...prev, ...newEntries];
+        // Only pre-detect when there will be exactly one file in the queue.
+        // Multi-file batches skip the upfront detection LLM call — the
+        // convert step classifies each file anyway, so pre-detection just
+        // doubles the Bedrock cost without changing the outcome.
+        if (next.length === 1 && newEntries.length === 1) {
+          void detectDocumentType(newEntries[0]);
+        } else if (next.length > 1) {
+          // Reset any prior single-file override so a multi-file batch
+          // always classifies per file.
+          setDocumentType("auto");
+        }
+        return next;
+      });
     },
     [detectDocumentType]
   );
@@ -164,11 +313,14 @@ export default function Home() {
     formData.append("documentType", documentType);
     formData.append("autoFile", autoFile.toString());
     formData.append("carrier", carrier);
-    if (sendToDoctor && providerNumber.trim()) {
-      formData.append("orderingProvider", providerNumber.trim());
+    if (sendToDoctor && selectedDoctorId) {
+      const selected = doctors.find((d) => d.id === selectedDoctorId);
+      if (selected?.providerNumber) {
+        formData.append("orderingProvider", selected.providerNumber);
+      }
     }
     if (doctors.length > 0) {
-      formData.append("bjcDoctors", JSON.stringify(doctors));
+      formData.append("bjcDoctors", JSON.stringify(doctors.map((d) => d.name)));
     }
     return formData;
   };
@@ -286,16 +438,16 @@ export default function Home() {
               Converter
             </button>
             <button
-              onClick={() => setActiveTab("doctors")}
+              onClick={() => setActiveTab("reference")}
               className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
-                activeTab === "doctors"
+                activeTab === "reference"
                   ? "border-[var(--bjc-blue)] text-[var(--bjc-blue)]"
                   : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
               }`}
             >
-              Doctors
+              Reference Data
               <span className="ml-1.5 text-[11px] bg-[var(--bg-inner)] text-[var(--text-muted)] px-1.5 py-0.5 rounded-full">
-                {doctors.length}
+                {doctors.length + carriers.length}
               </span>
             </button>
           </div>
@@ -303,15 +455,18 @@ export default function Home() {
           {/* Content */}
           <div className="px-7 py-6 space-y-5">
 
-          {/* ── Doctors Tab ── */}
-          {activeTab === "doctors" && (
-            <DoctorsTab
+          {/* ── Reference Data Tab ── */}
+          {activeTab === "reference" && (
+            <ReferenceDataTab
               doctors={doctors}
-              newDoctorName={newDoctorName}
-              onNewDoctorNameChange={setNewDoctorName}
+              carriers={carriers}
               onAddDoctor={handleAddDoctor}
               onRemoveDoctor={handleRemoveDoctor}
               onResetDoctors={handleResetDoctors}
+              onAddCarrier={handleAddCarrier}
+              onRemoveCarrier={handleRemoveCarrier}
+              onSetDefaultCarrier={handleSetDefaultCarrier}
+              onResetCarriers={handleResetCarriers}
             />
           )}
 
@@ -351,6 +506,17 @@ export default function Home() {
               onFileChange={handleFileChange}
             />
 
+            <div className="text-center text-xs text-[var(--text-muted)] -mt-2">
+              No PDFs handy?{" "}
+              <a
+                href="/api/test-pdfs"
+                className="text-[var(--bjc-blue)] hover:underline"
+                download="bjc-test-pdfs.zip"
+              >
+                Download a sample test set (.zip)
+              </a>
+            </div>
+
             {entries.length > 0 && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -382,15 +548,18 @@ export default function Home() {
                 documentType={documentType}
                 detectedType={firstDetected}
                 isDetecting={anyDetecting}
+                showDocumentType={entries.length === 1}
                 carrier={carrier}
+                carriers={carriers}
+                doctors={doctors}
                 autoFile={autoFile}
                 sendToDoctor={sendToDoctor}
-                providerNumber={providerNumber}
+                selectedDoctorId={selectedDoctorId}
                 onDocumentTypeChange={setDocumentType}
                 onCarrierChange={handleCarrierChange}
                 onAutoFileChange={setAutoFile}
                 onSendToDoctorChange={setSendToDoctor}
-                onProviderNumberChange={setProviderNumber}
+                onSelectedDoctorIdChange={setSelectedDoctorId}
               />
             )}
 
@@ -399,7 +568,7 @@ export default function Home() {
               <div className="flex flex-col items-center gap-3 pt-1 animate-fade-in">
                 <button
                   onClick={handleConvert}
-                  disabled={isConverting || pendingCount === 0}
+                  disabled={isConverting || pendingCount === 0 || !referenceLoaded}
                   className="btn-primary w-full max-w-xs disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isConverting ? (
