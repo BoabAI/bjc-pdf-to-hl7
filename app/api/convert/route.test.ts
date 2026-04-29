@@ -14,6 +14,19 @@ mock.module("@/lib/pdf-parser", () => ({
 
 mock.module("@/lib/audit", () => ({
   recordConversion: recordConversionMock,
+  buildSortKey: () => "2026-04-29T00:00:00.000Z#aaaaaa",
+  monthKey: () => "2026-04",
+  hashFilename: (input: string) => {
+    // Stable but distinct per input — must NEVER include raw filename text.
+    let h = 0;
+    for (const c of input) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    return h.toString(16).padStart(12, "0").slice(0, 12);
+  },
+  extractFilenameExt: (filename: string) => {
+    const i = filename.lastIndexOf(".");
+    if (i <= 0 || i === filename.length - 1) return "";
+    return filename.slice(i).toLowerCase();
+  },
 }));
 
 const { GET, POST } = await import("./route");

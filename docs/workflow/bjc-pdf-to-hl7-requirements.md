@@ -100,6 +100,12 @@ Documents appear in the receiving doctor's **Incoming Letters** inbox in Genie a
 - **Password-protected access** — The web dashboard and conversion service are protected by authentication. Only authorised staff can access them.
 - **AWS Bedrock AI** — The AI model used for extraction (AWS Bedrock) is hosted in Sydney, does not store or use submitted data for training, and is IRAP PROTECTED assessed.
 
+### What's Recorded
+
+Every conversion writes one row to the audit log (DynamoDB, Sydney). Metadata only — no patient data, no document content, and no raw filenames. Each row contains: timestamp, document type (e.g. `pathology_result`), outcome (`ok`/`fail`), source (`web` or `email`), HL7 message type, file size, duration, warning count, file extension, and a one-way SHA-256 hash of the original filename (12 hex chars). Patient names, dates of birth, Medicare numbers, addresses, and the raw filename are never stored.
+
+The PAD pipeline (email-driven side) sets the `X-Source: email` header on every conversion request so the dashboard can split web uploads from automated email volume.
+
 ---
 
 ## What Medihost Needs To Provide

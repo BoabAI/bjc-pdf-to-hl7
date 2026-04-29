@@ -21,7 +21,7 @@ export interface ConvertRequest {
 }
 
 export type ParseConvertFormDataResult =
-  | { data: ConvertRequest }
+  | { data: ConvertRequest; originalFilename: string }
   | { error: string; status: number };
 
 export interface ConvertResult {
@@ -97,6 +97,7 @@ export async function parseConvertFormData(
       carrier: (formData.get("carrier") as string | null) || undefined,
       bjcDoctors,
     },
+    originalFilename: file.name,
   };
 }
 
