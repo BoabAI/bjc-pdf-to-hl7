@@ -1,5 +1,7 @@
 # BJC PDF-to-Directory Workflow
 
+> Reference for the sister project's repo. Lives here for context only — the `bjc-pdf-to-directory` repo is the source of truth.
+
 Reference documentation for the **PDF-to-Directory** automation — the sister system to PDF-to-HL7. Both serve BJC Health's goal of eliminating manual PDF filing into the Genie patient management system.
 
 ---
@@ -153,31 +155,7 @@ Five fixes applied after the 19 Feb 2026 outage:
 
 ## Relationship to PDF-to-HL7
 
-Both systems target the same goal — getting patient documents into Genie — but via different paths:
-
-**PDF-to-Directory** handles the simple, high-volume case:
-- Consent forms arrive by email automatically
-- Fixed form layout = regex extraction is reliable
-- Output is a renamed PDF file that Genie auto-imports from a watched folder
-
-**PDF-to-HL7** handles the complex, varied case:
-- Referral letters, GP letters, and other clinical documents
-- Variable layouts require AI vision (Bedrock Claude) for extraction
-- Output is an HL7 v2.4 message with embedded PDF, sender/addressee metadata, and Genie routing fields
-- Supports document classification, CC addressee resolution, and provider number routing
-
-The two systems are complementary — PDF-to-Directory is fully automated (no human in the loop), while PDF-to-HL7 is staff-assisted (upload via web UI, review extracted data, download HL7).
-
----
-
-## Stakeholders
-
-| Name | Role |
-|------|------|
-| Sean O'Reilly | Technical lead (SMEC AI) |
-| Amy Johnson | Operations Manager (BJC Health) |
-| Nicole Pyne | Reception (BJC Health) |
-| Errol Lim | Managing Director (BJC Health) |
+See `docs/workflow/bjc-pdf-to-hl7-operational-guide.md` for the relationship between the two systems and the combined operational picture.
 
 ---
 
