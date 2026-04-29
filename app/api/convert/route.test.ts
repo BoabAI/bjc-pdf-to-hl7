@@ -338,6 +338,74 @@ describe("POST /api/convert Bedrock flow", () => {
     expect(data.extractedData.addressee).toBe("Dr Michael Brown (BJC Health)");
   });
 
+  test("accepts pathology_result documents and produces ORU^R01 with LAB section + Pathology Result label", async () => {
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "pathology_result",
+    });
+
+    const response = await POST(
+      createConvertRequest({
+        documentType: "pathology_result",
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.success).toBe(true);
+    expect(data.extractedData.messageType).toBe("ORU (Result)");
+
+    const segments = data.hl7Content.split("\r");
+    const mshFields = segments.find((s: string) => s.startsWith("MSH|"))!.split("|");
+    const obrFields = segments.find((s: string) => s.startsWith("OBR|"))!.split("|");
+
+    expect(mshFields[8]).toBe("ORU^R01");
+    expect(obrFields[24]).toBe("LAB");
+    expect(obrFields[4]).toContain("Pathology Result");
+  });
+
+  test("accepts radiology_result documents and produces ORU^R01 with RAD section + Radiology Result label", async () => {
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "radiology_result",
+    });
+
+    const response = await POST(
+      createConvertRequest({
+        documentType: "radiology_result",
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.success).toBe(true);
+    expect(data.extractedData.messageType).toBe("ORU (Result)");
+
+    const segments = data.hl7Content.split("\r");
+    const mshFields = segments.find((s: string) => s.startsWith("MSH|"))!.split("|");
+    const obrFields = segments.find((s: string) => s.startsWith("OBR|"))!.split("|");
+
+    expect(mshFields[8]).toBe("ORU^R01");
+    expect(obrFields[24]).toBe("RAD");
+    expect(obrFields[4]).toContain("Radiology Result");
+  });
+
+  test("referral_letter still routes to PHY in OBR-24 and uses Referral label", async () => {
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "referral_letter",
+    });
+
+    const response = await POST(createConvertRequest());
+    const data = await response.json();
+
+    const segments = data.hl7Content.split("\r");
+    const obrFields = segments.find((s: string) => s.startsWith("OBR|"))!.split("|");
+
+    expect(obrFields[24]).toBe("PHY");
+    expect(obrFields[4]).toContain("Referral");
+  });
+
   test("uses ORU^R01 message type for generic documents", async () => {
     extractPatientDataMock.mockResolvedValue({
       ...baseExtraction,

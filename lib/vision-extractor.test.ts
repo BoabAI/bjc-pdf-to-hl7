@@ -451,6 +451,113 @@ describe("CC extraction and BJC doctor list", () => {
     expect(userPrompt).toContain("Dr Swaraj");
   });
 
+  test("normalizes pathology_result document type from Bedrock", async () => {
+    sendMock.mockResolvedValue({
+      output: {
+        message: {
+          content: [
+            {
+              toolUse: {
+                input: {
+                  documentType: "pathology_result",
+                  firstName: "Test",
+                  lastName: "Patient",
+                  dob: "01/01/1980",
+                  sex: "M",
+                  phone: null,
+                  address: null,
+                  suburb: null,
+                  state: null,
+                  postcode: null,
+                  medicareNo: null,
+                  medicareRef: null,
+                },
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    const result = await extractPatientDataWithVision(PDF_BUFFER);
+
+    expect(result.documentType).toBe("pathology_result");
+    expect(result.success).toBe(true);
+  });
+
+  test("normalizes radiology_result document type from Bedrock", async () => {
+    sendMock.mockResolvedValue({
+      output: {
+        message: {
+          content: [
+            {
+              toolUse: {
+                input: {
+                  documentType: "radiology_result",
+                  firstName: "Test",
+                  lastName: "Patient",
+                  dob: "01/01/1980",
+                  sex: "F",
+                  phone: null,
+                  address: null,
+                  suburb: null,
+                  state: null,
+                  postcode: null,
+                  medicareNo: null,
+                  medicareRef: null,
+                },
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    const result = await extractPatientDataWithVision(PDF_BUFFER);
+
+    expect(result.documentType).toBe("radiology_result");
+    expect(result.success).toBe(true);
+  });
+
+  test("includes pathology_result hint in the user prompt", async () => {
+    sendMock.mockResolvedValue({
+      output: {
+        message: {
+          content: [
+            {
+              toolUse: {
+                input: {
+                  documentType: "pathology_result",
+                  firstName: "Test",
+                  lastName: "Patient",
+                  dob: "01/01/1980",
+                  sex: "M",
+                  phone: null,
+                  address: null,
+                  suburb: null,
+                  state: null,
+                  postcode: null,
+                  medicareNo: null,
+                  medicareRef: null,
+                },
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    await extractPatientDataWithVision(PDF_BUFFER, {
+      documentTypeHint: "pathology_result",
+    });
+
+    const [command] = sendMock.mock.calls[0]!;
+    const input = (command as ConverseCommandMock).input as any;
+    const userPrompt = input.messages[0].content[0].text;
+
+    expect(userPrompt).toContain("A document type hint was provided: pathology_result");
+  });
+
   test("does not inject doctor list when bjcDoctors is empty", async () => {
     sendMock.mockResolvedValue({
       output: {

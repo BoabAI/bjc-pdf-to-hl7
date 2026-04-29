@@ -1525,3 +1525,80 @@ describe("OBR-24 (Diagnostic Service Section ID)", () => {
     expect(obr[3]).toMatch(/^RPT\d+\^EMAIL$/);
   });
 });
+
+// =============================================================================
+// OBR-24 by diagnostic service section (PR 1 — Results routing)
+// =============================================================================
+
+describe("OBR-24 by diagnostic service section", () => {
+  test("OBR-24 is LAB when diagnosticServiceSection=LAB on ORU^R01 (pathology result)", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      messageType: "ORU^R01",
+      diagnosticServiceSection: "LAB",
+    });
+    const obr = getFields(getSegment(hl7, "OBR")!);
+
+    expect(obr[24]).toBe("LAB");
+  });
+
+  test("OBR-24 is RAD when diagnosticServiceSection=RAD on ORU^R01 (radiology result)", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      messageType: "ORU^R01",
+      diagnosticServiceSection: "RAD",
+    });
+    const obr = getFields(getSegment(hl7, "OBR")!);
+
+    expect(obr[24]).toBe("RAD");
+  });
+
+  test("OBR-24 is PHY when diagnosticServiceSection=PHY explicitly (not just inferred from REF)", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      messageType: "REF^I12",
+      diagnosticServiceSection: "PHY",
+    });
+    const obr = getFields(getSegment(hl7, "OBR")!);
+
+    expect(obr[24]).toBe("PHY");
+  });
+
+  test("OBR-25 (result status) is still correct alongside OBR-24=LAB", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      diagnosticServiceSection: "LAB",
+      resultStatus: "F",
+    });
+    const obr = getFields(getSegment(hl7, "OBR")!);
+
+    expect(obr[24]).toBe("LAB");
+    expect(obr[25]).toBe("F");
+  });
+
+  test("OBR-25 (result status) is still correct alongside OBR-24=RAD with Preliminary status", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      diagnosticServiceSection: "RAD",
+      resultStatus: "P",
+    });
+    const obr = getFields(getSegment(hl7, "OBR")!);
+
+    expect(obr[24]).toBe("RAD");
+    expect(obr[25]).toBe("P");
+  });
+
+  test("OBR-24 stays empty for ORU^R01 when diagnosticServiceSection is omitted", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      messageType: "ORU^R01",
+    });
+    const obr = getFields(getSegment(hl7, "OBR")!);
+
+    // Existing behavior: consent_form/generic ORU messages have empty OBR-24
+    expect(obr[24]).toBe("");
+  });
+
+  test("OBR field count remains 26 with diagnosticServiceSection set", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      diagnosticServiceSection: "LAB",
+    });
+    const obr = getFields(getSegment(hl7, "OBR")!);
+
+    expect(obr).toHaveLength(26);
+  });
+});
