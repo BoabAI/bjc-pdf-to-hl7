@@ -3,12 +3,17 @@ import { NextRequest } from "next/server";
 
 const extractPatientDataMock = mock();
 const formatExtractedDataMock = mock();
+const recordConversionMock = mock();
 const originalConsoleError = console.error;
 const originalConsoleWarn = console.warn;
 
 mock.module("@/lib/pdf-parser", () => ({
   extractPatientData: extractPatientDataMock,
   formatExtractedData: formatExtractedDataMock,
+}));
+
+mock.module("@/lib/audit", () => ({
+  recordConversion: recordConversionMock,
 }));
 
 const { GET, POST } = await import("./route");
@@ -47,6 +52,7 @@ function createConvertRequest(
     mimeType?: string;
     filename?: string;
     sizeBytes?: number;
+    sourceHeader?: string | null;
   }
 ): NextRequest {
   const fileSize = options?.sizeBytes ?? 1024;
@@ -70,9 +76,15 @@ function createConvertRequest(
   }
   if (options?.carrier) formData.append("carrier", options.carrier);
 
+  const headers: Record<string, string> = {};
+  if (options?.sourceHeader !== undefined && options.sourceHeader !== null) {
+    headers["x-source"] = options.sourceHeader;
+  }
+
   return new NextRequest("http://localhost:3000/api/convert", {
     method: "POST",
     body: formData,
+    headers,
   });
 }
 
@@ -87,8 +99,10 @@ function createEmptyRequest(): NextRequest {
 beforeEach(() => {
   extractPatientDataMock.mockReset();
   formatExtractedDataMock.mockReset();
+  recordConversionMock.mockReset();
   extractPatientDataMock.mockResolvedValue(baseExtraction);
   formatExtractedDataMock.mockReturnValue(baseFormattedData);
+  recordConversionMock.mockResolvedValue(undefined);
   console.error = (() => {}) as typeof console.error;
   console.warn = (() => {}) as typeof console.warn;
 });
@@ -480,5 +494,125 @@ describe("POST /api/convert Bedrock flow", () => {
         process.env.BJC_DOCTORS = original;
       }
     }
+  });
+});
+
+describe("POST /api/convert audit logging", () => {
+  test("records audit row with source 'email' when X-Source: email", async () => {
+    await POST(
+      createConvertRequest({
+        filename: "Smith_John_19800123.pdf",
+        sourceHeader: "email",
+      })
+    );
+
+    expect(recordConversionMock).toHaveBeenCalledTimes(1);
+    const row = recordConversionMock.mock.calls[0][0];
+    expect(row.source).toBe("email");
+  });
+
+  test("defaults source to 'web' when X-Source header is missing", async () => {
+    await POST(createConvertRequest({ filename: "test.pdf" }));
+
+    expect(recordConversionMock).toHaveBeenCalledTimes(1);
+    const row = recordConversionMock.mock.calls[0][0];
+    expect(row.source).toBe("web");
+  });
+
+  test("defaults source to 'web' when X-Source header is invalid (no 400)", async () => {
+    const response = await POST(
+      createConvertRequest({
+        filename: "test.pdf",
+        sourceHeader: "garbage",
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(recordConversionMock).toHaveBeenCalledTimes(1);
+    const row = recordConversionMock.mock.calls[0][0];
+    expect(row.source).toBe("web");
+  });
+
+  test("audit row contains hashed filename + extension, never raw PHI", async () => {
+    await POST(
+      createConvertRequest({ filename: "Smith_John_19800123.pdf" })
+    );
+
+    const row = recordConversionMock.mock.calls[0][0];
+    expect(row.filenameHash).toMatch(/^[0-9a-f]{12}$/);
+    expect(row.filenameExt).toBe(".pdf");
+    // No PHI fields allowed
+    expect(row).not.toHaveProperty("filename");
+    expect(row).not.toHaveProperty("firstName");
+    expect(row).not.toHaveProperty("lastName");
+    expect(row).not.toHaveProperty("dob");
+    expect(row).not.toHaveProperty("medicareNo");
+    expect(row).not.toHaveProperty("address");
+    // No PHI substrings in any string value
+    const sensitive = ["Smith", "John", "19800123", "1980"];
+    for (const value of Object.values(row)) {
+      if (typeof value === "string") {
+        for (const token of sensitive) {
+          expect(value).not.toContain(token);
+        }
+      }
+    }
+  });
+
+  test("audit row records outcome 'ok' on success with messageType + section", async () => {
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "pathology_result",
+    });
+
+    await POST(
+      createConvertRequest({
+        documentType: "pathology_result",
+        filename: "labs.pdf",
+      })
+    );
+
+    const row = recordConversionMock.mock.calls[0][0];
+    expect(row.outcome).toBe("ok");
+    expect(row.messageType).toBe("ORU^R01");
+    expect(row.diagnosticServiceSection).toBe("LAB");
+    expect(row.documentType).toBe("pathology_result");
+    expect(typeof row.durationMs).toBe("number");
+    expect(row.durationMs).toBeGreaterThanOrEqual(0);
+    expect(row.fileSizeBytes).toBe(1024);
+    expect(row.month).toMatch(/^\d{4}-\d{2}$/);
+    expect(row.ts).toMatch(/^\d{4}-\d{2}-\d{2}T.*Z#[0-9a-z]{6}$/);
+    expect(row.warningCount).toBe(baseExtraction.warnings.length);
+  });
+
+  test("audit row records outcome 'fail' when extraction fails", async () => {
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      success: false,
+      data: {
+        firstName: "UNKNOWN",
+        lastName: "PATIENT",
+        dob: "19000101",
+        sex: "U" as const,
+      },
+      warnings: ["could not determine patient"],
+      documentType: "generic",
+    });
+
+    await POST(createConvertRequest({ filename: "blank.pdf" }));
+
+    const row = recordConversionMock.mock.calls[0][0];
+    expect(row.outcome).toBe("fail");
+    expect(row.warningCount).toBe(1);
+  });
+
+  test("conversion still returns 200 when audit write throws", async () => {
+    recordConversionMock.mockRejectedValue(new Error("DynamoDB down"));
+
+    const response = await POST(createConvertRequest({ filename: "x.pdf" }));
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.success).toBe(true);
   });
 });

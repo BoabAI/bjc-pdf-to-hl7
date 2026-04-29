@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1006.0",
+    "@aws-sdk/client-dynamodb": "^3.1038.0",
+    "@aws-sdk/lib-dynamodb": "^3.1038.0",
     "highlight.js": "^11.11.1",
     "markdown-it": "^14.1.1",
     "next": "^14.2.0",
