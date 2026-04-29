@@ -90,10 +90,12 @@ Password auth via Next.js middleware (`middleware.ts`):
 
 ### Document Type System
 
-Four document types are classified by Bedrock vision:
+Six document types are classified by Bedrock vision:
 - **`consent_form`** - BJC Health Patient Information and Consent Forms
 - **`referral_letter`** - Specialist referral letters and clinic letters
 - **`gp_referral`** - GP/Best Practice referral letters
+- **`pathology_result`** - Pathology / lab reports (Douglass Hanly Moir, Laverty, Sonic, etc.)
+- **`radiology_result`** - Imaging reports (PRP, I-MED, Lumus, etc.)
 - **`generic`** - Any other medical PDF or unclear case
 
 ### Core Modules
@@ -139,13 +141,26 @@ Four document types are classified by Bedrock vision:
 - `carrier`: Overrides MSH-3 Sending Application (default "SMECAI")
 - `bjcDoctors`: JSON array of doctor names for AI-driven addressee resolution (falls back to `BJC_DOCTORS` env var)
 
+#### OBR-24 routing matrix
+
+OBR-24 (Diagnostic Service Section) drives which Genie inbox the document lands in. It is set automatically from the document type — see `diagnosticServiceSectionFor()` in `lib/conversion-config.ts`.
+
+| Document type | Message type | OBR-24 | Genie inbox |
+|---------------|--------------|--------|-------------|
+| `referral_letter`, `gp_referral` | `REF^I12` | `PHY` | Incoming Letters |
+| `pathology_result` | `ORU^R01` | `LAB` | Pathology |
+| `radiology_result` | `ORU^R01` | `RAD` | Radiology |
+| `consent_form`, `generic` | `ORU^R01` | (empty) | Genie default routing |
+
 ### UI & API Routes
 
-- `/` - Converter UI with localStorage-backed carrier and doctor list settings
+- `/` - Converter UI with multi-file queue, localStorage-backed carrier and doctor list settings
 - `/login` - Password login page
+- `/dashboard` - Audit log dashboard (pie charts + table + CSV export, sourced from `/api/logs`)
 - `/compliance` and `/privacy` - Static information pages
 - `/api/auth` (POST/DELETE) - Login/logout
-- `/api/convert` (GET/POST) - Service health / PDF conversion
+- `/api/convert` (GET/POST) - Service health / PDF conversion (accepts optional `X-Source: email` header from PAD pipeline; defaults to `web`)
+- `/api/logs` (GET) - `?month=YYYY-MM` returns the month's audit rows (cookie-protected)
 
 ### Addressee Resolution
 
@@ -164,16 +179,17 @@ The vision extractor uses AI to identify sender, addressee, and CC recipients fr
 |----------|----------|---------|
 | `APP_PASSWORD` | Yes | Password for login authentication |
 | `BJC_DOCTORS` | No | Comma-separated doctor names (fallback when UI doesn't send `bjcDoctors`) |
+| `DYNAMODB_TABLE` | No | Override the audit table name (defaults to `bjc-pdf-to-hl7-audit`). Used by `lib/audit.ts`. |
 
 Locally, create `.env.local`. On Amplify, env vars are set at the app level and written to `.env.production` during build (see `amplify.yml`).
 
 ### Reference Docs
 
-- `docs/functional_spec.md` - Full functional specification
+- `docs/functional_spec.md` - Full functional specification (developer reference)
 - `docs/research/genie-hl7-input-format.md` - Genie's HL7 input requirements
 - `docs/amplify-bedrock-credentials.md` - Amplify compute role + Bedrock auth setup
-- `docs/workflow/bjc-pdf-to-hl7-requirements.md` - Automation workflow requirements
-- `docs/workflow/bjc-pdf-to-directory.md` - Sister automation (consent forms via PAD)
+- `docs/workflow/bjc-pdf-to-hl7-operational-guide.md` - Plain-English operational guide for BJC ops staff and Medihost
+- `docs/research/sister-system-pdf-to-directory.md` - Reference for the sister consent-form-to-directory project (different repo)
 - `docs/archive/` - Historical/superseded docs (cost analysis, pricing research, refactor plans, PDF dups)
 
 ## Deployment
