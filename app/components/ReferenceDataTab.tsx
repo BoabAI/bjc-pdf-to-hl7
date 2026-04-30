@@ -8,8 +8,6 @@ import {
   SectionHeader,
 } from "./ui/SectionHeader";
 import {
-  CheckIcon,
-  CloseIcon,
   IdCardIcon,
   PencilIcon,
   ResetIcon,
@@ -85,41 +83,60 @@ function DoctorRow({
 
   if (isEditing) {
     return (
-      <div className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-card)]">
-        <input
-          ref={nameRef}
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") submit();
-            if (e.key === "Escape") onCancelEdit();
-          }}
-          className="input-field flex-1 text-sm py-1.5"
-          placeholder="Dr First Last"
-        />
-        <input
-          type="text"
-          value={providerNumber}
-          onChange={(e) => setProviderNumber(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") submit();
-            if (e.key === "Escape") onCancelEdit();
-          }}
-          className="input-field w-32 text-sm font-mono py-1.5"
-          placeholder="9000001Z"
-        />
-        <button
-          onClick={submit}
-          disabled={!canSave}
-          className="icon-btn"
-          title={duplicate ? "Another doctor already has that name" : "Save"}
-        >
-          <CheckIcon />
-        </button>
-        <button onClick={onCancelEdit} className="icon-btn" title="Cancel">
-          <CloseIcon />
-        </button>
+      <div className="px-3 py-3 bg-[var(--bg-card)] space-y-2.5">
+        <label className="block">
+          <span className="block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1">
+            Doctor name
+          </span>
+          <input
+            ref={nameRef}
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submit();
+              if (e.key === "Escape") onCancelEdit();
+            }}
+            className="input-field w-full text-sm py-1.5"
+            placeholder="Dr First Last"
+          />
+        </label>
+        <label className="block">
+          <span className="block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1">
+            Provider number
+          </span>
+          <input
+            type="text"
+            value={providerNumber}
+            onChange={(e) => setProviderNumber(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submit();
+              if (e.key === "Escape") onCancelEdit();
+            }}
+            className="input-field w-full text-sm font-mono py-1.5"
+            placeholder="9000001Z"
+          />
+        </label>
+        {duplicate && (
+          <p className="text-[11px] text-[var(--error)]">
+            Another doctor already has that name.
+          </p>
+        )}
+        <div className="flex items-center justify-end gap-2 pt-1">
+          <button
+            onClick={onCancelEdit}
+            className="text-[12px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] px-2.5 py-1 rounded-md hover:bg-[var(--bg-inner)] transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={submit}
+            disabled={!canSave}
+            className="btn-primary text-[12px] px-3 py-1 disabled:opacity-40"
+          >
+            Save
+          </button>
+        </div>
       </div>
     );
   }
@@ -197,41 +214,60 @@ function CarrierRow({
 
   if (isEditing) {
     return (
-      <div className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-card)]">
-        <input
-          ref={valueRef}
-          type="text"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") submit();
-            if (e.key === "Escape") onCancelEdit();
-          }}
-          className="input-field w-32 text-sm font-mono uppercase py-1.5"
-          placeholder="SMECAI"
-        />
-        <input
-          type="text"
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") submit();
-            if (e.key === "Escape") onCancelEdit();
-          }}
-          className="input-field flex-1 text-sm py-1.5"
-          placeholder="SMEC AI"
-        />
-        <button
-          onClick={submit}
-          disabled={!canSave}
-          className="icon-btn"
-          title={duplicate ? "Another carrier already has that value" : "Save"}
-        >
-          <CheckIcon />
-        </button>
-        <button onClick={onCancelEdit} className="icon-btn" title="Cancel">
-          <CloseIcon />
-        </button>
+      <div className="px-3 py-3 bg-[var(--bg-card)] space-y-2.5">
+        <label className="block">
+          <span className="block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1">
+            Value (MSH-3)
+          </span>
+          <input
+            ref={valueRef}
+            type="text"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submit();
+              if (e.key === "Escape") onCancelEdit();
+            }}
+            className="input-field w-full text-sm font-mono uppercase py-1.5"
+            placeholder="SMECAI"
+          />
+        </label>
+        <label className="block">
+          <span className="block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1">
+            Display label
+          </span>
+          <input
+            type="text"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submit();
+              if (e.key === "Escape") onCancelEdit();
+            }}
+            className="input-field w-full text-sm py-1.5"
+            placeholder="SMEC AI"
+          />
+        </label>
+        {duplicate && (
+          <p className="text-[11px] text-[var(--error)]">
+            Another carrier already uses that value.
+          </p>
+        )}
+        <div className="flex items-center justify-end gap-2 pt-1">
+          <button
+            onClick={onCancelEdit}
+            className="text-[12px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] px-2.5 py-1 rounded-md hover:bg-[var(--bg-inner)] transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={submit}
+            disabled={!canSave}
+            className="btn-primary text-[12px] px-3 py-1 disabled:opacity-40"
+          >
+            Save
+          </button>
+        </div>
       </div>
     );
   }
