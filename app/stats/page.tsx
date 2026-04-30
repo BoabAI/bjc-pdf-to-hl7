@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { AppNav } from "../components/AppNav";
 import { LogoStrip } from "../components/LogoStrip";
+import { ChartPieIcon } from "../components/ui/icons";
 import {
   type AuditRow,
   currentSydneyMonth,
@@ -54,9 +55,14 @@ function BreakdownPie({ title, data }: BreakdownPieProps): JSX.Element {
 
   return (
     <div className="card-inner p-4 flex-1 min-w-[260px]">
-      <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-2">
-        {title}
-      </h3>
+      <div className="flex items-center gap-2 mb-3">
+        <span className="w-7 h-7 rounded-md bg-[var(--blue-50)] text-[var(--bjc-blue)] flex items-center justify-center">
+          <ChartPieIcon className="w-3.5 h-3.5" />
+        </span>
+        <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+          {title}
+        </h3>
+      </div>
       {total === 0 ? (
         <p className="text-sm text-[var(--text-muted)] py-8 text-center">
           No data

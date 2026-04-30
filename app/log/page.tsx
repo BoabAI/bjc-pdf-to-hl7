@@ -3,6 +3,8 @@
 import { useCallback } from "react";
 import { AppNav } from "../components/AppNav";
 import { LogoStrip } from "../components/LogoStrip";
+import { SectionHeader } from "../components/ui/SectionHeader";
+import { DownloadIcon, HistoryIcon } from "../components/ui/icons";
 import {
   type AuditRow,
   currentSydneyMonth,
@@ -128,17 +130,22 @@ export default function LogPage(): JSX.Element {
 
         {!loading && !error && hasRows && (
           <section className="card p-6">
-            <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-              <h2 className="text-lg font-semibold text-[var(--text-primary)]">
-                Audit log ({rows.length} {rows.length === 1 ? "row" : "rows"})
-              </h2>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={handleDownloadCsv}
-              >
-                Download CSV
-              </button>
+            <div className="mb-4">
+              <SectionHeader
+                icon={<HistoryIcon />}
+                title="Audit log"
+                count={rows.length}
+                action={
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 btn-primary text-sm px-4 py-2 flex-shrink-0"
+                    onClick={handleDownloadCsv}
+                  >
+                    <DownloadIcon />
+                    Download CSV
+                  </button>
+                }
+              />
             </div>
             <div className="divider-subtle mb-4" />
             <div className="overflow-x-auto">

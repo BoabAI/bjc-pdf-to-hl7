@@ -433,7 +433,7 @@ export default function PrivacyPolicyPage() {
           {/* Table of contents */}
           <div className="px-7 pt-5 pb-2">
             <div className="p-4 rounded-xl bg-[var(--bg-inner)] border border-[var(--border-light)]">
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-[var(--text-muted)] mb-2">
+              <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-2">
                 Contents
               </h3>
               <nav className="space-y-1">

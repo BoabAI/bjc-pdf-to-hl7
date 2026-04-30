@@ -9,6 +9,8 @@ import { FileQueueItem, type FileEntry } from "./components/FileQueueItem";
 import { LogoStrip } from "./components/LogoStrip";
 import { UploadZone } from "./components/UploadZone";
 import { useReferenceData } from "./components/useReferenceData";
+import { SectionHeader } from "./components/ui/SectionHeader";
+import { FilesIcon } from "./components/ui/icons";
 import {
   isDocumentType,
   type DocumentTypeOption,
@@ -307,17 +309,19 @@ export default function Home() {
 
             {entries.length > 0 && (
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-semibold uppercase tracking-widest text-[var(--text-muted)]">
-                    Files ({entries.length})
-                  </h3>
-                  {showSummary && (
-                    <p className="text-xs text-[var(--text-secondary)]">
-                      {doneCount} of {entries.length} converted
-                      {failedCount > 0 ? ` · ${failedCount} failed` : ""}
-                    </p>
-                  )}
-                </div>
+                <SectionHeader
+                  icon={<FilesIcon />}
+                  title="Files"
+                  count={entries.length}
+                  action={
+                    showSummary ? (
+                      <p className="text-xs text-[var(--text-secondary)] flex-shrink-0">
+                        {doneCount} of {entries.length} converted
+                        {failedCount > 0 ? ` · ${failedCount} failed` : ""}
+                      </p>
+                    ) : undefined
+                  }
+                />
                 <div className="space-y-3">
                   {entries.map((entry) => (
                     <FileQueueItem

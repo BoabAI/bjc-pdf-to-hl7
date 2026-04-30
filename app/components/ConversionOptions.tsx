@@ -5,6 +5,8 @@ import type {
   Doctor,
   DocumentTypeOption,
 } from "@/lib/conversion-config";
+import { SectionHeader } from "./ui/SectionHeader";
+import { CogIcon } from "./ui/icons";
 
 interface ConversionOptionsProps {
   documentType: DocumentTypeOption;
@@ -44,9 +46,7 @@ export function ConversionOptions({
 }: ConversionOptionsProps) {
   return (
     <div className="card-inner p-5 space-y-4 animate-fade-in">
-      <h3 className="text-xs font-semibold uppercase tracking-widest text-[var(--text-muted)]">
-        Conversion Options
-      </h3>
+      <SectionHeader icon={<CogIcon />} title="Conversion options" />
 
       {showDocumentType ? (
         <div className="space-y-1.5">

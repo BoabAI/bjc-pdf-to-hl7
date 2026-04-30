@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { AppNav } from "../components/AppNav";
 import { LogoStrip } from "../components/LogoStrip";
+import { SectionHeader } from "../components/ui/SectionHeader";
 
 interface ComplianceSection {
   icon: React.ReactNode;
@@ -256,11 +257,8 @@ export default function CompliancePage() {
                 className="animate-fade-in"
                 style={{ animationDelay: `${0.08 * (sectionIdx + 1)}s` }}
               >
-                <div className="flex items-center gap-2.5 mb-3">
-                  <span className="text-[var(--bjc-blue)]">{section.icon}</span>
-                  <h2 className="text-sm font-semibold uppercase tracking-widest text-[var(--text-muted)]">
-                    {section.title}
-                  </h2>
+                <div className="mb-3">
+                  <SectionHeader icon={section.icon} title={section.title} />
                 </div>
                 <div className="card-inner p-4 space-y-3">
                   {section.items.map((item, itemIdx) => (
@@ -286,8 +284,8 @@ export default function CompliancePage() {
           {/* Practice responsibility notice */}
           <div className="px-7 py-5 space-y-4">
             <div className="p-4 rounded-xl bg-[var(--bg-inner)] border border-[var(--border-light)]">
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-[var(--text-muted)] mb-2">
-                Practice Responsibility
+              <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-2">
+                Practice responsibility
               </h3>
               <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
                 This tool acts as a data processor on behalf of the health practice. The uploading
@@ -300,8 +298,8 @@ export default function CompliancePage() {
             </div>
 
             <div className="p-4 rounded-xl bg-[var(--bg-inner)] border border-[var(--border-light)]">
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-[var(--text-muted)] mb-2">
-                Important Notice
+              <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-2">
+                Important notice
               </h3>
               <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
                 This page describes the technical data handling measures implemented in this

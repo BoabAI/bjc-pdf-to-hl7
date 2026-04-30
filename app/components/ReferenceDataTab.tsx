@@ -2,6 +2,20 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Carrier, Doctor } from "@/lib/conversion-config";
+import {
+  AddBlock,
+  EmptyState,
+  SectionHeader,
+} from "./ui/SectionHeader";
+import {
+  CheckIcon,
+  CloseIcon,
+  IdCardIcon,
+  PencilIcon,
+  ResetIcon,
+  TrashIcon,
+  UserGroupIcon,
+} from "./ui/icons";
 
 interface ReferenceDataTabProps {
   doctors: Doctor[];
@@ -16,62 +30,6 @@ interface ReferenceDataTabProps {
   onResetCarriers: () => void;
 }
 
-function PencilIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.862 4.487zm0 0L19.5 7.125" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-    </svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-    </svg>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-    </svg>
-  );
-}
-
-function UserGroupIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
-    </svg>
-  );
-}
-
-function IdCardIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z" />
-    </svg>
-  );
-}
-
-function ResetIcon() {
-  return (
-    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-    </svg>
-  );
-}
-
 function getInitials(fullName: string): string {
   const stripped = fullName.replace(/^Dr\.?\s+/i, "").trim();
   if (!stripped) return "•";
@@ -80,34 +38,6 @@ function getInitials(fullName: string): string {
   const first = parts[0][0] ?? "";
   const last = parts[parts.length - 1][0] ?? "";
   return (first + last).toUpperCase();
-}
-
-interface SectionHeaderProps {
-  icon: JSX.Element;
-  title: string;
-  count: number;
-  description: string;
-  action?: JSX.Element;
-}
-
-function SectionHeader({ icon, title, count, description, action }: SectionHeaderProps) {
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <span className="w-8 h-8 rounded-lg bg-[var(--blue-50)] text-[var(--bjc-blue)] flex items-center justify-center flex-shrink-0">
-            {icon}
-          </span>
-          <h3 className="text-base font-semibold text-[var(--text-primary)]">{title}</h3>
-          <span className="section-pill">{count}</span>
-        </div>
-        {action}
-      </div>
-      <p className="text-xs text-[var(--text-secondary)] leading-relaxed pl-[42px]">
-        {description}
-      </p>
-    </div>
-  );
 }
 
 interface DoctorRowProps {
@@ -187,11 +117,7 @@ function DoctorRow({
         >
           <CheckIcon />
         </button>
-        <button
-          onClick={onCancelEdit}
-          className="icon-btn"
-          title="Cancel"
-        >
+        <button onClick={onCancelEdit} className="icon-btn" title="Cancel">
           <CloseIcon />
         </button>
       </div>
@@ -348,38 +274,6 @@ function CarrierRow({
           <TrashIcon />
         </button>
       </div>
-    </div>
-  );
-}
-
-interface AddBlockProps {
-  label: string;
-  children: React.ReactNode;
-}
-
-function AddBlock({ label, children }: AddBlockProps) {
-  return (
-    <div className="card-inner p-3 space-y-2">
-      <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-        {label}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-interface EmptyStateProps {
-  icon: JSX.Element;
-  message: string;
-}
-
-function EmptyState({ icon, message }: EmptyStateProps) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-2 py-8 px-4 border-2 border-dashed border-[var(--border-medium)] rounded-xl bg-[var(--bg-inner)]">
-      <span className="w-10 h-10 rounded-full bg-[var(--bg-card)] text-[var(--text-faint)] flex items-center justify-center">
-        {icon}
-      </span>
-      <p className="text-xs text-[var(--text-muted)] text-center max-w-xs">{message}</p>
     </div>
   );
 }
