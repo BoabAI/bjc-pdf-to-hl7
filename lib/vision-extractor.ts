@@ -13,7 +13,7 @@ import {
   ConverseCommand,
 } from "@aws-sdk/client-bedrock-runtime";
 import type { PatientData } from "./hl7-builder";
-import { DOCUMENT_TYPES } from "./conversion-config";
+import { DOCUMENT_TYPES, type MailboxSource } from "./conversion-config";
 
 export type DocumentType =
   | "consent_form"
@@ -314,12 +314,22 @@ function cleanStringArray(value: unknown): string[] | undefined {
   return strings.length > 0 ? strings : undefined;
 }
 
-function buildPrompt(documentTypeHint?: DocumentType, bjcDoctors?: string[]): string {
+function buildPrompt(
+  documentTypeHint?: DocumentType,
+  bjcDoctors?: string[],
+  mailboxHint?: MailboxSource
+): string {
   let prompt: string;
   if (!documentTypeHint) {
     prompt = "Classify this Australian medical PDF and extract the patient information using the extract_patient_data tool.";
   } else {
     prompt = `A document type hint was provided: ${documentTypeHint}. Use that classification unless the PDF clearly contradicts it, then extract the patient information using the extract_patient_data tool.`;
+  }
+
+  if (mailboxHint === "referrals") {
+    prompt += `\n\nUpstream mailbox: referrals. The expected document types from this mailbox are referral_letter or gp_referral. Treat this as a soft prior — if the PDF clearly shows a different document type (e.g. a pathology lab report or a consent form), classify based on the PDF content, not the mailbox.`;
+  } else if (mailboxHint === "results") {
+    prompt += `\n\nUpstream mailbox: results. The expected document types from this mailbox are pathology_result or radiology_result. Treat this as a soft prior — if the PDF clearly shows a different document type (e.g. a referral letter or a consent form), classify based on the PDF content, not the mailbox.`;
   }
 
   if (bjcDoctors && bjcDoctors.length > 0) {
@@ -336,12 +346,14 @@ export async function extractPatientDataWithVision(
     timeoutMs?: number;
     documentTypeHint?: DocumentType;
     bjcDoctors?: string[];
+    mailboxHint?: MailboxSource;
   }
 ): Promise<VisionExtractionResult> {
   const model = options?.model ?? DEFAULT_MODEL;
   const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const documentTypeHint = options?.documentTypeHint;
   const bjcDoctors = options?.bjcDoctors;
+  const mailboxHint = options?.mailboxHint;
   const warnings: string[] = [];
 
   const client = new BedrockRuntimeClient({ region: REGION });
@@ -357,7 +369,7 @@ export async function extractPatientDataWithVision(
           {
             role: "user",
             content: [
-              { text: buildPrompt(documentTypeHint, bjcDoctors) },
+              { text: buildPrompt(documentTypeHint, bjcDoctors, mailboxHint) },
               {
                 document: {
                   name: "medical-document",

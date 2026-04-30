@@ -12,6 +12,7 @@ import {
   type DocumentType,
   type ReferralInfo,
 } from "./vision-extractor";
+import type { MailboxSource } from "./conversion-config";
 
 export type { DocumentType } from "./vision-extractor";
 export type { ReferralInfo } from "./vision-extractor";
@@ -35,7 +36,8 @@ const DEFAULT_DATA: PatientData = {
 export async function extractPatientData(
   pdfBuffer: Buffer,
   forceDocumentType?: DocumentType | "auto",
-  bjcDoctors?: string[]
+  bjcDoctors?: string[],
+  mailboxHint?: MailboxSource
 ): Promise<ExtractionResult> {
   const documentTypeHint =
     forceDocumentType && forceDocumentType !== "auto"
@@ -46,6 +48,7 @@ export async function extractPatientData(
     const visionResult = await extractPatientDataWithVision(pdfBuffer, {
       documentTypeHint,
       bjcDoctors,
+      mailboxHint,
     });
 
     return {

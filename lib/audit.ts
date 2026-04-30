@@ -31,6 +31,44 @@ export interface AuditRow {
   warningCount: number;
   /** Authenticated user's email (UPN). "anonymous" for email/PAD pipeline. */
   userEmail?: string;
+  /**
+   * Patient initials in `F.L.` form (e.g. "J.M."). Operational identifier
+   * for staff who already hold the source PDFs — never a full name. Undefined
+   * when extraction failed or returned placeholder values.
+   */
+  patientInitials?: string;
+  /**
+   * Upstream mailbox the PDF arrived in, when source==='email' and the PAD
+   * pipeline forwarded the X-Source-Mailbox header. "referrals" | "results".
+   */
+  mailboxHint?: string;
+  /**
+   * True when the LLM's family classification disagreed with the upstream
+   * mailbox (e.g. arrived via referrals, classified as a result). A misroute
+   * signal — not a rejection. Useful for ops to filter and review.
+   */
+  mailboxDisagreement?: boolean;
+}
+
+/**
+ * Build patient initials in `F.L.` form (e.g. "J.M."). Returns undefined when
+ * either name is missing, empty, or matches the extraction placeholders
+ * ("UNKNOWN" / "PATIENT") so the audit row never carries fake initials.
+ */
+export function buildPatientInitials(
+  firstName: string | undefined,
+  lastName: string | undefined
+): string | undefined {
+  const first = firstName?.trim();
+  const last = lastName?.trim();
+  if (!first || !last) return undefined;
+  if (first.toUpperCase() === "UNKNOWN" && last.toUpperCase() === "PATIENT") {
+    return undefined;
+  }
+  const f = first.charAt(0).toUpperCase();
+  const l = last.charAt(0).toUpperCase();
+  if (!/[A-Z]/.test(f) || !/[A-Z]/.test(l)) return undefined;
+  return `${f}.${l}.`;
 }
 
 function getTableName(): string {
@@ -155,6 +193,10 @@ function isAuditRow(value: unknown): value is AuditRow {
     typeof v.fileSizeBytes === "number" &&
     typeof v.durationMs === "number" &&
     typeof v.warningCount === "number" &&
-    (v.userEmail === undefined || typeof v.userEmail === "string")
+    (v.userEmail === undefined || typeof v.userEmail === "string") &&
+    (v.patientInitials === undefined || typeof v.patientInitials === "string") &&
+    (v.mailboxHint === undefined || typeof v.mailboxHint === "string") &&
+    (v.mailboxDisagreement === undefined ||
+      typeof v.mailboxDisagreement === "boolean")
   );
 }

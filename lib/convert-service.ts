@@ -3,11 +3,13 @@ import { extractPatientData, formatExtractedData } from "./pdf-parser";
 import {
   DEFAULT_CARRIER,
   MAX_PDF_SIZE_BYTES,
+  detectMailboxDisagreement,
   diagnosticServiceSectionFor,
   documentTypeLabel,
   isReferralDocumentType,
   parseDocumentTypeOption,
   type DocumentTypeOption,
+  type MailboxSource,
 } from "./conversion-config";
 
 export interface ConvertRequest {
@@ -18,6 +20,8 @@ export interface ConvertRequest {
   orderingProvider?: string;
   carrier?: string;
   bjcDoctors?: string[];
+  /** Upstream mailbox the PDF arrived in. Soft prior, not a hard override. */
+  mailboxHint?: MailboxSource;
 }
 
 export type ParseConvertFormDataResult =
@@ -36,6 +40,13 @@ export interface ConvertResult {
   warnings?: string[];
   extractionMethod?: "vision";
   documentType?: string;
+  /**
+   * True when the LLM's family classification disagrees with the upstream
+   * mailbox (e.g. PDF arrived in `referrals` but classified as a result).
+   * Not flagged for consent_form/generic. Caller decides what to do — we
+   * still trust the LLM verdict for routing.
+   */
+  mailboxDisagreement?: boolean;
   error?: string;
 }
 
@@ -105,26 +116,40 @@ export async function convertPdf(request: ConvertRequest): Promise<ConvertResult
   const extraction = await extractPatientData(
     request.pdfBuffer,
     request.documentType,
-    request.bjcDoctors
+    request.bjcDoctors,
+    request.mailboxHint
   );
+
+  const mailboxDisagreement = detectMailboxDisagreement(
+    request.mailboxHint,
+    extraction.documentType
+  );
+  const warningsWithMailbox = mailboxDisagreement
+    ? [
+        ...extraction.warnings,
+        `Mailbox/content mismatch: arrived via ${request.mailboxHint} mailbox but classified as ${extraction.documentType}. Verify before filing.`,
+      ]
+    : extraction.warnings;
 
   if (request.detectOnly) {
     return {
       success: true,
       documentType: extraction.documentType,
+      ...(mailboxDisagreement ? { mailboxDisagreement: true } : {}),
     };
   }
 
   if (!extraction.success) {
-    if (extraction.warnings.length > 0) {
-      console.warn("PDF extraction warnings:", extraction.warnings);
+    if (warningsWithMailbox.length > 0) {
+      console.warn("PDF extraction warnings:", warningsWithMailbox);
     }
     return {
       success: false,
       error:
         "Could not extract patient name from this document. The name may be redacted, missing, or in an unsupported format.",
-      warnings: extraction.warnings,
+      warnings: warningsWithMailbox,
       extractionMethod: extraction.extractionMethod,
+      ...(mailboxDisagreement ? { mailboxDisagreement: true } : {}),
     };
   }
 
@@ -158,7 +183,9 @@ export async function convertPdf(request: ConvertRequest): Promise<ConvertResult
       messageType: messageType === "REF^I12" ? "REF (Referral)" : "ORU (Result)",
       carrier: request.carrier || DEFAULT_CARRIER,
     },
-    warnings: extraction.warnings,
+    warnings: warningsWithMailbox,
     extractionMethod: extraction.extractionMethod,
+    documentType: extraction.documentType,
+    ...(mailboxDisagreement ? { mailboxDisagreement: true } : {}),
   };
 }

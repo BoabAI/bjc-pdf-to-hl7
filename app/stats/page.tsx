@@ -14,8 +14,9 @@ import { LogoStrip } from "../components/LogoStrip";
 import { ChartPieIcon } from "../components/ui/icons";
 import {
   type AuditRow,
-  currentSydneyMonth,
-  useAuditData,
+  currentSydneyDate,
+  firstOfCurrentSydneyMonth,
+  useAuditDataRange,
 } from "../components/auditShared";
 
 interface ChartDatum {
@@ -31,6 +32,20 @@ const CHART_COLORS = [
   "#f59e0b",
 ];
 
+const LABEL_OVERRIDES: Record<string, string> = {
+  gp_referral: "Referral",
+  pathology_result: "Result",
+};
+
+function prettify(raw: string): string {
+  if (!raw) return "Unknown";
+  const key = raw.toLowerCase();
+  if (LABEL_OVERRIDES[key]) return LABEL_OVERRIDES[key];
+  const cleaned = raw.replace(/[_-]+/g, " ").trim();
+  if (!cleaned) return "Unknown";
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase();
+}
+
 function groupBy(
   rows: AuditRow[],
   selector: (row: AuditRow) => string
@@ -41,7 +56,7 @@ function groupBy(
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
   return Array.from(counts.entries())
-    .map(([name, value]) => ({ name, value }))
+    .map(([name, value]) => ({ name: prettify(name), value }))
     .sort((a, b) => b.value - a.value);
 }
 
@@ -50,11 +65,73 @@ interface BreakdownPieProps {
   data: ChartDatum[];
 }
 
+interface PieLabelArgs {
+  cx: number;
+  cy: number;
+  midAngle: number;
+  innerRadius: number;
+  outerRadius: number;
+  percent: number;
+  name?: string;
+  value?: number;
+  fill?: string;
+}
+
+function renderPieLabel(props: PieLabelArgs): JSX.Element | null {
+  const { cx, cy, midAngle, outerRadius, percent, name, value, fill } = props;
+  if (!percent || percent < 0.04) return null;
+
+  const RADIAN = Math.PI / 180;
+  const sin = Math.sin(-midAngle * RADIAN);
+  const cos = Math.cos(-midAngle * RADIAN);
+  const sx = cx + outerRadius * cos;
+  const sy = cy + outerRadius * sin;
+  const mx = cx + (outerRadius + 12) * cos;
+  const my = cy + (outerRadius + 12) * sin;
+  const isRight = cos >= 0;
+  const ex = mx + (isRight ? 14 : -14);
+  const ey = my;
+  const textAnchor = isRight ? "start" : "end";
+
+  return (
+    <g style={{ pointerEvents: "none" }}>
+      <path
+        d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`}
+        stroke={fill ?? "#94a3b8"}
+        fill="none"
+        strokeWidth={1}
+      />
+      <circle cx={ex} cy={ey} r={2} fill={fill ?? "#94a3b8"} />
+      <text
+        x={ex + (isRight ? 4 : -4)}
+        y={ey}
+        dy={4}
+        textAnchor={textAnchor}
+        fill="var(--text-primary)"
+        fontSize={11}
+        fontWeight={500}
+      >
+        {name}
+      </text>
+      <text
+        x={ex + (isRight ? 4 : -4)}
+        y={ey}
+        dy={18}
+        textAnchor={textAnchor}
+        fill="var(--text-muted)"
+        fontSize={10}
+      >
+        {value}
+      </text>
+    </g>
+  );
+}
+
 function BreakdownPie({ title, data }: BreakdownPieProps): JSX.Element {
   const total = data.reduce((acc, d) => acc + d.value, 0);
 
   return (
-    <div className="card-inner p-4 flex-1 min-w-[260px]">
+    <div className="card-inner p-4 flex-1 min-w-[280px]">
       <div className="flex items-center gap-2 mb-3">
         <span className="w-7 h-7 rounded-md bg-[var(--blue-50)] text-[var(--bjc-blue)] flex items-center justify-center">
           <ChartPieIcon className="w-3.5 h-3.5" />
@@ -68,22 +145,23 @@ function BreakdownPie({ title, data }: BreakdownPieProps): JSX.Element {
           No data
         </p>
       ) : (
-        <div style={{ width: "100%", height: 240 }}>
+        <div style={{ width: "100%", height: 280 }}>
           <ResponsiveContainer>
-            <PieChart>
+            <PieChart margin={{ top: 12, right: 12, bottom: 12, left: 12 }}>
               <Pie
                 data={data}
                 dataKey="value"
                 nameKey="name"
                 cx="50%"
                 cy="50%"
-                outerRadius={70}
-                label={(entry: { name?: string; value?: number }) => {
-                  const value = typeof entry.value === "number" ? entry.value : 0;
-                  const name = entry.name ?? "";
-                  const pct = total > 0 ? (value / total) * 100 : 0;
-                  return `${name} (${pct.toFixed(0)}%)`;
-                }}
+                innerRadius={38}
+                outerRadius={68}
+                paddingAngle={1.5}
+                stroke="var(--card-bg, #ffffff)"
+                strokeWidth={2}
+                labelLine={false}
+                label={renderPieLabel as never}
+                isAnimationActive={false}
               >
                 {data.map((_, index) => (
                   <Cell
@@ -93,6 +171,13 @@ function BreakdownPie({ title, data }: BreakdownPieProps): JSX.Element {
                 ))}
               </Pie>
               <Tooltip
+                cursor={{ fill: "transparent" }}
+                contentStyle={{
+                  borderRadius: 8,
+                  border: "1px solid var(--border-color, #e2e8f0)",
+                  fontSize: 12,
+                  padding: "6px 10px",
+                }}
                 formatter={(value, name) => {
                   const numeric =
                     typeof value === "number"
@@ -101,15 +186,19 @@ function BreakdownPie({ title, data }: BreakdownPieProps): JSX.Element {
                         ? Number(value)
                         : 0;
                   const safe = Number.isFinite(numeric) ? numeric : 0;
-                  const pct = total > 0 ? (safe / total) * 100 : 0;
                   const label =
                     typeof name === "string" || typeof name === "number"
                       ? String(name)
                       : "";
-                  return [`${safe} (${pct.toFixed(1)}%)`, label];
+                  return [String(safe), label];
                 }}
               />
-              <Legend />
+              <Legend
+                verticalAlign="bottom"
+                iconType="circle"
+                iconSize={8}
+                wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
+              />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -119,7 +208,11 @@ function BreakdownPie({ title, data }: BreakdownPieProps): JSX.Element {
 }
 
 export default function StatsPage(): JSX.Element {
-  const { month, setMonth, rows, loading, error } = useAuditData();
+  const today = currentSydneyDate();
+  const { from, to, setFrom, setTo, rows, loading, error } = useAuditDataRange(
+    firstOfCurrentSydneyMonth(),
+    today
+  );
 
   const docTypeData = useMemo(
     () => groupBy(rows, (r) => r.documentType ?? "unknown"),
@@ -143,24 +236,43 @@ export default function StatsPage(): JSX.Element {
               Conversion Stats
             </h1>
             <p className="text-sm text-[var(--text-secondary)] mt-1">
-              Breakdown of conversions for {month}
+              Breakdown of conversions from {from} to {to}
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <label
-              htmlFor="month-picker"
-              className="text-sm text-[var(--text-secondary)]"
-            >
-              Month
-            </label>
-            <input
-              id="month-picker"
-              type="month"
-              className="input-field"
-              value={month}
-              max={currentSydneyMonth()}
-              onChange={(e) => setMonth(e.target.value)}
-            />
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-col">
+              <label
+                htmlFor="from-date"
+                className="text-xs text-[var(--text-secondary)] mb-1"
+              >
+                From
+              </label>
+              <input
+                id="from-date"
+                type="date"
+                className="input-field"
+                value={from}
+                max={to || today}
+                onChange={(e) => setFrom(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col">
+              <label
+                htmlFor="to-date"
+                className="text-xs text-[var(--text-secondary)] mb-1"
+              >
+                To
+              </label>
+              <input
+                id="to-date"
+                type="date"
+                className="input-field"
+                value={to}
+                min={from || undefined}
+                max={today}
+                onChange={(e) => setTo(e.target.value)}
+              />
+            </div>
           </div>
         </header>
 
@@ -184,7 +296,7 @@ export default function StatsPage(): JSX.Element {
         {!loading && !error && !hasRows && (
           <div className="card p-10 text-center">
             <p className="text-base text-[var(--text-secondary)]">
-              No conversions logged for {month} yet.
+              No conversions logged in this date range.
             </p>
           </div>
         )}

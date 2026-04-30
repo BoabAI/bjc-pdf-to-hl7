@@ -7,9 +7,10 @@ import { SectionHeader } from "../components/ui/SectionHeader";
 import { DownloadIcon, HistoryIcon } from "../components/ui/icons";
 import {
   type AuditRow,
-  currentSydneyMonth,
+  currentSydneyDate,
+  firstOfCurrentSydneyMonth,
   formatSydneyTimestamp,
-  useAuditData,
+  useAuditDataRange,
 } from "../components/auditShared";
 
 function csvEscape(value: string | number | undefined | null): string {
@@ -24,6 +25,7 @@ function csvEscape(value: string | number | undefined | null): string {
 function buildCsv(rows: AuditRow[]): string {
   const header = [
     "timestamp",
+    "patientInitials",
     "documentType",
     "source",
     "outcome",
@@ -37,6 +39,7 @@ function buildCsv(rows: AuditRow[]): string {
   const lines = rows.map((row) =>
     [
       csvEscape(row.ts),
+      csvEscape(row.patientInitials ?? ""),
       csvEscape(row.documentType ?? ""),
       csvEscape(row.source),
       csvEscape(row.outcome),
@@ -52,7 +55,11 @@ function buildCsv(rows: AuditRow[]): string {
 }
 
 export default function LogPage(): JSX.Element {
-  const { month, setMonth, rows, loading, error } = useAuditData();
+  const today = currentSydneyDate();
+  const { from, to, setFrom, setTo, rows, loading, error } = useAuditDataRange(
+    firstOfCurrentSydneyMonth(),
+    today
+  );
 
   const handleDownloadCsv = useCallback(() => {
     const csv = buildCsv(rows);
@@ -60,12 +67,12 @@ export default function LogPage(): JSX.Element {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `bjc-audit-${month}.csv`;
+    a.download = `audit-${from}_to_${to}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, [rows, month]);
+  }, [rows, from, to]);
 
   const hasRows = rows.length > 0;
 
@@ -82,24 +89,43 @@ export default function LogPage(): JSX.Element {
               Audit Log
             </h1>
             <p className="text-sm text-[var(--text-secondary)] mt-1">
-              Per-conversion audit rows for {month}
+              Per-conversion audit rows from {from} to {to}
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <label
-              htmlFor="month-picker"
-              className="text-sm text-[var(--text-secondary)]"
-            >
-              Month
-            </label>
-            <input
-              id="month-picker"
-              type="month"
-              className="input-field"
-              value={month}
-              max={currentSydneyMonth()}
-              onChange={(e) => setMonth(e.target.value)}
-            />
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-col">
+              <label
+                htmlFor="from-date"
+                className="text-xs text-[var(--text-secondary)] mb-1"
+              >
+                From
+              </label>
+              <input
+                id="from-date"
+                type="date"
+                className="input-field"
+                value={from}
+                max={to || today}
+                onChange={(e) => setFrom(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col">
+              <label
+                htmlFor="to-date"
+                className="text-xs text-[var(--text-secondary)] mb-1"
+              >
+                To
+              </label>
+              <input
+                id="to-date"
+                type="date"
+                className="input-field"
+                value={to}
+                min={from || undefined}
+                max={today}
+                onChange={(e) => setTo(e.target.value)}
+              />
+            </div>
           </div>
         </header>
 
@@ -123,7 +149,7 @@ export default function LogPage(): JSX.Element {
         {!loading && !error && !hasRows && (
           <div className="card p-10 text-center">
             <p className="text-base text-[var(--text-secondary)]">
-              No conversions logged for {month} yet.
+              No conversions logged in this date range.
             </p>
           </div>
         )}
@@ -153,12 +179,10 @@ export default function LogPage(): JSX.Element {
                 <thead>
                   <tr className="text-left text-[var(--text-secondary)] border-b border-[var(--border-light)]">
                     <th className="py-2 pr-4 font-medium">Time</th>
+                    <th className="py-2 pr-4 font-medium">Patient</th>
                     <th className="py-2 pr-4 font-medium">Doc Type</th>
                     <th className="py-2 pr-4 font-medium">Source</th>
                     <th className="py-2 pr-4 font-medium">Outcome</th>
-                    <th className="py-2 pr-4 font-medium">Duration (ms)</th>
-                    <th className="py-2 pr-4 font-medium">Message Type</th>
-                    <th className="py-2 pr-4 font-medium">OBR-24</th>
                     <th className="py-2 pr-4 font-medium">Filename Hash</th>
                     <th className="py-2 pr-4 font-medium">Warnings</th>
                   </tr>
@@ -171,6 +195,9 @@ export default function LogPage(): JSX.Element {
                     >
                       <td className="py-2 pr-4 whitespace-nowrap text-[var(--text-primary)]">
                         {formatSydneyTimestamp(row.ts)}
+                      </td>
+                      <td className="py-2 pr-4 font-mono text-[var(--text-primary)]">
+                        {row.patientInitials ?? "—"}
                       </td>
                       <td className="py-2 pr-4 text-[var(--text-primary)]">
                         {row.documentType ?? "—"}
@@ -187,15 +214,6 @@ export default function LogPage(): JSX.Element {
                         }
                       >
                         {row.outcome}
-                      </td>
-                      <td className="py-2 pr-4 text-[var(--text-primary)]">
-                        {row.durationMs}
-                      </td>
-                      <td className="py-2 pr-4 text-[var(--text-primary)]">
-                        {row.messageType ?? "—"}
-                      </td>
-                      <td className="py-2 pr-4 text-[var(--text-primary)]">
-                        {row.diagnosticServiceSection ?? "—"}
                       </td>
                       <td className="py-2 pr-4 font-mono text-xs text-[var(--text-secondary)]">
                         {row.filenameHash}

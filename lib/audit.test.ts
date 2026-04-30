@@ -48,6 +48,7 @@ const {
   monthKey,
   buildSortKey,
   randomSuffix,
+  buildPatientInitials,
 } = await import("./audit");
 import type { AuditRow } from "./audit";
 
@@ -79,6 +80,45 @@ function makeRow(overrides: Partial<AuditRow> = {}): AuditRow {
     ...overrides,
   };
 }
+
+describe("buildPatientInitials", () => {
+  test("returns F.L. form for valid names", () => {
+    expect(buildPatientInitials("Jane", "Smith")).toBe("J.S.");
+  });
+
+  test("uppercases lowercase input", () => {
+    expect(buildPatientInitials("jane", "smith")).toBe("J.S.");
+  });
+
+  test("trims whitespace before taking the first character", () => {
+    expect(buildPatientInitials("  Mary  ", "  O'Brien  ")).toBe("M.O.");
+  });
+
+  test("handles single-letter names", () => {
+    expect(buildPatientInitials("A", "B")).toBe("A.B.");
+  });
+
+  test("returns undefined when first name is missing", () => {
+    expect(buildPatientInitials(undefined, "Smith")).toBeUndefined();
+    expect(buildPatientInitials("", "Smith")).toBeUndefined();
+    expect(buildPatientInitials("   ", "Smith")).toBeUndefined();
+  });
+
+  test("returns undefined when last name is missing", () => {
+    expect(buildPatientInitials("Jane", undefined)).toBeUndefined();
+    expect(buildPatientInitials("Jane", "")).toBeUndefined();
+  });
+
+  test("returns undefined for the UNKNOWN/PATIENT placeholder", () => {
+    expect(buildPatientInitials("UNKNOWN", "PATIENT")).toBeUndefined();
+    expect(buildPatientInitials("unknown", "patient")).toBeUndefined();
+  });
+
+  test("returns undefined when first character is not a letter", () => {
+    expect(buildPatientInitials("123", "Smith")).toBeUndefined();
+    expect(buildPatientInitials("Jane", "9Doe")).toBeUndefined();
+  });
+});
 
 describe("hashFilename", () => {
   test("returns a 12-character hex string", () => {
@@ -280,6 +320,10 @@ describe("recordConversion", () => {
       "fileSizeBytes",
       "durationMs",
       "warningCount",
+      "userEmail",
+      "patientInitials",
+      "mailboxHint",
+      "mailboxDisagreement",
     ]);
     const forbiddenKeys = [
       "firstName",

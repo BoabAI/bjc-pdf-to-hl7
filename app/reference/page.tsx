@@ -21,7 +21,7 @@ export default function ReferenceDataPage(): JSX.Element {
                 Reference Data
               </h1>
               <p className="text-sm text-[var(--text-secondary)] mt-1.5 leading-relaxed">
-                Manage BJC Health doctors and HL7 carriers used by the converter.
+                Manage doctors and HL7 carriers used by the converter.
                 Changes save automatically.
               </p>
             </div>

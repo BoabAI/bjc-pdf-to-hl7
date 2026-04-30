@@ -14,6 +14,49 @@ export const DOCUMENT_TYPES: DocumentType[] = [
 
 export type DocumentTypeOption = DocumentType | "auto";
 
+/**
+ * Upstream mailbox the PDF arrived in. Acts as a soft prior for vision
+ * classification and a misroute signal in audit (LLM verdict still wins).
+ *
+ * - `referrals` expects {referral_letter, gp_referral}
+ * - `results` expects {pathology_result, radiology_result}
+ *
+ * `consent_form` and `generic` are never flagged as disagreements (too
+ * ambiguous — a consent form forwarded via the referrals mailbox isn't
+ * a misroute, just a non-referral attachment).
+ */
+export type MailboxSource = "referrals" | "results";
+
+export const MAILBOX_SOURCES: MailboxSource[] = ["referrals", "results"];
+
+export function isMailboxSource(value: unknown): value is MailboxSource {
+  return value === "referrals" || value === "results";
+}
+
+/** Lower-cases and trims; returns undefined when the header is missing or junk. */
+export function parseMailboxSource(
+  value: string | null | undefined
+): MailboxSource | undefined {
+  if (!value) return undefined;
+  const normalized = value.trim().toLowerCase();
+  return isMailboxSource(normalized) ? normalized : undefined;
+}
+
+/**
+ * True when the LLM's classification belongs to a different family than the
+ * mailbox suggests. Returns false when the mailbox is unknown, the document
+ * type is missing, or the type is consent_form/generic (never a misroute).
+ */
+export function detectMailboxDisagreement(
+  mailbox: MailboxSource | undefined,
+  documentType: DocumentType | undefined
+): boolean {
+  if (!mailbox || !documentType) return false;
+  if (mailbox === "referrals") return isResultDocumentType(documentType);
+  if (mailbox === "results") return isReferralDocumentType(documentType);
+  return false;
+}
+
 export interface Doctor {
   /** UUID — stable across renames. */
   id: string;

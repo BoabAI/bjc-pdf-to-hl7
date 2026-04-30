@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { convertPdf, parseConvertFormData } from "@/lib/convert-service";
 import {
+  buildPatientInitials,
   buildSortKey,
   extractFilenameExt,
   hashFilename,
@@ -9,8 +10,10 @@ import {
   type AuditRow,
 } from "@/lib/audit";
 import {
+  detectMailboxDisagreement,
   diagnosticServiceSectionFor,
   isReferralDocumentType,
+  parseMailboxSource,
 } from "@/lib/conversion-config";
 import type { DocumentType } from "@/lib/vision-extractor";
 import { auth } from "@/lib/auth";
@@ -38,6 +41,9 @@ async function safeRecord(row: AuditRow): Promise<void> {
 export const POST = auth(async (request) => {
   const startedAt = Date.now();
   const source = parseSource(request.headers.get("x-source"));
+  const mailboxHint = parseMailboxSource(
+    request.headers.get("x-source-mailbox")
+  );
   const userEmail = request.auth?.user?.email ?? "anonymous";
   const now = new Date();
 
@@ -67,13 +73,18 @@ export const POST = auth(async (request) => {
     originalFilename = parsed.originalFilename;
     fileSizeBytes = parsed.data.pdfBuffer.length;
 
-    const result = await convertPdf(parsed.data);
+    const result = await convertPdf({ ...parsed.data, mailboxHint });
 
     const resolvedDocType: DocumentType | undefined =
       (result.documentType as DocumentType | undefined) ??
       (parsed.data.documentType !== "auto"
         ? parsed.data.documentType
         : undefined);
+
+    const mailboxDisagreement = detectMailboxDisagreement(
+      mailboxHint,
+      resolvedDocType
+    );
 
     const row: AuditRow = {
       month: monthKey(now),
@@ -95,6 +106,14 @@ export const POST = auth(async (request) => {
       durationMs: Date.now() - startedAt,
       warningCount: result.warnings?.length ?? 0,
       userEmail,
+      patientInitials: result.success
+        ? buildPatientInitials(
+            result.extractedData?.firstName,
+            result.extractedData?.lastName
+          )
+        : undefined,
+      mailboxHint,
+      ...(mailboxDisagreement ? { mailboxDisagreement: true } : {}),
     };
 
     await safeRecord(row);
@@ -114,6 +133,7 @@ export const POST = auth(async (request) => {
       durationMs: Date.now() - startedAt,
       warningCount: 0,
       userEmail,
+      mailboxHint,
     };
     await safeRecord(failRow);
 

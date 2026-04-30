@@ -27,6 +27,15 @@ mock.module("@/lib/audit", () => ({
     if (i <= 0 || i === filename.length - 1) return "";
     return filename.slice(i).toLowerCase();
   },
+  buildPatientInitials: (firstName: string | undefined, lastName: string | undefined) => {
+    const f = firstName?.trim();
+    const l = lastName?.trim();
+    if (!f || !l) return undefined;
+    if (f.toUpperCase() === "UNKNOWN" && l.toUpperCase() === "PATIENT") {
+      return undefined;
+    }
+    return `${f.charAt(0).toUpperCase()}.${l.charAt(0).toUpperCase()}.`;
+  },
 }));
 
 // Mock Auth.js: passthrough that injects request.auth from the x-test-auth
@@ -82,6 +91,7 @@ function createConvertRequest(
     filename?: string;
     sizeBytes?: number;
     sourceHeader?: string | null;
+    mailboxHeader?: string | null;
   }
 ): NextRequest {
   const fileSize = options?.sizeBytes ?? 1024;
@@ -110,6 +120,9 @@ function createConvertRequest(
   };
   if (options?.sourceHeader !== undefined && options.sourceHeader !== null) {
     headers["x-source"] = options.sourceHeader;
+  }
+  if (options?.mailboxHeader !== undefined && options.mailboxHeader !== null) {
+    headers["x-source-mailbox"] = options.mailboxHeader;
   }
 
   return new NextRequest("http://localhost:3000/api/convert", {
@@ -199,7 +212,12 @@ describe("POST /api/convert Bedrock flow", () => {
     );
     const data = await response.json();
 
-    expect(extractPatientDataMock).toHaveBeenCalledWith(expect.any(Buffer), "auto", undefined);
+    expect(extractPatientDataMock).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      "auto",
+      undefined,
+      undefined
+    );
     expect(response.status).toBe(200);
     expect(data).toEqual({
       success: true,
@@ -218,6 +236,7 @@ describe("POST /api/convert Bedrock flow", () => {
     expect(extractPatientDataMock).toHaveBeenCalledWith(
       expect.any(Buffer),
       "gp_referral",
+      undefined,
       undefined
     );
   });
@@ -230,7 +249,12 @@ describe("POST /api/convert Bedrock flow", () => {
       })
     );
 
-    expect(extractPatientDataMock).toHaveBeenCalledWith(expect.any(Buffer), "auto", undefined);
+    expect(extractPatientDataMock).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      "auto",
+      undefined,
+      undefined
+    );
   });
 
   test("builds an HL7 payload from Bedrock extraction output", async () => {
@@ -517,7 +541,8 @@ describe("POST /api/convert Bedrock flow", () => {
       expect(extractPatientDataMock).toHaveBeenCalledWith(
         expect.any(Buffer),
         "auto",
-        ["Maundrell", "Ong", "Swaraj"]
+        ["Maundrell", "Ong", "Swaraj"],
+        undefined
       );
     } finally {
       if (original === undefined) {
@@ -594,6 +619,15 @@ describe("POST /api/convert audit logging", () => {
       // Operator identity from Auth.js session — required for compliance.
       // Not patient PHI; covered by the substring leak check below.
       "userEmail",
+      // F.L. initials only — operational identifier for staff who already
+      // hold the source PDFs. Substring leak check below confirms full
+      // names never appear.
+      "patientInitials",
+      // Upstream mailbox the PDF arrived in (referrals|results) and a
+      // boolean flag when the LLM family classification disagreed with it.
+      // Routing metadata, not PHI.
+      "mailboxHint",
+      "mailboxDisagreement",
     ].sort();
     expect(Object.keys(row).sort().filter((k) => row[k] !== undefined))
       .toEqual(
@@ -678,6 +712,16 @@ describe("POST /api/convert audit logging", () => {
     const row = recordConversionMock.mock.calls[0][0];
     expect(row.outcome).toBe("fail");
     expect(row.warningCount).toBe(1);
+    expect(row.patientInitials).toBeUndefined();
+  });
+
+  test("audit row records patient initials in F.L. form on success", async () => {
+    await POST(createConvertRequest({ filename: "ref.pdf" }));
+
+    const row = recordConversionMock.mock.calls[0][0];
+    expect(row.outcome).toBe("ok");
+    // baseExtraction = Jane Smith → "J.S."
+    expect(row.patientInitials).toBe("J.S.");
   });
 
   test("conversion still returns 200 when audit write throws", async () => {
@@ -688,5 +732,191 @@ describe("POST /api/convert audit logging", () => {
 
     expect(response.status).toBe(200);
     expect(data.success).toBe(true);
+  });
+});
+
+describe("POST /api/convert X-Source-Mailbox header", () => {
+  test("forwards mailboxHint='referrals' to extraction and writes to audit row", async () => {
+    await POST(
+      createConvertRequest({
+        filename: "ref.pdf",
+        mailboxHeader: "referrals",
+      })
+    );
+
+    expect(extractPatientDataMock).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      "auto",
+      undefined,
+      "referrals"
+    );
+
+    const row = recordConversionMock.mock.calls[0][0];
+    expect(row.mailboxHint).toBe("referrals");
+  });
+
+  test("forwards mailboxHint='results' to extraction", async () => {
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "pathology_result",
+    });
+
+    await POST(
+      createConvertRequest({
+        filename: "labs.pdf",
+        mailboxHeader: "results",
+      })
+    );
+
+    expect(extractPatientDataMock).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      "auto",
+      undefined,
+      "results"
+    );
+
+    const row = recordConversionMock.mock.calls[0][0];
+    expect(row.mailboxHint).toBe("results");
+  });
+
+  test("ignores invalid mailbox header values", async () => {
+    await POST(
+      createConvertRequest({
+        filename: "ref.pdf",
+        mailboxHeader: "garbage",
+      })
+    );
+
+    expect(extractPatientDataMock).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      "auto",
+      undefined,
+      undefined
+    );
+
+    const row = recordConversionMock.mock.calls[0][0];
+    expect(row.mailboxHint).toBeUndefined();
+  });
+
+  test("normalizes mailbox header case + whitespace", async () => {
+    await POST(
+      createConvertRequest({
+        filename: "ref.pdf",
+        mailboxHeader: "  REFERRALS  ",
+      })
+    );
+
+    const row = recordConversionMock.mock.calls[0][0];
+    expect(row.mailboxHint).toBe("referrals");
+  });
+
+  test("flags mailboxDisagreement=true when referrals mailbox returns a result classification", async () => {
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "pathology_result",
+    });
+
+    const response = await POST(
+      createConvertRequest({
+        filename: "misroute.pdf",
+        mailboxHeader: "referrals",
+      })
+    );
+    const data = await response.json();
+
+    const row = recordConversionMock.mock.calls[0][0];
+    expect(row.mailboxDisagreement).toBe(true);
+    expect(data.mailboxDisagreement).toBe(true);
+    expect(data.warnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("Mailbox/content mismatch"),
+      ])
+    );
+  });
+
+  test("flags mailboxDisagreement=true when results mailbox returns a referral classification", async () => {
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "gp_referral",
+    });
+
+    const response = await POST(
+      createConvertRequest({
+        filename: "misroute.pdf",
+        mailboxHeader: "results",
+      })
+    );
+    const data = await response.json();
+
+    const row = recordConversionMock.mock.calls[0][0];
+    expect(row.mailboxDisagreement).toBe(true);
+    expect(data.mailboxDisagreement).toBe(true);
+  });
+
+  test("does not flag disagreement for consent_form or generic on either mailbox", async () => {
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "consent_form",
+    });
+
+    const response = await POST(
+      createConvertRequest({
+        filename: "consent.pdf",
+        mailboxHeader: "referrals",
+      })
+    );
+    const data = await response.json();
+
+    const row = recordConversionMock.mock.calls[0][0];
+    expect(row.mailboxDisagreement).toBeUndefined();
+    expect(data.mailboxDisagreement).toBeUndefined();
+  });
+
+  test("does not flag disagreement when classification matches mailbox family", async () => {
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "gp_referral",
+    });
+
+    const response = await POST(
+      createConvertRequest({
+        filename: "ref.pdf",
+        mailboxHeader: "referrals",
+      })
+    );
+    const data = await response.json();
+
+    const row = recordConversionMock.mock.calls[0][0];
+    expect(row.mailboxDisagreement).toBeUndefined();
+    expect(data.mailboxDisagreement).toBeUndefined();
+  });
+
+  test("LLM verdict still drives routing — disagreement is a flag, not an override", async () => {
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "pathology_result",
+    });
+
+    const response = await POST(
+      createConvertRequest({
+        filename: "misroute.pdf",
+        mailboxHeader: "referrals",
+      })
+    );
+    const data = await response.json();
+
+    // Even with the disagreement flag, the HL7 reflects the LLM's call:
+    // ORU^R01 + LAB section, not REF^I12.
+    const segments = data.hl7Content.split("\r");
+    const mshFields = segments.find((s: string) => s.startsWith("MSH|"))!.split("|");
+    const obrFields = segments.find((s: string) => s.startsWith("OBR|"))!.split("|");
+
+    expect(mshFields[8]).toBe("ORU^R01");
+    expect(obrFields[24]).toBe("LAB");
+
+    const row = recordConversionMock.mock.calls[0][0];
+    expect(row.messageType).toBe("ORU^R01");
+    expect(row.diagnosticServiceSection).toBe("LAB");
+    expect(row.mailboxDisagreement).toBe(true);
   });
 });
