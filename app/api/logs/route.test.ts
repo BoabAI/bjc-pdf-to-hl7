@@ -8,15 +8,29 @@ mock.module("@/lib/audit", () => ({
   listConversions: listConversionsMock,
 }));
 
-const { GET } = await import("./route");
+// Mock Auth.js so auth() becomes a passthrough that injects request.auth from
+// a test header. Lets us cover the unauthed branch without a real Auth.js session.
+mock.module("@/lib/auth", () => ({
+  auth: (handler: (req: NextRequest & { auth: unknown }) => unknown) =>
+    async (req: NextRequest) => {
+      const email = req.headers.get("x-test-auth");
+      const augmented = Object.assign(req, {
+        auth: email ? { user: { email } } : null,
+      });
+      return handler(augmented as NextRequest & { auth: unknown });
+    },
+}));
 
-const cookieHeader = "app_authenticated=true";
+const routeModule = await import("./route");
+// auth() wraps handlers with a complex Next.js-compatible signature; in tests
+// the mocked auth() is a single-arg passthrough, so cast for ergonomics.
+const GET = routeModule.GET as unknown as (req: NextRequest) => Promise<Response>;
 
 function makeRequest(query: string, opts?: { authed?: boolean }): NextRequest {
   const url = `http://localhost:3000/api/logs${query}`;
   const headers: Record<string, string> = {};
   if (opts?.authed !== false) {
-    headers.cookie = cookieHeader;
+    headers["x-test-auth"] = "alice@bjchealth.com.au";
   }
   return new NextRequest(url, { headers });
 }
@@ -32,7 +46,7 @@ afterEach(() => {
 });
 
 describe("GET /api/logs", () => {
-  test("returns 401 when no auth cookie", async () => {
+  test("returns 401 when no session", async () => {
     const response = await GET(makeRequest("?month=2026-04", { authed: false }));
     expect(response.status).toBe(401);
   });
@@ -84,7 +98,6 @@ describe("GET /api/logs", () => {
     expect(response.status).toBe(200);
     expect(data.month).toMatch(/^\d{4}-\d{2}$/);
 
-    // Should match current Sydney year-month
     const formatter = new Intl.DateTimeFormat("en-CA", {
       timeZone: "Australia/Sydney",
       year: "numeric",

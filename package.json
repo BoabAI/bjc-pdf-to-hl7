@@ -20,6 +20,7 @@
     "jszip": "^3.10.1",
     "markdown-it": "^14.1.1",
     "next": "^14.2.0",
+    "next-auth": "^5.0.0-beta.31",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "recharts": "^3.8.1",

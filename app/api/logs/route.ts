@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { listConversions } from "@/lib/audit";
+import { auth } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -17,13 +18,11 @@ function currentSydneyMonth(): string {
   return `${year}-${month}`;
 }
 
-export async function GET(request: NextRequest) {
-  // Defense in depth: middleware already gates /api/logs because it isn't on
-  // the public list, but enforce the cookie check here too so this endpoint
-  // is safe even if middleware config changes.
-  const isAuthenticated =
-    request.cookies.get("app_authenticated")?.value === "true";
-  if (!isAuthenticated) {
+export const GET = auth(async (request) => {
+  // Defense in depth: middleware already gates /api/logs, but enforce the
+  // session check here too so this endpoint is safe even if middleware config
+  // changes.
+  if (!request.auth) {
     return NextResponse.json(
       { success: false, error: "Unauthorized" },
       { status: 401 }
@@ -43,4 +42,4 @@ export async function GET(request: NextRequest) {
   const rows = await listConversions(month);
 
   return NextResponse.json({ success: true, month, rows });
-}
+});

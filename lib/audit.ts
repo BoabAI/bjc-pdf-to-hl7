@@ -29,6 +29,8 @@ export interface AuditRow {
   fileSizeBytes: number;
   durationMs: number;
   warningCount: number;
+  /** Authenticated user's email (UPN). "anonymous" for email/PAD pipeline. */
+  userEmail?: string;
 }
 
 function getTableName(): string {
@@ -152,6 +154,7 @@ function isAuditRow(value: unknown): value is AuditRow {
     typeof v.filenameExt === "string" &&
     typeof v.fileSizeBytes === "number" &&
     typeof v.durationMs === "number" &&
-    typeof v.warningCount === "number"
+    typeof v.warningCount === "number" &&
+    (v.userEmail === undefined || typeof v.userEmail === "string")
   );
 }

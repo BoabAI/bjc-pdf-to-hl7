@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { convertPdf, parseConvertFormData } from "@/lib/convert-service";
 import {
   buildSortKey,
@@ -13,6 +13,7 @@ import {
   isReferralDocumentType,
 } from "@/lib/conversion-config";
 import type { DocumentType } from "@/lib/vision-extractor";
+import { auth } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -34,10 +35,20 @@ async function safeRecord(row: AuditRow): Promise<void> {
   }
 }
 
-export async function POST(request: NextRequest) {
+export const POST = auth(async (request) => {
   const startedAt = Date.now();
   const source = parseSource(request.headers.get("x-source"));
+  const userEmail = request.auth?.user?.email ?? "anonymous";
   const now = new Date();
+
+  // Web users must be authenticated; email/PAD pipeline is service-to-service
+  // and bypasses the cookie session (separate hardening lives upstream).
+  if (source === "web" && !request.auth) {
+    return NextResponse.json(
+      { success: false, error: "Unauthorized" },
+      { status: 401 }
+    );
+  }
 
   let originalFilename = "";
   let fileSizeBytes = 0;
@@ -58,7 +69,6 @@ export async function POST(request: NextRequest) {
 
     const result = await convertPdf(parsed.data);
 
-    // Resolve document type for audit (auto resolves to actual classification)
     const resolvedDocType: DocumentType | undefined =
       (result.documentType as DocumentType | undefined) ??
       (parsed.data.documentType !== "auto"
@@ -84,9 +94,9 @@ export async function POST(request: NextRequest) {
       fileSizeBytes,
       durationMs: Date.now() - startedAt,
       warningCount: result.warnings?.length ?? 0,
+      userEmail,
     };
 
-    // Awaited inline before responding — Lambda freeze drops fire-and-forget work.
     await safeRecord(row);
 
     return NextResponse.json(result);
@@ -103,6 +113,7 @@ export async function POST(request: NextRequest) {
       fileSizeBytes,
       durationMs: Date.now() - startedAt,
       warningCount: 0,
+      userEmail,
     };
     await safeRecord(failRow);
 
@@ -114,7 +125,7 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
 // Health check endpoint
 export async function GET() {

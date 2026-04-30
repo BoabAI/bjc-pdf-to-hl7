@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import {
   deleteCarrier,
   deleteDoctor,
@@ -8,19 +8,15 @@ import {
   putDoctor,
 } from "@/lib/reference-data-store";
 import type { Carrier, Doctor } from "@/lib/conversion-config";
+import { auth } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
-function requireAuth(request: NextRequest): NextResponse | null {
-  const isAuthenticated =
-    request.cookies.get("app_authenticated")?.value === "true";
-  if (!isAuthenticated) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 401 }
-    );
-  }
-  return null;
+function unauthorized(): NextResponse {
+  return NextResponse.json(
+    { success: false, error: "Unauthorized" },
+    { status: 401 }
+  );
 }
 
 function isDoctor(value: unknown): value is Doctor {
@@ -50,9 +46,8 @@ function isCarrier(value: unknown): value is Carrier {
   );
 }
 
-export async function GET(request: NextRequest): Promise<NextResponse> {
-  const unauth = requireAuth(request);
-  if (unauth) return unauth;
+export const GET = auth(async (request) => {
+  if (!request.auth) return unauthorized();
 
   const [doctors, carriers] = await Promise.all([
     listDoctors(),
@@ -60,11 +55,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   ]);
 
   return NextResponse.json({ success: true, doctors, carriers });
-}
+});
 
-export async function PUT(request: NextRequest): Promise<NextResponse> {
-  const unauth = requireAuth(request);
-  if (unauth) return unauth;
+export const PUT = auth(async (request) => {
+  if (!request.auth) return unauthorized();
 
   let body: unknown;
   try {
@@ -111,11 +105,10 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     { success: false, error: "Invalid kind. Expected DOCTOR or CARRIER." },
     { status: 400 }
   );
-}
+});
 
-export async function DELETE(request: NextRequest): Promise<NextResponse> {
-  const unauth = requireAuth(request);
-  if (unauth) return unauth;
+export const DELETE = auth(async (request) => {
+  if (!request.auth) return unauthorized();
 
   const kind = request.nextUrl.searchParams.get("kind");
   const id = request.nextUrl.searchParams.get("id");
@@ -141,4 +134,4 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
     { success: false, error: "Invalid kind. Expected DOCTOR or CARRIER." },
     { status: 400 }
   );
-}
+});

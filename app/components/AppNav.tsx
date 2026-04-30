@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { signOut, useSession } from "next-auth/react";
 
 interface NavItem {
   href: string;
@@ -10,15 +11,17 @@ interface NavItem {
 
 const ITEMS: NavItem[] = [
   { href: "/", label: "Converter" },
-  { href: "/reference", label: "Reference Data" },
   { href: "/log", label: "Log" },
   { href: "/stats", label: "Stats" },
+  { href: "/reference", label: "Reference Data" },
   { href: "/compliance", label: "Data Handling" },
   { href: "/privacy", label: "Privacy" },
 ];
 
 export function AppNav() {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const userEmail = session?.user?.email;
 
   return (
     <header className="sticky top-0 z-30 w-full border-b border-[var(--border-light)] bg-white/85 backdrop-blur supports-[backdrop-filter]:bg-white/70">
@@ -41,6 +44,23 @@ export function AppNav() {
             </Link>
           );
         })}
+        {userEmail && (
+          <div className="ml-auto flex items-center gap-3">
+            <span
+              className="text-xs text-[var(--text-muted)] truncate max-w-[220px]"
+              title={userEmail}
+            >
+              {userEmail}
+            </span>
+            <button
+              type="button"
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-colors"
+            >
+              Sign out
+            </button>
+          </div>
+        )}
       </nav>
     </header>
   );

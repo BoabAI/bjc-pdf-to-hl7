@@ -1,53 +1,75 @@
 import { describe, expect, test } from "bun:test";
-import { NextRequest } from "next/server";
-import { config, middleware } from "./middleware";
+import { config, decideRoute, isPublicPath } from "./middleware";
 
-function createRequest(path: string, cookie?: string): NextRequest {
-  return new NextRequest(`http://localhost:3000${path}`, {
-    headers: cookie ? { cookie } : {},
-  });
-}
-
-describe("middleware", () => {
-  test("allows unauthenticated access to login and auth routes", () => {
-    const loginResponse = middleware(createRequest("/login"));
-    const authResponse = middleware(createRequest("/api/auth"));
-
-    expect(loginResponse.status).toBe(200);
-    expect(authResponse.status).toBe(200);
+describe("isPublicPath", () => {
+  test("identifies the login page as public", () => {
+    expect(isPublicPath("/login")).toBe(true);
   });
 
-  test("redirects authenticated users away from the login page", () => {
-    const response = middleware(
-      createRequest("/login", "app_authenticated=true")
-    );
-
-    expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("http://localhost:3000/");
+  test("identifies Auth.js callback paths as public", () => {
+    expect(isPublicPath("/api/auth")).toBe(true);
+    expect(isPublicPath("/api/auth/signin")).toBe(true);
+    expect(isPublicPath("/api/auth/callback/microsoft-entra-id")).toBe(true);
   });
 
-  test("redirects unauthenticated users to login with no-store caching", () => {
-    const response = middleware(createRequest("/"));
-
-    expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe(
-      "http://localhost:3000/login"
-    );
-    expect(response.headers.get("Cache-Control")).toBe(
-      "no-store, must-revalidate"
-    );
+  test("rejects protected paths", () => {
+    expect(isPublicPath("/")).toBe(false);
+    expect(isPublicPath("/log")).toBe(false);
+    expect(isPublicPath("/api/convert")).toBe(false);
+    expect(isPublicPath("/api/logs")).toBe(false);
+    expect(isPublicPath("/api/reference-data")).toBe(false);
   });
 
-  test("allows authenticated requests through and disables page caching", () => {
-    const response = middleware(createRequest("/", "app_authenticated=true"));
+  test("rejects paths that start with a public prefix but are not under it", () => {
+    // e.g. "/loginish" must NOT be treated as public
+    expect(isPublicPath("/loginish")).toBe(false);
+    expect(isPublicPath("/api/authenticate")).toBe(false);
+  });
+});
 
-    expect(response.status).toBe(200);
-    expect(response.headers.get("Cache-Control")).toBe(
-      "private, no-cache, no-store, must-revalidate"
-    );
+describe("decideRoute", () => {
+  test("public path passes through whether authenticated or not", () => {
+    expect(decideRoute("/login", false)).toEqual({
+      kind: "next",
+      cacheControl: "",
+    });
+    expect(decideRoute("/api/auth/callback/microsoft-entra-id", false)).toEqual({
+      kind: "next",
+      cacheControl: "",
+    });
   });
 
-  test("exports the expected matcher configuration", () => {
+  test("authenticated user visiting /login is bounced home with no-store", () => {
+    expect(decideRoute("/login", true)).toEqual({
+      kind: "redirect",
+      to: "/",
+      cacheControl: "no-store, must-revalidate",
+    });
+  });
+
+  test("unauthenticated request to a protected path redirects to /login", () => {
+    expect(decideRoute("/", false)).toEqual({
+      kind: "redirect",
+      to: "/login",
+      cacheControl: "no-store, must-revalidate",
+    });
+    expect(decideRoute("/api/convert", false)).toEqual({
+      kind: "redirect",
+      to: "/login",
+      cacheControl: "no-store, must-revalidate",
+    });
+  });
+
+  test("authenticated request to a protected path passes through with no-cache", () => {
+    expect(decideRoute("/", true)).toEqual({
+      kind: "next",
+      cacheControl: "private, no-cache, no-store, must-revalidate",
+    });
+  });
+});
+
+describe("middleware config", () => {
+  test("exports the expected matcher", () => {
     expect(config.matcher).toEqual([
       "/((?!_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.jpg$|.*\\.svg$).*)",
     ]);

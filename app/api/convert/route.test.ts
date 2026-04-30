@@ -29,7 +29,23 @@ mock.module("@/lib/audit", () => ({
   },
 }));
 
-const { GET, POST } = await import("./route");
+// Mock Auth.js: passthrough that injects request.auth from the x-test-auth
+// header. Allows existing tests to run authed by default; new tests can omit
+// the header to cover the unauthed branch.
+mock.module("@/lib/auth", () => ({
+  auth: (handler: (req: NextRequest & { auth: unknown }) => unknown) =>
+    async (req: NextRequest) => {
+      const email = req.headers.get("x-test-auth");
+      const augmented = Object.assign(req, {
+        auth: email ? { user: { email } } : null,
+      });
+      return handler(augmented as NextRequest & { auth: unknown });
+    },
+}));
+
+const routeModule = await import("./route");
+const GET = routeModule.GET;
+const POST = routeModule.POST as unknown as (req: NextRequest) => Promise<Response>;
 
 const baseExtraction = {
   success: true,
@@ -89,7 +105,9 @@ function createConvertRequest(
   }
   if (options?.carrier) formData.append("carrier", options.carrier);
 
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = {
+    "x-test-auth": "alice@bjchealth.com.au",
+  };
   if (options?.sourceHeader !== undefined && options.sourceHeader !== null) {
     headers["x-source"] = options.sourceHeader;
   }
@@ -106,6 +124,7 @@ function createEmptyRequest(): NextRequest {
   return new NextRequest("http://localhost:3000/api/convert", {
     method: "POST",
     body: formData,
+    headers: { "x-test-auth": "alice@bjchealth.com.au" },
   });
 }
 
@@ -572,6 +591,9 @@ describe("POST /api/convert audit logging", () => {
       "fileSizeBytes",
       "durationMs",
       "warningCount",
+      // Operator identity from Auth.js session — required for compliance.
+      // Not patient PHI; covered by the substring leak check below.
+      "userEmail",
     ].sort();
     expect(Object.keys(row).sort().filter((k) => row[k] !== undefined))
       .toEqual(

@@ -18,9 +18,23 @@ mock.module("@/lib/reference-data-store", () => ({
   deleteCarrier: deleteCarrierMock,
 }));
 
-const { GET, PUT, DELETE } = await import("./route");
+// Mock Auth.js: auth() becomes a passthrough that injects request.auth from
+// a test header. Lets us cover the unauthed branch without a real session.
+mock.module("@/lib/auth", () => ({
+  auth: (handler: (req: NextRequest & { auth: unknown }) => unknown) =>
+    async (req: NextRequest) => {
+      const email = req.headers.get("x-test-auth");
+      const augmented = Object.assign(req, {
+        auth: email ? { user: { email } } : null,
+      });
+      return handler(augmented as NextRequest & { auth: unknown });
+    },
+}));
 
-const cookieHeader = "app_authenticated=true";
+const routeModule = await import("./route");
+const GET = routeModule.GET as unknown as (req: NextRequest) => Promise<Response>;
+const PUT = routeModule.PUT as unknown as (req: NextRequest) => Promise<Response>;
+const DELETE = routeModule.DELETE as unknown as (req: NextRequest) => Promise<Response>;
 
 function makeRequest(
   path: string,
@@ -33,7 +47,7 @@ function makeRequest(
   const url = `http://localhost:3000/api/reference-data${path}`;
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (opts.authed !== false) {
-    headers.cookie = cookieHeader;
+    headers["x-test-auth"] = "alice@bjchealth.com.au";
   }
   return new NextRequest(url, {
     method: opts.method ?? "GET",
@@ -57,7 +71,7 @@ afterEach(() => {
 });
 
 describe("GET /api/reference-data", () => {
-  test("returns 401 without auth cookie", async () => {
+  test("returns 401 without session", async () => {
     const response = await GET(makeRequest("", { authed: false }));
     expect(response.status).toBe(401);
   });
@@ -83,7 +97,7 @@ describe("GET /api/reference-data", () => {
 });
 
 describe("PUT /api/reference-data", () => {
-  test("returns 401 without auth", async () => {
+  test("returns 401 without session", async () => {
     const response = await PUT(
       makeRequest("", {
         method: "PUT",
@@ -151,7 +165,7 @@ describe("PUT /api/reference-data", () => {
 });
 
 describe("DELETE /api/reference-data", () => {
-  test("returns 401 without auth", async () => {
+  test("returns 401 without session", async () => {
     const response = await DELETE(
       makeRequest("?kind=DOCTOR&id=d1", { method: "DELETE", authed: false })
     );

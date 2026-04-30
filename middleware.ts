@@ -1,46 +1,75 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
+import { auth } from "@/lib/auth";
 
-export function middleware(request: NextRequest) {
-  // Check if user is authenticated via cookie
-  const isAuthenticated = request.cookies.get("app_authenticated")?.value === "true";
+const PUBLIC_PATH_PREFIXES = ["/api/auth", "/login"];
 
-  // Allow access to login page and auth API without authentication
-  if (
-    request.nextUrl.pathname === "/login" ||
-    request.nextUrl.pathname === "/api/auth"
-  ) {
-    // If already authenticated and trying to access login, redirect to home
-    if (isAuthenticated && request.nextUrl.pathname === "/login") {
-      return NextResponse.redirect(new URL("/", request.url));
+export function isPublicPath(pathname: string): boolean {
+  return PUBLIC_PATH_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+}
+
+export type RouteAction =
+  | { kind: "next"; cacheControl: string }
+  | { kind: "redirect"; to: string; cacheControl: string };
+
+/**
+ * Pure routing decision used by the middleware. Extracted so it can be
+ * unit-tested without instantiating Auth.js or NextResponse.
+ */
+export function decideRoute(
+  pathname: string,
+  isAuthenticated: boolean
+): RouteAction {
+  if (isPublicPath(pathname)) {
+    if (isAuthenticated && pathname === "/login") {
+      return {
+        kind: "redirect",
+        to: "/",
+        cacheControl: "no-store, must-revalidate",
+      };
     }
-    return NextResponse.next();
+    return { kind: "next", cacheControl: "" };
   }
-
-  // If not authenticated, redirect to login
   if (!isAuthenticated) {
-    const loginUrl = new URL("/login", request.url);
-    const redirectResponse = NextResponse.redirect(loginUrl);
-    // Prevent CloudFront from caching redirect responses
-    redirectResponse.headers.set("Cache-Control", "no-store, must-revalidate");
-    return redirectResponse;
+    return {
+      kind: "redirect",
+      to: "/login",
+      cacheControl: "no-store, must-revalidate",
+    };
   }
+  return {
+    kind: "next",
+    cacheControl: "private, no-cache, no-store, must-revalidate",
+  };
+}
 
-  // Prevent CloudFront from caching authenticated pages so middleware always runs
+function applyDecision(
+  request: NextRequest,
+  decision: RouteAction
+): NextResponse {
+  if (decision.kind === "redirect") {
+    const response = NextResponse.redirect(new URL(decision.to, request.url));
+    if (decision.cacheControl) {
+      response.headers.set("Cache-Control", decision.cacheControl);
+    }
+    return response;
+  }
   const response = NextResponse.next();
-  response.headers.set("Cache-Control", "private, no-cache, no-store, must-revalidate");
+  if (decision.cacheControl) {
+    response.headers.set("Cache-Control", decision.cacheControl);
+  }
   return response;
 }
 
+export default auth((request) => {
+  const isAuthenticated = Boolean(request.auth);
+  const decision = decideRoute(request.nextUrl.pathname, isAuthenticated);
+  return applyDecision(request, decision);
+});
+
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder files
-     */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.jpg$|.*\\.svg$).*)",
   ],
 };

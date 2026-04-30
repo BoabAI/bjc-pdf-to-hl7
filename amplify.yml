@@ -7,8 +7,16 @@ frontend:
     build:
       commands:
         # Bedrock auth comes from the Amplify compute role at runtime.
-        - echo "APP_PASSWORD=$APP_PASSWORD" > .env.production
-        - echo "Created .env.production with APP_PASSWORD"
+        # All non-NEXT_PUBLIC env vars must be written to .env.production at build time
+        # so that Next.js bundles them into the standalone server output for the Lambda
+        # runtime. Amplify env vars are NOT automatically passed to the Lambda runtime.
+        - echo "AUTH_SECRET=$AUTH_SECRET" > .env.production
+        - echo "AUTH_TRUST_HOST=$AUTH_TRUST_HOST" >> .env.production
+        - echo "AZURE_AD_CLIENT_ID=$AZURE_AD_CLIENT_ID" >> .env.production
+        - echo "AZURE_AD_CLIENT_SECRET=$AZURE_AD_CLIENT_SECRET" >> .env.production
+        - echo "AZURE_AD_TENANT_ID=$AZURE_AD_TENANT_ID" >> .env.production
+        - echo "AUTH_ALLOWED_DOMAINS=$AUTH_ALLOWED_DOMAINS" >> .env.production
+        - echo "Wrote Auth.js env vars to .env.production"
         - npm run build
         # Copy .env.production into standalone output so the Lambda server can read it
         - cp .env.production .next/standalone/.env.production 2>/dev/null || true
