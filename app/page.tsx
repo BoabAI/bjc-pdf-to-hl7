@@ -296,16 +296,18 @@ export default function Home() {
               onFileChange={handleFileChange}
             />
 
-            <div className="text-center text-xs text-[var(--text-muted)] -mt-2">
-              No PDFs handy?{" "}
-              <a
-                href="/api/test-pdfs"
-                className="text-[var(--bjc-blue)] hover:underline"
-                download="bjc-test-pdfs.zip"
-              >
-                Download a sample test set (.zip)
-              </a>
-            </div>
+            {process.env.NEXT_PUBLIC_TEST_MODE === "true" && (
+              <div className="text-center text-xs text-[var(--text-muted)] -mt-2">
+                No PDFs handy?{" "}
+                <a
+                  href="/api/test-pdfs"
+                  className="text-[var(--bjc-blue)] hover:underline"
+                  download="bjc-test-pdfs.zip"
+                >
+                  Download a sample test set (.zip)
+                </a>
+              </div>
+            )}
 
             {entries.length > 0 && (
               <div className="space-y-3">
