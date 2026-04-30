@@ -11,6 +11,14 @@ import type {
   ReferralInfo,
   ResultStatus,
 } from "./domain/types";
+import {
+  createHL7BuildContext,
+  type HL7BuildContext,
+} from "./hl7/build-context";
+import { segment } from "./hl7/segment";
+
+export type { HL7BuildContext } from "./hl7/build-context";
+export { createHL7BuildContext } from "./hl7/build-context";
 
 export interface HL7Options {
   sendingApplication?: string;
@@ -39,10 +47,8 @@ const DEFAULT_OPTIONS: HL7Options = {
   documentTitle: "Patient Consent Form",
 };
 
-// HL7 field separator and encoding characters
-const FIELD_SEP = "|";
+// HL7 encoding characters (MSH-2). MSH-1 is the field separator (`|`).
 const ENCODING_CHARS = "^~\\&";
-const COMPONENT_SEP = "^";
 const SEGMENT_TERMINATOR = "\r"; // CR only, no LF
 
 /**
@@ -71,53 +77,12 @@ function escapeHL7(value: string): string {
 }
 
 /**
- * Generate HL7 timestamp in YYYYMMDDHHMMSS format
+ * Build MSH (Message Header) segment.
+ *
+ * MSH-1 is the field separator (`|`) — produced naturally by joining
+ * the segment name with field 2. MSH-2 is the encoding-character set.
  */
-function getHL7Timestamp(): string {
-  const now = new Date();
-  const pad = (n: number) => n.toString().padStart(2, "0");
-  return (
-    now.getFullYear().toString() +
-    pad(now.getMonth() + 1) +
-    pad(now.getDate()) +
-    pad(now.getHours()) +
-    pad(now.getMinutes()) +
-    pad(now.getSeconds())
-  );
-}
-
-/**
- * Generate unique message control ID
- */
-function generateMessageId(): string {
-  return `MSG${getHL7Timestamp()}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-}
-
-/**
- * Build MSH (Message Header) segment
- */
-function buildMSH(options: HL7Options): string {
-  const timestamp = getHL7Timestamp();
-  const messageId = generateMessageId();
-
-  // MSH-1: Field Separator (|)
-  // MSH-2: Encoding Characters (^~\&)
-  // MSH-3: Sending Application
-  // MSH-4: Sending Facility
-  // MSH-5: Receiving Application
-  // MSH-6: Receiving Facility
-  // MSH-7: Date/Time of Message
-  // MSH-8: Security (empty)
-  // MSH-9: Message Type (ORU^R01)
-  // MSH-10: Message Control ID
-  // MSH-11: Processing ID (P=Production)
-  // MSH-12: Version ID (2.4)
-  // MSH-13-14: empty
-  // MSH-15: Accept Acknowledgment Type (AL)
-  // MSH-16: Application Acknowledgment Type (NE)
-  // MSH-17: Country Code (AUS)
-  // MSH-18: Character Set (8859/1)
-
+function buildMSH(options: HL7Options, context: HL7BuildContext): string {
   const isREF = options.messageType === "REF^I12";
 
   // MSH-12: Version ID
@@ -127,41 +92,54 @@ function buildMSH(options: HL7Options): string {
     ? "2.4^AUS&Australia&ISO3166_1^HL7AU-OO-REF-SIMPLIFIED-201706&&L"
     : "2.4";
 
-  return [
-    "MSH",
-    ENCODING_CHARS,
-    options.sendingApplication,
-    options.sendingFacility,
-    options.receivingApplication,
-    options.receivingFacility,
-    timestamp,
-    "", // Security
-    options.messageType || "ORU^R01",
-    messageId,
-    "P",
-    versionId,
-    "", // Sequence Number
-    "", // Continuation Pointer
-    "AL",
-    "NE",
-    "AUS",
-    "8859/1",
-  ].join(FIELD_SEP);
+  return segment("MSH", {
+    // MSH-2: Encoding Characters
+    2: ENCODING_CHARS,
+    // MSH-3: Sending Application
+    3: options.sendingApplication,
+    // MSH-4: Sending Facility
+    4: options.sendingFacility,
+    // MSH-5: Receiving Application
+    5: options.receivingApplication,
+    // MSH-6: Receiving Facility
+    6: options.receivingFacility,
+    // MSH-7: Date/Time of Message
+    7: context.timestamp,
+    // MSH-8: Security (empty)
+    // MSH-9: Message Type
+    9: options.messageType || "ORU^R01",
+    // MSH-10: Message Control ID
+    10: context.messageId,
+    // MSH-11: Processing ID (P=Production)
+    11: "P",
+    // MSH-12: Version ID
+    12: versionId,
+    // MSH-13: Sequence Number (empty)
+    // MSH-14: Continuation Pointer (empty)
+    // MSH-15: Accept Acknowledgment Type
+    15: "AL",
+    // MSH-16: Application Acknowledgment Type
+    16: "NE",
+    // MSH-17: Country Code
+    17: "AUS",
+    // MSH-18: Character Set
+    18: "8859/1",
+  });
 }
 
 /**
  * Build PID (Patient Identification) segment
  */
 function buildPID(patient: PatientData): string {
-  // Format Medicare number with Individual Reference Number (IRN)
-  // ADRM format: number-IRN^^^AUSHIC^MC
+  // PID-3: Patient Identifier List
+  //   Medicare format: number-IRN^^^AUSHIC^MC (IRN defaults to 1)
   let patientId = "";
   if (patient.medicareNo) {
     const ref = patient.medicareRef || "1";
     patientId = `${patient.medicareNo}-${ref}^^^AUSHIC^MC`;
   }
 
-  // Format address
+  // PID-11: Patient Address — street^street2^suburb^state^postcode^country
   let address = "";
   if (patient.address || patient.suburb) {
     address = [
@@ -171,182 +149,158 @@ function buildPID(patient: PatientData): string {
       patient.state || "VIC",
       patient.postcode || "",
       "AUS",
-    ].join(COMPONENT_SEP);
+    ].join("^");
   }
 
-  // Format name: LastName^FirstName
+  // PID-5: Patient Name (LastName^FirstName)
   const patientName = `${escapeHL7(patient.lastName)}^${escapeHL7(patient.firstName)}`;
 
-  // PID-1: Set ID
-  // PID-2: Patient ID (External) - empty
-  // PID-3: Patient Identifier List
-  // PID-4: Alternate Patient ID - empty
-  // PID-5: Patient Name
-  // PID-6: Mother's Maiden Name - empty
-  // PID-7: Date of Birth
-  // PID-8: Sex
-  // PID-9-10: empty
-  // PID-11: Patient Address
-  // PID-12: empty
-  // PID-13: Phone Number (Home)
-
-  return [
-    "PID",
-    "1",
-    "", // External ID
-    patientId,
-    "", // Alternate ID
-    patientName,
-    "", // Mother's Maiden Name
-    patient.dob,
-    patient.sex,
-    "", // Patient Alias
-    "", // Race
-    address,
-    "", // County Code
-    patient.phone ? escapeHL7(patient.phone) : "",
-  ].join(FIELD_SEP);
+  return segment("PID", {
+    // PID-1: Set ID
+    1: "1",
+    // PID-2: Patient ID (External) — empty
+    // PID-3: Patient Identifier List
+    3: patientId,
+    // PID-4: Alternate Patient ID — empty
+    // PID-5: Patient Name
+    5: patientName,
+    // PID-6: Mother's Maiden Name — empty
+    // PID-7: Date of Birth
+    7: patient.dob,
+    // PID-8: Sex
+    8: patient.sex,
+    // PID-9: Patient Alias — empty
+    // PID-10: Race — empty
+    // PID-11: Patient Address
+    11: address,
+    // PID-12: County Code — empty
+    // PID-13: Phone Number (Home)
+    13: patient.phone ? escapeHL7(patient.phone) : "",
+  });
 }
 
 /**
- * Build PV1 (Patient Visit) segment
+ * Build PV1 (Patient Visit) segment.
+ *
+ * Two shapes are produced today, both byte-identical to the pre-refactor
+ * code:
+ *   - Minimal: PV1|1|O          (no provider, no addressee)
+ *   - Routed:  PV1|1|O||||||||<XCN>   (PV1-9 carries doctor / provider)
  */
 function buildPV1(options: HL7Options): string {
   // PV1-1: Set ID
   // PV1-2: Patient Class (O = Outpatient)
   // PV1-9: Consulting Doctor (routes to this doctor's inbox in Genie)
-  const fields = ["PV1", "1", "O"];
+  let consultingDoctor: string | undefined;
 
   if (options.orderingProvider) {
-    // Pad fields 3-8 (empty)
-    for (let i = 0; i < 6; i++) fields.push("");
-    // PV1-9: Consulting Doctor with Medicare Provider Number
-    // Format: ProviderNumber^^^AUSHICPR
-    fields.push(`${options.orderingProvider}^^^AUSHICPR`);
+    // Provider number routing: ProviderNumber^^^AUSHICPR
+    consultingDoctor = `${options.orderingProvider}^^^AUSHICPR`;
   } else if (options.referralInfo?.addresseeName) {
-    // Pad fields 3-8 (empty)
-    for (let i = 0; i < 6; i++) fields.push("");
-    // PV1-9: Consulting Doctor from referral addressee (name only, no provider number)
+    // Name-only routing from referral addressee: ^Last^First^^^DR
     const { lastName, firstName } = parseDoctorName(options.referralInfo.addresseeName);
-    fields.push(`^${lastName}^${firstName}^^^DR`);
+    consultingDoctor = `^${lastName}^${firstName}^^^DR`;
   }
 
-  return fields.join(FIELD_SEP);
+  if (consultingDoctor === undefined) {
+    // Minimal PV1 — preserves historical exact-3-fields output
+    return segment("PV1", { 1: "1", 2: "O" });
+  }
+
+  return segment("PV1", {
+    1: "1",
+    2: "O",
+    9: consultingDoctor,
+  });
 }
 
 /**
  * Build OBR (Observation Request) segment
  */
-function buildOBR(options: HL7Options): string {
-  const timestamp = getHL7Timestamp();
-  const reportId = `RPT${timestamp}^${options.sendingApplication}`;
+function buildOBR(options: HL7Options, context: HL7BuildContext): string {
+  const reportId = `RPT${context.timestamp}^${options.sendingApplication}`;
   const serviceId = `PDF^${escapeHL7(options.documentTitle || "PDF Report")}^L`;
 
-  // OBR-1: Set ID
-  // OBR-2: Placer Order Number - empty
-  // OBR-3: Filler Order Number
-  // OBR-4: Universal Service Identifier
-  // OBR-5-6: empty
-  // OBR-7: Observation Date/Time
-  // OBR-8-24: mostly empty
-  // OBR-25: Result Status (F = Final)
-
-  const fields = ["OBR", "1", "", reportId, serviceId];
-
-  // Pad empty fields up to OBR-7
-  fields.push("", "");
-  fields.push(timestamp); // OBR-7
-
-  // OBR-8 through OBR-15 (empty)
-  for (let i = 0; i < 8; i++) {
-    fields.push("");
-  }
-
-  // OBR-16: Ordering Provider (sender of the referral letter)
+  // OBR-16: Ordering Provider (sender of the referral letter, when present)
+  let orderingProviderField = "";
   const ref = options.referralInfo;
   if (ref?.senderName) {
     const provNum = ref.senderProviderNumber || "";
     const { lastName: senderLast, firstName: senderFirst } = parseDoctorName(ref.senderName);
-    if (provNum) {
-      // Format: ProviderNumber^LastName^FirstName^^^DR^^^AUSHICPR
-      fields.push(`${provNum}^${senderLast}^${senderFirst}^^^DR^^^AUSHICPR`);
-    } else {
-      // Format: ^LastName^FirstName^^^DR
-      fields.push(`^${senderLast}^${senderFirst}^^^DR`);
-    }
-  } else {
-    fields.push("");
+    orderingProviderField = provNum
+      ? // ProviderNumber^LastName^FirstName^^^DR^^^AUSHICPR
+        `${provNum}^${senderLast}^${senderFirst}^^^DR^^^AUSHICPR`
+      : // ^LastName^FirstName^^^DR
+        `^${senderLast}^${senderFirst}^^^DR`;
   }
 
-  // OBR-17 through OBR-21 (empty)
-  for (let i = 0; i < 5; i++) {
-    fields.push("");
-  }
-
-  fields.push(timestamp); // OBR-22: Results Rpt/Status Chng
-  fields.push(""); // OBR-23
-
-  // OBR-24: Diagnostic Service Section ID
-  //   LAB = Pathology lab result (routes to Genie pathology inbox)
-  //   RAD = Radiology / imaging result (routes to Genie radiology inbox)
-  //   PHY = Physician (routes to Genie REF Incoming Letters)
-  // Source of truth is `diagnosticServiceSection` (set by convert-service from
-  // the document type). When omitted, OBR-24 is left empty (consent_form/generic
-  // and any caller that hasn't opted in to results routing).
-  fields.push(options.diagnosticServiceSection ?? "");
-
-  fields.push(options.resultStatus || "F"); // OBR-25: Result Status (F=Final/auto-file, P=Preliminary/queue)
-
-  return fields.join(FIELD_SEP);
+  return segment("OBR", {
+    // OBR-1: Set ID
+    1: "1",
+    // OBR-2: Placer Order Number — empty
+    // OBR-3: Filler Order Number
+    3: reportId,
+    // OBR-4: Universal Service Identifier
+    4: serviceId,
+    // OBR-5..6: empty
+    // OBR-7: Observation Date/Time
+    7: context.timestamp,
+    // OBR-8..15: empty
+    // OBR-16: Ordering Provider
+    16: orderingProviderField,
+    // OBR-17..21: empty
+    // OBR-22: Results Rpt/Status Chng
+    22: context.timestamp,
+    // OBR-23: empty
+    // OBR-24: Diagnostic Service Section ID
+    //   LAB = Pathology lab result (routes to Genie pathology inbox)
+    //   RAD = Radiology / imaging result (routes to Genie radiology inbox)
+    //   PHY = Physician (routes to Genie REF Incoming Letters)
+    // Source of truth is `diagnosticServiceSection` (set by convert-service from
+    // the document type). When omitted, OBR-24 is left empty (consent_form/generic
+    // and any caller that hasn't opted in to results routing).
+    24: options.diagnosticServiceSection ?? "",
+    // OBR-25: Result Status (F=Final/auto-file, P=Preliminary/queue)
+    25: options.resultStatus || "F",
+  });
 }
 
 /**
  * Build OBX (Observation/Result) segment with embedded PDF
  */
 function buildOBX(pdfBase64: string): string {
-  // OBX-1: Set ID
-  // OBX-2: Value Type (ED = Encapsulated Data)
-  // OBX-3: Observation Identifier (AUSPDI format)
-  // OBX-4: Observation Sub-ID - empty
-  // OBX-5: Observation Value (ED format: ^application^pdf^Base64^<data>)
-  // OBX-6-10: empty
-  // OBX-11: Observation Result Status (F = Final)
-
-  const observationId = "PDF^Display format in PDF^AUSPDI";
-
   // ED format: source^type^subtype^encoding^data
   // For PDF: ^application^pdf^Base64^<base64data>
   const observationValue = `^application^pdf^Base64^${pdfBase64}`;
 
-  return [
-    "OBX",
-    "1",
-    "ED",
-    observationId,
-    "", // Sub-ID
-    observationValue,
-    "", // Units
-    "", // Reference Range
-    "", // Abnormal Flags
-    "", // Probability
-    "", // Nature of Abnormal Test
-    "F", // Result Status
-  ].join(FIELD_SEP);
+  return segment("OBX", {
+    // OBX-1: Set ID
+    1: "1",
+    // OBX-2: Value Type (ED = Encapsulated Data)
+    2: "ED",
+    // OBX-3: Observation Identifier (AUSPDI format)
+    3: "PDF^Display format in PDF^AUSPDI",
+    // OBX-4: Observation Sub-ID — empty
+    // OBX-5: Observation Value (ED format)
+    5: observationValue,
+    // OBX-6..10: empty
+    // OBX-11: Observation Result Status
+    11: "F",
+  });
 }
 
 /**
  * Build RF1 (Referral Information) segment - required for REF^I12
  */
-function buildRF1(): string {
-  const timestamp = getHL7Timestamp();
-  // RF1-1: Referral Status (empty)
-  // RF1-2: Referral Priority (empty)
-  // RF1-3: Referral Type (empty)
-  // RF1-4: Referral Disposition (empty)
-  // RF1-5: Referral Category (empty)
-  // RF1-6: Originating Referral Identifier (empty)
-  // RF1-7: Effective Date (timestamp)
-  return ["RF1", "", "", "", "", "", "", timestamp].join(FIELD_SEP);
+function buildRF1(context: HL7BuildContext): string {
+  return segment("RF1", {
+    // RF1-1: Referral Status (empty — explicitly set so the helper renders
+    // fields 1..7 rather than collapsing to a single field at position 1)
+    1: "",
+    // RF1-2..6: empty (omitted keys render as empty between min and max)
+    // RF1-7: Effective Date
+    7: context.timestamp,
+  });
 }
 
 /**
@@ -369,23 +323,18 @@ function buildPRD(
   // PRD-2: Provider Name (XPN format: LastName^FirstName^^^Prefix)
   const providerName = `${lastName}^${firstName}^^^DR`;
 
-  // PRD-3 through PRD-6: empty
   // PRD-7: Provider Identifiers (CM format: ProviderNumber^AssigningAuthority^IdentifierType)
-  let providerIds = "";
-  if (providerNumber) {
-    providerIds = `${providerNumber}^AUSHICPR^UPIN`;
-  }
+  const providerIds = providerNumber ? `${providerNumber}^AUSHICPR^UPIN` : "";
 
-  return [
-    "PRD",
-    roleCode,
-    providerName,
-    "", // Provider Address
-    "", // Provider Location
-    "", // Provider Communication Information
-    "", // Provider Id No
-    providerIds,
-  ].join(FIELD_SEP);
+  return segment("PRD", {
+    // PRD-1: Provider Role
+    1: roleCode,
+    // PRD-2: Provider Name
+    2: providerName,
+    // PRD-3..6: empty (Address, Location, Communication Information, Provider Id No)
+    // PRD-7: Provider Identifiers
+    7: providerIds,
+  });
 }
 
 /**
@@ -394,11 +343,17 @@ function buildPRD(
  * Segment order varies by message type:
  * - ORU^R01: MSH → PID → PV1 → OBR → OBX
  * - REF^I12: MSH → RF1 → PRD(s) → PID → OBR → OBX → PV1
+ *
+ * The optional `context` parameter pins MSH-7 / OBR-7 / OBR-22 / RF1-7 and
+ * MSH-10 across the whole message. When omitted, a fresh context is created
+ * (current time + random 4-char message-ID suffix), preserving historical
+ * behaviour for all existing call sites.
  */
 export function buildHL7Message(
   patient: PatientData,
   pdfBuffer: Buffer,
-  options: Partial<HL7Options> = {}
+  options: Partial<HL7Options> = {},
+  context: HL7BuildContext = createHL7BuildContext(),
 ): string {
   const mergedOptions = { ...DEFAULT_OPTIONS, ...options };
   const isREF = mergedOptions.messageType === "REF^I12";
@@ -410,10 +365,10 @@ export function buildHL7Message(
 
   if (isREF) {
     // REF^I12 segment order: MSH → RF1 → PRD(s) → PID → OBR → OBX → PV1
-    segments = [buildMSH(mergedOptions)];
+    segments = [buildMSH(mergedOptions, context)];
 
     // RF1: Referral Information (required for REF)
-    segments.push(buildRF1());
+    segments.push(buildRF1(context));
 
     // PRD: Provider Data segments (required for REF)
     const ref = mergedOptions.referralInfo;
@@ -425,16 +380,16 @@ export function buildHL7Message(
     }
 
     segments.push(buildPID(patient));
-    segments.push(buildOBR(mergedOptions));
+    segments.push(buildOBR(mergedOptions, context));
     segments.push(buildOBX(pdfBase64));
     segments.push(buildPV1(mergedOptions)); // PV1 last in REF
   } else {
     // ORU^R01 segment order: MSH → PID → PV1 → OBR → OBX
     segments = [
-      buildMSH(mergedOptions),
+      buildMSH(mergedOptions, context),
       buildPID(patient),
       buildPV1(mergedOptions),
-      buildOBR(mergedOptions),
+      buildOBR(mergedOptions, context),
       buildOBX(pdfBase64),
     ];
   }
@@ -444,10 +399,16 @@ export function buildHL7Message(
 }
 
 /**
- * Generate filename for HL7 file based on patient data
+ * Generate filename for HL7 file based on patient data.
+ *
+ * The optional `context` parameter pins the timestamp portion of the
+ * filename so a paired `buildHL7Message` + `generateHL7Filename` call can
+ * use the same timestamp. When omitted, a fresh context is created.
  */
-export function generateHL7Filename(patient: PatientData): string {
-  const timestamp = getHL7Timestamp();
+export function generateHL7Filename(
+  patient: PatientData,
+  context: HL7BuildContext = createHL7BuildContext(),
+): string {
   const safeName = `${patient.lastName}_${patient.firstName}`.replace(/[^a-zA-Z0-9]/g, "_");
-  return `${safeName}_${timestamp}.hl7`;
+  return `${safeName}_${context.timestamp}.hl7`;
 }
