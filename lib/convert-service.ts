@@ -9,8 +9,8 @@ import {
   isReferralDocumentType,
   parseDocumentTypeOption,
   type DocumentTypeOption,
-  type MailboxSource,
 } from "./conversion-config";
+import type { MailboxSource } from "./domain/types";
 
 export interface ConvertRequest {
   pdfBuffer: Buffer;

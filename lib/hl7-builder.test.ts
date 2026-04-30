@@ -1,11 +1,8 @@
 import { describe, test, expect } from "bun:test";
 import { readFileSync } from "fs";
 import { join } from "path";
-import {
-  buildHL7Message,
-  generateHL7Filename,
-  type PatientData,
-} from "./hl7-builder";
+import { buildHL7Message, generateHL7Filename } from "./hl7-builder";
+import type { PatientData } from "./domain/types";
 
 const TEST_PDF_PATH = join(
   import.meta.dir,

@@ -6,16 +6,13 @@
  * extraction interface.
  */
 
-import type { PatientData } from "./hl7-builder";
-import {
-  extractPatientDataWithVision,
-  type DocumentType,
-  type ReferralInfo,
-} from "./vision-extractor";
-import type { MailboxSource } from "./conversion-config";
-
-export type { DocumentType } from "./vision-extractor";
-export type { ReferralInfo } from "./vision-extractor";
+import { extractPatientDataWithVision } from "./vision-extractor";
+import type {
+  DocumentType,
+  MailboxSource,
+  PatientData,
+  ReferralInfo,
+} from "./domain/types";
 
 export interface ExtractionResult {
   success: boolean;

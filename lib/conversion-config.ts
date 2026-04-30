@@ -1,4 +1,8 @@
-import type { DocumentType } from "./vision-extractor";
+import type {
+  DiagnosticServiceSection,
+  DocumentType,
+  MailboxSource,
+} from "./domain/types";
 
 export const MAX_PDF_SIZE_BYTES = 10 * 1024 * 1024;
 export const DEFAULT_CARRIER = "SMECAI";
@@ -13,19 +17,6 @@ export const DOCUMENT_TYPES: DocumentType[] = [
 ];
 
 export type DocumentTypeOption = DocumentType | "auto";
-
-/**
- * Upstream mailbox the PDF arrived in. Acts as a soft prior for vision
- * classification and a misroute signal in audit (LLM verdict still wins).
- *
- * - `referrals` expects {referral_letter, gp_referral}
- * - `results` expects {pathology_result, radiology_result}
- *
- * `consent_form` and `generic` are never flagged as disagreements (too
- * ambiguous — a consent form forwarded via the referrals mailbox isn't
- * a misroute, just a non-referral attachment).
- */
-export type MailboxSource = "referrals" | "results";
 
 export const MAILBOX_SOURCES: MailboxSource[] = ["referrals", "results"];
 
@@ -160,7 +151,7 @@ export function documentTypeLabel(documentType: DocumentType): string {
 
 export function diagnosticServiceSectionFor(
   documentType: DocumentType
-): "LAB" | "RAD" | "PHY" | undefined {
+): DiagnosticServiceSection | undefined {
   switch (documentType) {
     case "pathology_result":
       return "LAB";

@@ -4,7 +4,7 @@ import {
   ConversionResultPanel,
   type ConversionResult,
 } from "./ConversionResultPanel";
-import type { DocumentType } from "@/lib/vision-extractor";
+import type { DocumentType } from "@/lib/domain/types";
 
 export type FileEntryStatus =
   | "queued"

@@ -12,29 +12,18 @@ import {
   BedrockRuntimeClient,
   ConverseCommand,
 } from "@aws-sdk/client-bedrock-runtime";
-import type { PatientData } from "./hl7-builder";
-import { DOCUMENT_TYPES, type MailboxSource } from "./conversion-config";
-
-export type DocumentType =
-  | "consent_form"
-  | "referral_letter"
-  | "gp_referral"
-  | "pathology_result"
-  | "radiology_result"
-  | "generic";
+import type {
+  DocumentType,
+  MailboxSource,
+  PatientData,
+  ReferralInfo,
+  Sex,
+} from "./domain/types";
+import { DOCUMENT_TYPES } from "./conversion-config";
 
 const REGION = "ap-southeast-2";
 const DEFAULT_MODEL = "au.anthropic.claude-sonnet-4-6";
 const DEFAULT_TIMEOUT_MS = 30_000;
-
-export interface ReferralInfo {
-  senderName?: string;
-  senderClinic?: string;
-  senderProviderNumber?: string;
-  addresseeName?: string;
-  addresseeClinic?: string;
-  ccNames?: string[];
-}
 
 export interface VisionExtractionResult {
   success: boolean;
@@ -276,7 +265,7 @@ function normalizeDocumentType(
     : fallback;
 }
 
-function normalizeSex(value: unknown): "M" | "F" | "U" {
+function normalizeSex(value: unknown): Sex {
   return value === "M" || value === "F" || value === "U" ? value : "U";
 }
 

@@ -4,21 +4,13 @@
  * Supports both ORU^R01 (results) and REF^I12 (referral letters) message types
  */
 
-import type { ReferralInfo } from "./vision-extractor";
-
-export interface PatientData {
-  firstName: string;
-  lastName: string;
-  dob: string; // YYYYMMDD format
-  sex: "M" | "F" | "U";
-  address?: string;
-  suburb?: string;
-  state?: string;
-  postcode?: string;
-  phone?: string;
-  medicareNo?: string;
-  medicareRef?: string;
-}
+import type {
+  DiagnosticServiceSection,
+  MessageType,
+  PatientData,
+  ReferralInfo,
+  ResultStatus,
+} from "./domain/types";
 
 export interface HL7Options {
   sendingApplication?: string;
@@ -27,16 +19,16 @@ export interface HL7Options {
   receivingFacility?: string;
   documentTitle?: string;
   // Genie actions
-  resultStatus?: "F" | "P"; // OBR-25: Final (auto-file) or Preliminary (queue for review)
+  resultStatus?: ResultStatus; // OBR-25: Final (auto-file) or Preliminary (queue for review)
   orderingProvider?: string; // PV1-9: Medicare Provider Number for doctor routing
-  messageType?: "ORU^R01" | "REF^I12"; // MSH-9: ORU for results, REF for referral letters
+  messageType?: MessageType; // MSH-9: ORU for results, REF for referral letters
   referralInfo?: ReferralInfo; // Sender/addressee info for referral letters
   // OBR-24: Diagnostic Service Section ID
   //   LAB = Pathology lab result (routes to Genie pathology inbox)
   //   RAD = Radiology / imaging result (routes to Genie radiology inbox)
   //   PHY = Physician (routes to Genie REF Incoming Letters)
   // When omitted, OBR-24 is left empty (preserves existing consent_form/generic behavior).
-  diagnosticServiceSection?: "LAB" | "RAD" | "PHY";
+  diagnosticServiceSection?: DiagnosticServiceSection;
 }
 
 const DEFAULT_OPTIONS: HL7Options = {

@@ -15,7 +15,7 @@ import {
   isReferralDocumentType,
   parseMailboxSource,
 } from "@/lib/conversion-config";
-import type { DocumentType } from "@/lib/vision-extractor";
+import type { DocumentType } from "@/lib/domain/types";
 import { auth } from "@/lib/auth";
 import { isPadAuthenticated } from "@/lib/pad-auth";
 

@@ -25,16 +25,13 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import {
-  buildHL7Message,
-  type PatientData,
-} from "./hl7-builder";
+import { buildHL7Message } from "./hl7-builder";
 import {
   diagnosticServiceSectionFor,
   documentTypeLabel,
   isReferralDocumentType,
 } from "./conversion-config";
-import type { DocumentType } from "./vision-extractor";
+import type { DocumentType, PatientData } from "./domain/types";
 
 // Fake patient data — never use real BJC patient names, DOBs, or Medicare
 // numbers in test fixtures.
