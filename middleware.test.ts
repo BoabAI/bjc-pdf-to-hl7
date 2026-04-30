@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import {
   config,
   decideRoute,
+  isApiPath,
   isPadRequestAuthenticated,
   isPublicPath,
 } from "./middleware";
@@ -68,15 +69,32 @@ describe("decideRoute", () => {
     });
   });
 
-  test("unauthenticated request to a protected path redirects to /login", () => {
+  test("unauthenticated request to a protected page redirects to /login", () => {
     expect(decideRoute("/", false)).toEqual({
       kind: "redirect",
       to: "/login",
       cacheControl: "no-store, must-revalidate",
     });
-    expect(decideRoute("/api/convert", false)).toEqual({
+    expect(decideRoute("/log", false)).toEqual({
       kind: "redirect",
       to: "/login",
+      cacheControl: "no-store, must-revalidate",
+    });
+  });
+
+  test("unauthenticated request to an /api/* path returns 401, not a redirect", () => {
+    // PAD pipeline + curl + fetch with redirect:follow would otherwise land
+    // on the login HTML and silently parse it as the API response.
+    expect(decideRoute("/api/convert", false)).toEqual({
+      kind: "unauthorized",
+      cacheControl: "no-store, must-revalidate",
+    });
+    expect(decideRoute("/api/logs", false)).toEqual({
+      kind: "unauthorized",
+      cacheControl: "no-store, must-revalidate",
+    });
+    expect(decideRoute("/api/reference-data", false)).toEqual({
+      kind: "unauthorized",
       cacheControl: "no-store, must-revalidate",
     });
   });
@@ -86,6 +104,22 @@ describe("decideRoute", () => {
       kind: "next",
       cacheControl: "private, no-cache, no-store, must-revalidate",
     });
+  });
+});
+
+describe("isApiPath", () => {
+  test("matches /api/* paths", () => {
+    expect(isApiPath("/api/convert")).toBe(true);
+    expect(isApiPath("/api/logs")).toBe(true);
+    expect(isApiPath("/api/auth/callback/microsoft-entra-id")).toBe(true);
+  });
+
+  test("rejects non-api paths", () => {
+    expect(isApiPath("/")).toBe(false);
+    expect(isApiPath("/login")).toBe(false);
+    expect(isApiPath("/log")).toBe(false);
+    // Bare "/api" with no trailing slash is not an API call — defensive.
+    expect(isApiPath("/api")).toBe(false);
   });
 });
 

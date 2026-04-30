@@ -4,11 +4,22 @@ import { isPadAuthenticated } from "@/lib/pad-auth";
 
 const PUBLIC_PATH_PREFIXES = ["/api/auth", "/login"];
 const PAD_PATH = "/api/convert";
+const API_PATH_PREFIX = "/api/";
 
 export function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATH_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   );
+}
+
+/**
+ * API paths get a JSON 401 on auth failure, not a 307 redirect to /login.
+ * A redirect would land service callers (PAD pipeline, curl, fetch with
+ * `redirect: "follow"`) on the login HTML, masking the real failure as a
+ * cryptic parse error downstream.
+ */
+export function isApiPath(pathname: string): boolean {
+  return pathname.startsWith(API_PATH_PREFIX);
 }
 
 /**
@@ -24,7 +35,8 @@ export function isPadRequestAuthenticated(request: NextRequest): boolean {
 
 export type RouteAction =
   | { kind: "next"; cacheControl: string }
-  | { kind: "redirect"; to: string; cacheControl: string };
+  | { kind: "redirect"; to: string; cacheControl: string }
+  | { kind: "unauthorized"; cacheControl: string };
 
 /**
  * Pure routing decision used by the middleware. Extracted so it can be
@@ -45,6 +57,12 @@ export function decideRoute(
     return { kind: "next", cacheControl: "" };
   }
   if (!isAuthenticated) {
+    if (isApiPath(pathname)) {
+      return {
+        kind: "unauthorized",
+        cacheControl: "no-store, must-revalidate",
+      };
+    }
     return {
       kind: "redirect",
       to: "/login",
@@ -63,6 +81,16 @@ function applyDecision(
 ): NextResponse {
   if (decision.kind === "redirect") {
     const response = NextResponse.redirect(new URL(decision.to, request.url));
+    if (decision.cacheControl) {
+      response.headers.set("Cache-Control", decision.cacheControl);
+    }
+    return response;
+  }
+  if (decision.kind === "unauthorized") {
+    const response = NextResponse.json(
+      { success: false, error: "Unauthorized" },
+      { status: 401 }
+    );
     if (decision.cacheControl) {
       response.headers.set("Cache-Control", decision.cacheControl);
     }
