@@ -1,5 +1,26 @@
-import { describe, expect, test } from "bun:test";
-import { config, decideRoute, isPublicPath } from "./middleware";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { NextRequest } from "next/server";
+import {
+  config,
+  decideRoute,
+  isPadRequestAuthenticated,
+  isPublicPath,
+} from "./middleware";
+
+const VALID_TOKEN = "x".repeat(32);
+
+function padRequest(
+  pathname: string,
+  init: { source?: string; auth?: string } = {}
+): NextRequest {
+  const headers: Record<string, string> = {};
+  if (init.source !== undefined) headers["x-source"] = init.source;
+  if (init.auth !== undefined) headers["authorization"] = init.auth;
+  return new NextRequest(`http://localhost:3000${pathname}`, {
+    method: "POST",
+    headers,
+  });
+}
 
 describe("isPublicPath", () => {
   test("identifies the login page as public", () => {
@@ -65,6 +86,65 @@ describe("decideRoute", () => {
       kind: "next",
       cacheControl: "private, no-cache, no-store, must-revalidate",
     });
+  });
+});
+
+describe("isPadRequestAuthenticated", () => {
+  let originalToken: string | undefined;
+
+  beforeEach(() => {
+    originalToken = process.env.PAD_TOKEN;
+    process.env.PAD_TOKEN = VALID_TOKEN;
+  });
+
+  afterEach(() => {
+    if (originalToken === undefined) delete process.env.PAD_TOKEN;
+    else process.env.PAD_TOKEN = originalToken;
+  });
+
+  test("accepts /api/convert with X-Source: email + valid bearer token", () => {
+    const request = padRequest("/api/convert", {
+      source: "email",
+      auth: `Bearer ${VALID_TOKEN}`,
+    });
+    expect(isPadRequestAuthenticated(request)).toBe(true);
+  });
+
+  test("rejects /api/convert with X-Source: email + wrong token (closes the bypass)", () => {
+    const request = padRequest("/api/convert", {
+      source: "email",
+      auth: `Bearer ${"y".repeat(32)}`,
+    });
+    expect(isPadRequestAuthenticated(request)).toBe(false);
+  });
+
+  test("rejects /api/convert with X-Source: email but no Authorization header", () => {
+    const request = padRequest("/api/convert", { source: "email" });
+    expect(isPadRequestAuthenticated(request)).toBe(false);
+  });
+
+  test("rejects PAD-shaped headers on a non-/api/convert path", () => {
+    const request = padRequest("/api/logs", {
+      source: "email",
+      auth: `Bearer ${VALID_TOKEN}`,
+    });
+    expect(isPadRequestAuthenticated(request)).toBe(false);
+  });
+
+  test("rejects /api/convert without X-Source: email even with a valid token", () => {
+    const request = padRequest("/api/convert", {
+      auth: `Bearer ${VALID_TOKEN}`,
+    });
+    expect(isPadRequestAuthenticated(request)).toBe(false);
+  });
+
+  test("rejects when PAD_TOKEN is unset (no implicit pass-through)", () => {
+    delete process.env.PAD_TOKEN;
+    const request = padRequest("/api/convert", {
+      source: "email",
+      auth: `Bearer ${VALID_TOKEN}`,
+    });
+    expect(isPadRequestAuthenticated(request)).toBe(false);
   });
 });
 

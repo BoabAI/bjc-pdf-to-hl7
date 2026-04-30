@@ -52,6 +52,9 @@ mock.module("@/lib/auth", () => ({
     },
 }));
 
+const PAD_TOKEN = "p".repeat(32);
+process.env.PAD_TOKEN = PAD_TOKEN;
+
 const routeModule = await import("./route");
 const GET = routeModule.GET;
 const POST = routeModule.POST as unknown as (req: NextRequest) => Promise<Response>;
@@ -92,6 +95,9 @@ function createConvertRequest(
     sizeBytes?: number;
     sourceHeader?: string | null;
     mailboxHeader?: string | null;
+    authHeader?: string | null;
+    /** Set to false to omit the x-test-auth header (no session). */
+    authenticated?: boolean;
   }
 ): NextRequest {
   const fileSize = options?.sizeBytes ?? 1024;
@@ -115,14 +121,18 @@ function createConvertRequest(
   }
   if (options?.carrier) formData.append("carrier", options.carrier);
 
-  const headers: Record<string, string> = {
-    "x-test-auth": "alice@bjchealth.com.au",
-  };
+  const headers: Record<string, string> = {};
+  if (options?.authenticated !== false) {
+    headers["x-test-auth"] = "alice@bjchealth.com.au";
+  }
   if (options?.sourceHeader !== undefined && options.sourceHeader !== null) {
     headers["x-source"] = options.sourceHeader;
   }
   if (options?.mailboxHeader !== undefined && options.mailboxHeader !== null) {
     headers["x-source-mailbox"] = options.mailboxHeader;
+  }
+  if (options?.authHeader !== undefined && options.authHeader !== null) {
+    headers["authorization"] = options.authHeader;
   }
 
   return new NextRequest("http://localhost:3000/api/convert", {
@@ -165,6 +175,103 @@ describe("GET /api/convert", () => {
     expect(response.status).toBe(200);
     expect(data.status).toBe("ok");
     expect(data.service).toBe("PDF to HL7 Converter");
+  });
+});
+
+describe("POST /api/convert PAD email-pipeline auth", () => {
+  test("rejects X-Source: email with no Authorization header (closes the bypass)", async () => {
+    const response = await POST(
+      createConvertRequest({
+        filename: "ref.pdf",
+        sourceHeader: "email",
+        authenticated: false,
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(data).toEqual({ success: false, error: "Unauthorized" });
+    // No audit row should be written for an unauthenticated rejection — the
+    // request never reached the conversion pipeline.
+    expect(recordConversionMock).not.toHaveBeenCalled();
+  });
+
+  test("rejects X-Source: email with a wrong bearer token", async () => {
+    const response = await POST(
+      createConvertRequest({
+        filename: "ref.pdf",
+        sourceHeader: "email",
+        authenticated: false,
+        authHeader: `Bearer ${"y".repeat(32)}`,
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(data).toEqual({ success: false, error: "Unauthorized" });
+    expect(recordConversionMock).not.toHaveBeenCalled();
+  });
+
+  test("rejects X-Source: email with a malformed Authorization header", async () => {
+    const response = await POST(
+      createConvertRequest({
+        filename: "ref.pdf",
+        sourceHeader: "email",
+        authenticated: false,
+        authHeader: `Basic ${PAD_TOKEN}`,
+      })
+    );
+    expect(response.status).toBe(401);
+  });
+
+  test("rejects X-Source: email even when a session cookie is present (PAD path requires PAD token)", async () => {
+    // Web users must use source=web. Setting source=email should NOT let a
+    // session cookie satisfy the auth check — that would re-open the bypass
+    // for any authenticated browser user impersonating the pipeline.
+    const response = await POST(
+      createConvertRequest({
+        filename: "ref.pdf",
+        sourceHeader: "email",
+        authenticated: true,
+      })
+    );
+    expect(response.status).toBe(401);
+  });
+
+  test("accepts X-Source: email with a valid bearer token (no session)", async () => {
+    const response = await POST(
+      createConvertRequest({
+        filename: "ref.pdf",
+        sourceHeader: "email",
+        authenticated: false,
+        authHeader: `Bearer ${PAD_TOKEN}`,
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.success).toBe(true);
+  });
+
+  test("rejects X-Source: web with no session cookie", async () => {
+    const response = await POST(
+      createConvertRequest({
+        filename: "ref.pdf",
+        sourceHeader: "web",
+        authenticated: false,
+      })
+    );
+    expect(response.status).toBe(401);
+  });
+
+  test("rejects an unauthenticated request with no X-Source (defaults to web)", async () => {
+    const response = await POST(
+      createConvertRequest({
+        filename: "ref.pdf",
+        authenticated: false,
+      })
+    );
+    expect(response.status).toBe(401);
   });
 });
 
@@ -555,17 +662,21 @@ describe("POST /api/convert Bedrock flow", () => {
 });
 
 describe("POST /api/convert audit logging", () => {
-  test("records audit row with source 'email' when X-Source: email", async () => {
+  test("records audit row with source 'email' when X-Source: email + valid PAD token", async () => {
     await POST(
       createConvertRequest({
         filename: "Smith_John_19800123.pdf",
         sourceHeader: "email",
+        authenticated: false,
+        authHeader: `Bearer ${PAD_TOKEN}`,
       })
     );
 
     expect(recordConversionMock).toHaveBeenCalledTimes(1);
     const row = recordConversionMock.mock.calls[0][0];
     expect(row.source).toBe("email");
+    // PAD calls have no Auth.js session — userEmail records the service identity.
+    expect(row.userEmail).toBe("service:pad-pipeline");
   });
 
   test("defaults source to 'web' when X-Source header is missing", async () => {

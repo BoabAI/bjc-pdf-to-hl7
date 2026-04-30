@@ -17,6 +17,9 @@ import {
 } from "@/lib/conversion-config";
 import type { DocumentType } from "@/lib/vision-extractor";
 import { auth } from "@/lib/auth";
+import { isPadAuthenticated } from "@/lib/pad-auth";
+
+const PAD_USER_EMAIL = "service:pad-pipeline";
 
 export const runtime = "nodejs";
 
@@ -44,16 +47,28 @@ export const POST = auth(async (request) => {
   const mailboxHint = parseMailboxSource(
     request.headers.get("x-source-mailbox")
   );
-  const userEmail = request.auth?.user?.email ?? "anonymous";
   const now = new Date();
 
-  // Web users must be authenticated; email/PAD pipeline is service-to-service
-  // and bypasses the cookie session (separate hardening lives upstream).
-  if (source === "web" && !request.auth) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 401 }
-    );
+  // Authenticate per source. Web = Auth.js cookie session.
+  // Email = PAD pipeline shared bearer token in Authorization header.
+  // Both 401 if missing/invalid; the 401 must not leak which check failed.
+  let userEmail: string;
+  if (source === "email") {
+    if (!isPadAuthenticated(request.headers)) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+    userEmail = PAD_USER_EMAIL;
+  } else {
+    if (!request.auth) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+    userEmail = request.auth.user?.email ?? "anonymous";
   }
 
   let originalFilename = "";
