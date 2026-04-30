@@ -84,6 +84,19 @@ export function cleanMedicareNumber(value: unknown): string | undefined {
   return value.replace(/\s/g, "") || undefined;
 }
 
+// Provider numbers must be 1-12 alphanumeric characters. The HL7 separators
+// (`|`, `^`, `~`, `&`, `\`) and ASCII control characters would corrupt segments
+// if echoed back from a crafted PDF — drop the value to undefined rather than
+// passing it through to HL7 build.
+const PROVIDER_NUMBER_RE = /^[A-Z0-9]{1,12}$/i;
+
+export function cleanProviderNumber(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return undefined;
+  return PROVIDER_NUMBER_RE.test(trimmed) ? trimmed : undefined;
+}
+
 export function cleanStringArray(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) return undefined;
   const strings = value
@@ -166,7 +179,7 @@ export function normalizeVisionToolInput(
   const referralInfo: ReferralInfo = {};
   const senderName = nullableString(raw.senderName);
   const senderClinic = nullableString(raw.senderClinic);
-  const senderProviderNumber = nullableString(raw.senderProviderNumber);
+  const senderProviderNumber = cleanProviderNumber(raw.senderProviderNumber);
   const addresseeName = nullableString(raw.addresseeName);
   const addresseeClinic = nullableString(raw.addresseeClinic);
   const ccNames = cleanStringArray(raw.ccNames);

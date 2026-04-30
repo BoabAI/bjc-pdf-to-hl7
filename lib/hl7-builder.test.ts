@@ -1,7 +1,11 @@
 import { describe, test, expect } from "bun:test";
 import { readFileSync } from "fs";
 import { join } from "path";
-import { buildHL7Message, generateHL7Filename } from "./hl7-builder";
+import {
+  buildHL7Message,
+  createHL7BuildContext,
+  generateHL7Filename,
+} from "./hl7-builder";
 import type { PatientData } from "./domain/types";
 
 const TEST_PDF_PATH = join(
@@ -1610,5 +1614,83 @@ describe("OBR-24 by diagnostic service section", () => {
     const obr = getFields(getSegment(hl7, "OBR")!);
 
     expect(obr).toHaveLength(26);
+  });
+});
+
+// =============================================================================
+// HL7 escaping at the segment boundary (defense-in-depth)
+// =============================================================================
+
+describe("HL7 escaping at the segment boundary", () => {
+  test("escapes pipe in sendingApplication (MSH-3)", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      sendingApplication: "MYCO|EVIL",
+    });
+    const msh = getSegment(hl7, "MSH")!;
+    expect(msh).toContain("MYCO\\F\\EVIL");
+    expect(msh).not.toContain("MYCO|EVIL");
+  });
+
+  test("escapes caret in sendingFacility (MSH-4)", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      sendingFacility: "BJC^Health",
+    });
+    const msh = getSegment(hl7, "MSH")!;
+    expect(msh).toContain("BJC\\S\\Health");
+    expect(msh).not.toContain("BJC^Health");
+  });
+
+  test("escapes tilde in orderingProvider (PV1-9)", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      orderingProvider: "1234567~bad",
+    });
+    const pv1 = getSegment(hl7, "PV1")!;
+    expect(pv1).toContain("1234567\\R\\bad");
+    expect(pv1).not.toContain("1234567~bad");
+  });
+
+  test("escapes ampersand in senderProviderNumber (OBR-16 and PRD-7)", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      messageType: "REF^I12",
+      referralInfo: {
+        senderName: "Dr Sarah Jones",
+        senderProviderNumber: "999&inj",
+        addresseeName: "Dr Michael Brown",
+      },
+    });
+    const obr = getSegment(hl7, "OBR")!;
+    expect(obr).toContain("999\\T\\inj");
+    expect(obr).not.toContain("999&inj");
+
+    // PRD segments — find the sender PRD (PRD-1 = "RP~AP" using literal HL7
+    // repetition separator, intentionally not escaped)
+    const prdSender = getSegments(hl7).find(
+      (s) => s.startsWith("PRD|RP~AP|")
+    );
+    expect(prdSender).toBeDefined();
+    expect(prdSender!).toContain("999\\T\\inj^AUSHICPR^UPIN");
+    expect(prdSender!).not.toContain("999&inj^AUSHICPR^UPIN");
+  });
+
+  test("clean inputs produce byte-identical output (no accidental escape changes)", () => {
+    const context = createHL7BuildContext();
+    const hl7a = buildHL7Message(
+      samplePatient,
+      TINY_PDF,
+      { sendingApplication: "MYAPP" },
+      context
+    );
+    const hl7b = buildHL7Message(
+      samplePatient,
+      TINY_PDF,
+      { sendingApplication: "MYAPP" },
+      context
+    );
+    expect(hl7a).toBe(hl7b);
+    // And confirm there are no escape sequences in a clean message
+    expect(hl7a).not.toContain("\\F\\");
+    expect(hl7a).not.toContain("\\S\\");
+    expect(hl7a).not.toContain("\\R\\");
+    expect(hl7a).not.toContain("\\T\\");
   });
 });

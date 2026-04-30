@@ -327,6 +327,73 @@ describe("normalizeVisionToolInput — referral fields", () => {
   });
 });
 
+describe("normalizeVisionToolInput — senderProviderNumber validation", () => {
+  test("preserves a valid alphanumeric provider number", () => {
+    const result = normalizeVisionToolInput({
+      documentType: "gp_referral",
+      firstName: "Jane",
+      lastName: "Smith",
+      dob: "08/11/1985",
+      sex: "F",
+      senderName: "Dr Sarah Jones",
+      senderProviderNumber: "1234567Z",
+    });
+    expect(result.referralInfo?.senderProviderNumber).toBe("1234567Z");
+  });
+
+  test("drops a provider number containing HL7 separators", () => {
+    const result = normalizeVisionToolInput({
+      documentType: "gp_referral",
+      firstName: "Jane",
+      lastName: "Smith",
+      dob: "08/11/1985",
+      sex: "F",
+      senderName: "Dr Sarah Jones",
+      senderProviderNumber: "1234567|EVIL",
+    });
+    expect(result.referralInfo?.senderProviderNumber).toBeUndefined();
+  });
+
+  test("trims whitespace around a valid provider number", () => {
+    const result = normalizeVisionToolInput({
+      documentType: "gp_referral",
+      firstName: "Jane",
+      lastName: "Smith",
+      dob: "08/11/1985",
+      sex: "F",
+      senderName: "Dr Sarah Jones",
+      senderProviderNumber: "  9000001A  ",
+    });
+    expect(result.referralInfo?.senderProviderNumber).toBe("9000001A");
+  });
+
+  test("drops an empty-string provider number", () => {
+    const result = normalizeVisionToolInput({
+      documentType: "gp_referral",
+      firstName: "Jane",
+      lastName: "Smith",
+      dob: "08/11/1985",
+      sex: "F",
+      senderName: "Dr Sarah Jones",
+      senderProviderNumber: "",
+    });
+    expect(result.referralInfo?.senderProviderNumber).toBeUndefined();
+  });
+
+  test("drops a non-string provider number", () => {
+    const result = normalizeVisionToolInput({
+      documentType: "gp_referral",
+      firstName: "Jane",
+      lastName: "Smith",
+      dob: "08/11/1985",
+      sex: "F",
+      senderName: "Dr Sarah Jones",
+      senderProviderNumber: 12345,
+    });
+    expect(result.referralInfo?.senderProviderNumber).toBeUndefined();
+  });
+});
+
 describe("normalizeVisionToolInput — bad input", () => {
   test("returns empty patient data when raw input is not a record", () => {
     const result = normalizeVisionToolInput(null, "consent_form");

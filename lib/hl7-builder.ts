@@ -96,13 +96,13 @@ function buildMSH(options: HL7Options, context: HL7BuildContext): string {
     // MSH-2: Encoding Characters
     2: ENCODING_CHARS,
     // MSH-3: Sending Application
-    3: options.sendingApplication,
+    3: options.sendingApplication ? escapeHL7(options.sendingApplication) : options.sendingApplication,
     // MSH-4: Sending Facility
-    4: options.sendingFacility,
+    4: options.sendingFacility ? escapeHL7(options.sendingFacility) : options.sendingFacility,
     // MSH-5: Receiving Application
-    5: options.receivingApplication,
+    5: options.receivingApplication ? escapeHL7(options.receivingApplication) : options.receivingApplication,
     // MSH-6: Receiving Facility
-    6: options.receivingFacility,
+    6: options.receivingFacility ? escapeHL7(options.receivingFacility) : options.receivingFacility,
     // MSH-7: Date/Time of Message
     7: context.timestamp,
     // MSH-8: Security (empty)
@@ -195,7 +195,7 @@ function buildPV1(options: HL7Options): string {
 
   if (options.orderingProvider) {
     // Provider number routing: ProviderNumber^^^AUSHICPR
-    consultingDoctor = `${options.orderingProvider}^^^AUSHICPR`;
+    consultingDoctor = `${escapeHL7(options.orderingProvider)}^^^AUSHICPR`;
   } else if (options.referralInfo?.addresseeName) {
     // Name-only routing from referral addressee: ^Last^First^^^DR
     const { lastName, firstName } = parseDoctorName(options.referralInfo.addresseeName);
@@ -218,7 +218,7 @@ function buildPV1(options: HL7Options): string {
  * Build OBR (Observation Request) segment
  */
 function buildOBR(options: HL7Options, context: HL7BuildContext): string {
-  const reportId = `RPT${context.timestamp}^${options.sendingApplication}`;
+  const reportId = `RPT${context.timestamp}^${escapeHL7(options.sendingApplication ?? "")}`;
   const serviceId = `PDF^${escapeHL7(options.documentTitle || "PDF Report")}^L`;
 
   // OBR-16: Ordering Provider (sender of the referral letter, when present)
@@ -229,7 +229,7 @@ function buildOBR(options: HL7Options, context: HL7BuildContext): string {
     const { lastName: senderLast, firstName: senderFirst } = parseDoctorName(ref.senderName);
     orderingProviderField = provNum
       ? // ProviderNumber^LastName^FirstName^^^DR^^^AUSHICPR
-        `${provNum}^${senderLast}^${senderFirst}^^^DR^^^AUSHICPR`
+        `${escapeHL7(provNum)}^${senderLast}^${senderFirst}^^^DR^^^AUSHICPR`
       : // ^LastName^FirstName^^^DR
         `^${senderLast}^${senderFirst}^^^DR`;
   }
@@ -324,7 +324,7 @@ function buildPRD(
   const providerName = `${lastName}^${firstName}^^^DR`;
 
   // PRD-7: Provider Identifiers (CM format: ProviderNumber^AssigningAuthority^IdentifierType)
-  const providerIds = providerNumber ? `${providerNumber}^AUSHICPR^UPIN` : "";
+  const providerIds = providerNumber ? `${escapeHL7(providerNumber)}^AUSHICPR^UPIN` : "";
 
   return segment("PRD", {
     // PRD-1: Provider Role

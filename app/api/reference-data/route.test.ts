@@ -164,6 +164,133 @@ describe("PUT /api/reference-data", () => {
   });
 });
 
+describe("PUT /api/reference-data — input validation hardening", () => {
+  test("rejects carrier with HL7 separator in value", async () => {
+    const response = await PUT(
+      makeRequest("", {
+        method: "PUT",
+        body: {
+          kind: "CARRIER",
+          item: { id: "c1", value: "MYCO|EVIL", label: "OK" },
+        },
+      })
+    );
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error).toMatch(/value/);
+    expect(body.error).toMatch(/HL7 separators/);
+    expect(putCarrierMock).not.toHaveBeenCalled();
+  });
+
+  test("rejects carrier with backslash in label", async () => {
+    const response = await PUT(
+      makeRequest("", {
+        method: "PUT",
+        body: {
+          kind: "CARRIER",
+          item: { id: "c1", value: "OK", label: "Email\\Bad" },
+        },
+      })
+    );
+    expect(response.status).toBe(400);
+    expect(putCarrierMock).not.toHaveBeenCalled();
+  });
+
+  test("rejects carrier with control character in label", async () => {
+    const response = await PUT(
+      makeRequest("", {
+        method: "PUT",
+        body: {
+          kind: "CARRIER",
+          item: { id: "c1", value: "OK", label: "OKBell" },
+        },
+      })
+    );
+    expect(response.status).toBe(400);
+    expect(putCarrierMock).not.toHaveBeenCalled();
+  });
+
+  test("rejects doctor with HL7 separator in providerNumber", async () => {
+    const response = await PUT(
+      makeRequest("", {
+        method: "PUT",
+        body: {
+          kind: "DOCTOR",
+          item: {
+            id: "d1",
+            name: "Dr Smith",
+            providerNumber: "1234567|EVIL",
+          },
+        },
+      })
+    );
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error).toMatch(/providerNumber/);
+    expect(putDoctorMock).not.toHaveBeenCalled();
+  });
+
+  test("rejects doctor with empty providerNumber", async () => {
+    const response = await PUT(
+      makeRequest("", {
+        method: "PUT",
+        body: {
+          kind: "DOCTOR",
+          item: { id: "d1", name: "Dr Smith", providerNumber: "" },
+        },
+      })
+    );
+    expect(response.status).toBe(400);
+    expect(putDoctorMock).not.toHaveBeenCalled();
+  });
+
+  test("accepts doctor with seed-style providerNumber", async () => {
+    const doctor = {
+      id: "d1",
+      name: "Dr Smith",
+      providerNumber: "9000001Z",
+    };
+    const response = await PUT(
+      makeRequest("", { method: "PUT", body: { kind: "DOCTOR", item: doctor } })
+    );
+    expect(response.status).toBe(200);
+    expect(putDoctorMock).toHaveBeenCalledWith(doctor);
+  });
+
+  test("rejects doctor with HL7 separator in name", async () => {
+    const response = await PUT(
+      makeRequest("", {
+        method: "PUT",
+        body: {
+          kind: "DOCTOR",
+          item: {
+            id: "d1",
+            name: "Dr Smith ^Hack",
+            providerNumber: "9000001Z",
+          },
+        },
+      })
+    );
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error).toMatch(/name/);
+    expect(putDoctorMock).not.toHaveBeenCalled();
+  });
+
+  test("accepts doctor with clean name", async () => {
+    const doctor = {
+      id: "d1",
+      name: "Dr Smith",
+      providerNumber: "9000001Z",
+    };
+    const response = await PUT(
+      makeRequest("", { method: "PUT", body: { kind: "DOCTOR", item: doctor } })
+    );
+    expect(response.status).toBe(200);
+    expect(putDoctorMock).toHaveBeenCalledWith(doctor);
+  });
+});
+
 describe("DELETE /api/reference-data", () => {
   test("returns 401 without session", async () => {
     const response = await DELETE(
