@@ -1,21 +1,12 @@
 import { NextResponse } from "next/server";
 import { convertPdf, parseConvertFormData } from "@/lib/convert-service";
+import { recordConversion, type AuditRow } from "@/lib/audit";
 import {
-  buildPatientInitials,
-  buildSortKey,
-  extractFilenameExt,
-  hashFilename,
-  monthKey,
-  recordConversion,
-  type AuditRow,
-} from "@/lib/audit";
-import {
-  detectMailboxDisagreement,
-  diagnosticServiceSectionFor,
-  isReferralDocumentType,
-  parseMailboxSource,
-} from "@/lib/conversion-config";
-import type { DocumentType } from "@/lib/domain/types";
+  buildConversionAuditRow,
+  buildFailureAuditRow,
+  type AuditSource,
+} from "@/lib/audit/build-row";
+import { parseMailboxSource } from "@/lib/conversion-config";
 import { auth } from "@/lib/auth";
 import { isPadAuthenticated } from "@/lib/pad-auth";
 
@@ -23,14 +14,8 @@ const PAD_USER_EMAIL = "service:pad-pipeline";
 
 export const runtime = "nodejs";
 
-type Source = "web" | "email";
-
-function parseSource(header: string | null): Source {
+function parseSource(header: string | null): AuditSource {
   return header === "email" ? "email" : "web";
-}
-
-function messageTypeFor(documentType: DocumentType): string {
-  return isReferralDocumentType(documentType) ? "REF^I12" : "ORU^R01";
 }
 
 async function safeRecord(row: AuditRow): Promise<void> {
@@ -42,7 +27,7 @@ async function safeRecord(row: AuditRow): Promise<void> {
 }
 
 export const POST = auth(async (request) => {
-  const startedAt = Date.now();
+  const startedAtMs = Date.now();
   const source = parseSource(request.headers.get("x-source"));
   const mailboxHint = parseMailboxSource(
     request.headers.get("x-source-mailbox")
@@ -90,46 +75,19 @@ export const POST = auth(async (request) => {
 
     const result = await convertPdf({ ...parsed.data, mailboxHint });
 
-    const resolvedDocType: DocumentType | undefined =
-      (result.documentType as DocumentType | undefined) ??
-      (parsed.data.documentType !== "auto"
-        ? parsed.data.documentType
-        : undefined);
-
-    const mailboxDisagreement = detectMailboxDisagreement(
-      mailboxHint,
-      resolvedDocType
+    const row = buildConversionAuditRow(
+      {
+        source,
+        userEmail,
+        mailboxHint,
+        originalFilename,
+        fileSizeBytes,
+        startedAtMs,
+        finishedAtMs: Date.now(),
+        now,
+      },
+      result
     );
-
-    const row: AuditRow = {
-      month: monthKey(now),
-      ts: buildSortKey(now),
-      documentType: resolvedDocType,
-      outcome: result.success ? "ok" : "fail",
-      source,
-      messageType:
-        result.success && resolvedDocType
-          ? messageTypeFor(resolvedDocType)
-          : undefined,
-      diagnosticServiceSection:
-        result.success && resolvedDocType
-          ? diagnosticServiceSectionFor(resolvedDocType)
-          : undefined,
-      filenameHash: hashFilename(originalFilename),
-      filenameExt: extractFilenameExt(originalFilename),
-      fileSizeBytes,
-      durationMs: Date.now() - startedAt,
-      warningCount: result.warnings?.length ?? 0,
-      userEmail,
-      patientInitials: result.success
-        ? buildPatientInitials(
-            result.extractedData?.firstName,
-            result.extractedData?.lastName
-          )
-        : undefined,
-      mailboxHint,
-      ...(mailboxDisagreement ? { mailboxDisagreement: true } : {}),
-    };
 
     await safeRecord(row);
 
@@ -137,19 +95,16 @@ export const POST = auth(async (request) => {
   } catch (error) {
     console.error("Conversion error:", error);
 
-    const failRow: AuditRow = {
-      month: monthKey(now),
-      ts: buildSortKey(now),
-      outcome: "fail",
+    const failRow = buildFailureAuditRow({
       source,
-      filenameHash: hashFilename(originalFilename),
-      filenameExt: extractFilenameExt(originalFilename),
-      fileSizeBytes,
-      durationMs: Date.now() - startedAt,
-      warningCount: 0,
       userEmail,
       mailboxHint,
-    };
+      originalFilename,
+      fileSizeBytes,
+      startedAtMs,
+      finishedAtMs: Date.now(),
+      now,
+    });
     await safeRecord(failRow);
 
     return NextResponse.json(

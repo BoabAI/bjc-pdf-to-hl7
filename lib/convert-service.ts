@@ -6,11 +6,11 @@ import {
   detectMailboxDisagreement,
   diagnosticServiceSectionFor,
   documentTypeLabel,
-  isReferralDocumentType,
   parseDocumentTypeOption,
   type DocumentTypeOption,
 } from "./conversion-config";
-import type { MailboxSource } from "./domain/types";
+import { messageTypeDisplayLabel, messageTypeForDocumentType } from "./convert/policy";
+import type { DocumentType, MailboxSource, MessageType } from "./domain/types";
 
 export interface ConvertRequest {
   pdfBuffer: Buffer;
@@ -39,7 +39,7 @@ export interface ConvertResult {
   };
   warnings?: string[];
   extractionMethod?: "vision";
-  documentType?: string;
+  documentType?: DocumentType;
   /**
    * True when the LLM's family classification disagrees with the upstream
    * mailbox (e.g. PDF arrived in `referrals` but classified as a result).
@@ -153,9 +153,9 @@ export async function convertPdf(request: ConvertRequest): Promise<ConvertResult
     };
   }
 
-  const messageType = isReferralDocumentType(extraction.documentType)
-    ? ("REF^I12" as const)
-    : ("ORU^R01" as const);
+  const messageType: MessageType = messageTypeForDocumentType(
+    extraction.documentType
+  );
 
   const diagnosticServiceSection = diagnosticServiceSectionFor(
     extraction.documentType
@@ -180,7 +180,7 @@ export async function convertPdf(request: ConvertRequest): Promise<ConvertResult
     extractedData: {
       ...baseData,
       date: formatDisplayDate(new Date()),
-      messageType: messageType === "REF^I12" ? "REF (Referral)" : "ORU (Result)",
+      messageType: messageTypeDisplayLabel(messageType),
       carrier: request.carrier || DEFAULT_CARRIER,
     },
     warnings: warningsWithMailbox,
