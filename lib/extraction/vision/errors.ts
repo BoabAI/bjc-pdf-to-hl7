@@ -4,7 +4,7 @@
  * Pure helpers — no AWS SDK imports, no transport. The orchestrator catches
  * a Bedrock failure and asks this module to translate the error into a
  * user-facing warning string. Privacy-sensitive details (raw error objects,
- * stack traces) stay in the orchestrator's `console.error` log; only the
+ * stack traces) stay in the orchestrator's structured server log; only the
  * mapped warning is surfaced to callers.
  */
 

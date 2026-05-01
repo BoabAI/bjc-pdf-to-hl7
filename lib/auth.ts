@@ -1,5 +1,6 @@
 import NextAuth, { type DefaultSession } from "next-auth";
 import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
+import { logAuthRejection } from "@/lib/server/logging";
 
 declare module "next-auth" {
   interface Session {
@@ -73,27 +74,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Structured log for CloudWatch — captures every claim that could
         // explain why a domain check failed (e.g. UPN on .onmicrosoft.com,
         // email vs UPN mismatch, missing claims). Never logs full tokens.
+        // `claims.email` is redacted by the logger by default; UPN, tid, oid,
+        // iss are preserved as the rejection diagnostic.
         const p = (profile ?? {}) as Record<string, unknown>;
-        console.warn(
-          "[auth] sign-in rejected " +
-            JSON.stringify({
-              extractedDomain: domain ?? null,
-              allowedDomains: parseAllowedDomains(),
-              claims: {
-                preferred_username:
-                  typeof p.preferred_username === "string"
-                    ? p.preferred_username
-                    : null,
-                upn: typeof p.upn === "string" ? p.upn : null,
-                email: typeof p.email === "string" ? p.email : null,
-                name: typeof p.name === "string" ? p.name : null,
-                tid: typeof p.tid === "string" ? p.tid : null,
-                oid: typeof p.oid === "string" ? p.oid : null,
-                iss: typeof p.iss === "string" ? p.iss : null,
-              },
-              provider: account?.provider ?? null,
-            })
-        );
+        logAuthRejection("domain-not-allowed", {
+          extractedDomain: domain ?? null,
+          allowedDomains: parseAllowedDomains(),
+          claims: {
+            preferred_username:
+              typeof p.preferred_username === "string"
+                ? p.preferred_username
+                : null,
+            upn: typeof p.upn === "string" ? p.upn : null,
+            email: typeof p.email === "string" ? p.email : null,
+            name: typeof p.name === "string" ? p.name : null,
+            tid: typeof p.tid === "string" ? p.tid : null,
+            oid: typeof p.oid === "string" ? p.oid : null,
+            iss: typeof p.iss === "string" ? p.iss : null,
+          },
+          provider: account?.provider ?? null,
+        });
         return false;
       }
       return true;
@@ -112,9 +112,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         } else {
           // Defense in depth: signIn should already have rejected this token,
           // but never trust the email claim as a UPN substitute.
-          console.warn(
-            "[auth] jwt callback skipped token.email — no UPN claim present"
-          );
+          logAuthRejection("missing-upn", {
+            claims: {
+              preferred_username:
+                typeof p.preferred_username === "string"
+                  ? p.preferred_username
+                  : null,
+              upn: typeof p.upn === "string" ? p.upn : null,
+              email: typeof p.email === "string" ? p.email : null,
+              name: typeof p.name === "string" ? p.name : null,
+              tid: typeof p.tid === "string" ? p.tid : null,
+              oid: typeof p.oid === "string" ? p.oid : null,
+              iss: typeof p.iss === "string" ? p.iss : null,
+            },
+          });
         }
         if (typeof p.name === "string") token.name = p.name;
       }

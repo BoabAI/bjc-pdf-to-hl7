@@ -28,6 +28,7 @@ import {
 } from "./extraction/vision/normalize";
 import { buildVisionPrompt, SYSTEM_PROMPT } from "./extraction/vision/prompt";
 import { EXTRACTION_TOOL } from "./extraction/vision/tool-schema";
+import { logOperationalError } from "./server/logging";
 
 const REGION = "ap-southeast-2";
 const DEFAULT_MODEL = "au.anthropic.claude-sonnet-4-6";
@@ -130,17 +131,7 @@ export async function extractPatientDataWithVision(
       tokensUsed,
     };
   } catch (error) {
-    const awsEnvKeys = Object.keys(process.env)
-      .filter((key) => key.startsWith("AWS_"))
-      .join(", ");
-    console.error(
-      `[vision-extractor] Error: ${
-        error instanceof Error ? `${error.name}: ${error.message}` : error
-      }`
-    );
-    console.error(
-      `[vision-extractor] AWS env vars present: ${awsEnvKeys || "NONE"}`
-    );
+    logOperationalError("vision-extractor", error);
 
     return {
       success: false,

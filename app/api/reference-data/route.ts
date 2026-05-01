@@ -10,6 +10,7 @@ import {
 import type { Carrier, Doctor } from "@/lib/conversion-config";
 import type { ReferenceDataResponse } from "@/lib/contracts/reference-data";
 import { auth } from "@/lib/auth";
+import { logOperationalError } from "@/lib/server/logging";
 
 export const runtime = "nodejs";
 
@@ -156,7 +157,7 @@ export const PUT = auth(async (request) => {
     try {
       await putDoctor(result.value);
     } catch (error) {
-      console.error("putDoctor failed:", error);
+      logOperationalError("reference-data", error, { op: "putDoctor" });
       return NextResponse.json(
         { success: false, error: "Failed to persist reference data" },
         { status: 500 }
@@ -176,7 +177,7 @@ export const PUT = auth(async (request) => {
     try {
       await putCarrier(result.value);
     } catch (error) {
-      console.error("putCarrier failed:", error);
+      logOperationalError("reference-data", error, { op: "putCarrier" });
       return NextResponse.json(
         { success: false, error: "Failed to persist reference data" },
         { status: 500 }
@@ -208,7 +209,7 @@ export const DELETE = auth(async (request) => {
     try {
       await deleteDoctor(id);
     } catch (error) {
-      console.error("deleteDoctor failed:", error);
+      logOperationalError("reference-data", error, { op: "deleteDoctor" });
       return NextResponse.json(
         { success: false, error: "Failed to persist reference data" },
         { status: 500 }
@@ -221,7 +222,7 @@ export const DELETE = auth(async (request) => {
     try {
       await deleteCarrier(id);
     } catch (error) {
-      console.error("deleteCarrier failed:", error);
+      logOperationalError("reference-data", error, { op: "deleteCarrier" });
       return NextResponse.json(
         { success: false, error: "Failed to persist reference data" },
         { status: 500 }

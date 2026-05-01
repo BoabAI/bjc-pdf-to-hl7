@@ -6,6 +6,7 @@ import {
   QueryCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { DateTime } from "luxon";
+import { logOperationalError } from "./server/logging";
 
 const REGION = "ap-southeast-2";
 const DEFAULT_TABLE = "bjc-pdf-to-hl7-audit";
@@ -135,9 +136,9 @@ export function buildSortKey(date = new Date()): string {
 }
 
 /**
- * Write a single audit row to DynamoDB. Errors are logged via console.error
- * and swallowed — the conversion API must continue to return 200 to the user
- * even if the audit table is unavailable.
+ * Write a single audit row to DynamoDB. Errors are logged via the central
+ * server logger and swallowed — the conversion API must continue to return
+ * 200 to the user even if the audit table is unavailable.
  *
  * Awaited inline before /api/convert returns, because Lambda freezes
  * fire-and-forget work between requests.
@@ -152,7 +153,7 @@ export async function recordConversion(row: AuditRow): Promise<void> {
       })
     );
   } catch (error) {
-    console.error("Audit write failed:", error);
+    logOperationalError("audit", error, { op: "write" });
     // Swallow — never fail the conversion because of audit infra.
   }
 }
@@ -178,7 +179,7 @@ export async function listConversions(month: string): Promise<AuditRow[]> {
     const items = response.Items ?? [];
     return items.filter(isAuditRow);
   } catch (error) {
-    console.error("Audit query failed:", error);
+    logOperationalError("audit", error, { op: "query" });
     return [];
   }
 }

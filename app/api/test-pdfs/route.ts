@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import JSZip from "jszip";
+import { logOperationalError } from "@/lib/server/logging";
 
 export const runtime = "nodejs";
 
@@ -12,7 +13,7 @@ const SAFE_DIRS = ["mock-referrals", "addressee-scenarios", "results"] as const;
 
 // Single-file allowlist for committed dummies that live in otherwise-PHI dirs.
 const SAFE_FILES: { dir: string; file: string }[] = [
-  { dir: "originals", file: "Referral_dummy.pdf" },
+  { dir: "originals", file: "referral_dummy.pdf" },
 ];
 
 const TEST_PDF_ROOT = join(process.cwd(), "docs", "input PDF");
@@ -71,7 +72,7 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error("Test PDF zip build failed:", error);
+    logOperationalError("test-pdfs", error);
     return NextResponse.json(
       { success: false, error: "Failed to build test PDF zip" },
       { status: 500 }

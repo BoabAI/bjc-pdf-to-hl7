@@ -9,6 +9,10 @@ import {
 import { parseMailboxSource } from "@/lib/conversion-config";
 import { auth } from "@/lib/auth";
 import { isPadAuthenticated } from "@/lib/pad-auth";
+import {
+  logAuditFailure,
+  logOperationalError,
+} from "@/lib/server/logging";
 
 const PAD_USER_EMAIL = "service:pad-pipeline";
 
@@ -22,7 +26,7 @@ async function safeRecord(row: AuditRow): Promise<void> {
   try {
     await recordConversion(row);
   } catch (error) {
-    console.error("Audit row could not be written:", error);
+    logAuditFailure(error);
   }
 }
 
@@ -93,7 +97,7 @@ export const POST = auth(async (request) => {
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error("Conversion error:", error);
+    logOperationalError("convert", error, { source });
 
     const failRow = buildFailureAuditRow({
       source,

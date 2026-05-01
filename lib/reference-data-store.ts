@@ -12,6 +12,7 @@ import {
   type Carrier,
   type Doctor,
 } from "./conversion-config";
+import { logOperationalError } from "./server/logging";
 
 const REGION = "ap-southeast-2";
 const DEFAULT_TABLE = "bjc-pdf-to-hl7-reference-data";
@@ -120,7 +121,7 @@ export async function listDoctors(): Promise<Doctor[]> {
     }
     return items.filter(isDoctor).map(stripMeta);
   } catch (error) {
-    console.error("listDoctors failed:", error);
+    logOperationalError("reference-data", error, { op: "listDoctors" });
     return [];
   }
 }
@@ -140,7 +141,7 @@ export async function listCarriers(): Promise<Carrier[]> {
     }
     return items.filter(isCarrier).map(stripMeta);
   } catch (error) {
-    console.error("listCarriers failed:", error);
+    logOperationalError("reference-data", error, { op: "listCarriers" });
     return [];
   }
 }

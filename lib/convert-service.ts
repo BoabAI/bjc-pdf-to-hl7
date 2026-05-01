@@ -125,9 +125,6 @@ export async function convertPdf(request: ConvertRequest): Promise<ConvertResult
   }
 
   if (!extraction.success) {
-    if (warningsWithMailbox.length > 0) {
-      console.warn("PDF extraction warnings:", warningsWithMailbox);
-    }
     return {
       success: false,
       error:
