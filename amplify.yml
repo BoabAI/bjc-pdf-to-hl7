@@ -12,6 +12,7 @@ frontend:
         # runtime. Amplify env vars are NOT automatically passed to the Lambda runtime.
         - echo "AUTH_SECRET=$AUTH_SECRET" > .env.production
         - echo "AUTH_TRUST_HOST=$AUTH_TRUST_HOST" >> .env.production
+        - echo "AUTH_URL=$AUTH_URL" >> .env.production
         - echo "AZURE_AD_CLIENT_ID=$AZURE_AD_CLIENT_ID" >> .env.production
         - echo "AZURE_AD_CLIENT_SECRET=$AZURE_AD_CLIENT_SECRET" >> .env.production
         - echo "AZURE_AD_TENANT_ID=$AZURE_AD_TENANT_ID" >> .env.production
