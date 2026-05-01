@@ -220,17 +220,20 @@ describe("putDoctor / putCarrier", () => {
     expect(input.Item.value).toBe("POST");
   });
 
-  test("does not throw when DynamoDB rejects", async () => {
+  test("putDoctor propagates the DynamoDB error so callers can surface it", async () => {
     sendMock.mockRejectedValue(new Error("nope"));
-    let consoleErrorCalled = false;
-    console.error = (() => {
-      consoleErrorCalled = true;
-    }) as typeof console.error;
 
     await expect(
       putDoctor({ id: "x", name: "y", providerNumber: "z" })
-    ).resolves.toBeUndefined();
-    expect(consoleErrorCalled).toBe(true);
+    ).rejects.toThrow("nope");
+  });
+
+  test("putCarrier propagates the DynamoDB error so callers can surface it", async () => {
+    sendMock.mockRejectedValue(new Error("nope"));
+
+    await expect(
+      putCarrier({ id: "x", value: "v", label: "l" })
+    ).rejects.toThrow("nope");
   });
 });
 
@@ -263,15 +266,16 @@ describe("deleteDoctor / deleteCarrier", () => {
     expect(input.Key.id).toBe("car-id-1");
   });
 
-  test("does not throw when DynamoDB rejects", async () => {
+  test("deleteDoctor propagates the DynamoDB error so callers can surface it", async () => {
     sendMock.mockRejectedValue(new Error("nope"));
-    let consoleErrorCalled = false;
-    console.error = (() => {
-      consoleErrorCalled = true;
-    }) as typeof console.error;
 
-    await expect(deleteDoctor("x")).resolves.toBeUndefined();
-    expect(consoleErrorCalled).toBe(true);
+    await expect(deleteDoctor("x")).rejects.toThrow("nope");
+  });
+
+  test("deleteCarrier propagates the DynamoDB error so callers can surface it", async () => {
+    sendMock.mockRejectedValue(new Error("nope"));
+
+    await expect(deleteCarrier("x")).rejects.toThrow("nope");
   });
 });
 

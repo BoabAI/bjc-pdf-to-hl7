@@ -151,7 +151,15 @@ export const PUT = auth(async (request) => {
         { status: 400 }
       );
     }
-    await putDoctor(result.value);
+    try {
+      await putDoctor(result.value);
+    } catch (error) {
+      console.error("putDoctor failed:", error);
+      return NextResponse.json(
+        { success: false, error: "Failed to persist reference data" },
+        { status: 500 }
+      );
+    }
     return NextResponse.json({ success: true });
   }
 
@@ -163,7 +171,15 @@ export const PUT = auth(async (request) => {
         { status: 400 }
       );
     }
-    await putCarrier(result.value);
+    try {
+      await putCarrier(result.value);
+    } catch (error) {
+      console.error("putCarrier failed:", error);
+      return NextResponse.json(
+        { success: false, error: "Failed to persist reference data" },
+        { status: 500 }
+      );
+    }
     return NextResponse.json({ success: true });
   }
 
@@ -187,12 +203,28 @@ export const DELETE = auth(async (request) => {
   }
 
   if (kind === "DOCTOR") {
-    await deleteDoctor(id);
+    try {
+      await deleteDoctor(id);
+    } catch (error) {
+      console.error("deleteDoctor failed:", error);
+      return NextResponse.json(
+        { success: false, error: "Failed to persist reference data" },
+        { status: 500 }
+      );
+    }
     return NextResponse.json({ success: true });
   }
 
   if (kind === "CARRIER") {
-    await deleteCarrier(id);
+    try {
+      await deleteCarrier(id);
+    } catch (error) {
+      console.error("deleteCarrier failed:", error);
+      return NextResponse.json(
+        { success: false, error: "Failed to persist reference data" },
+        { status: 500 }
+      );
+    }
     return NextResponse.json({ success: true });
   }
 

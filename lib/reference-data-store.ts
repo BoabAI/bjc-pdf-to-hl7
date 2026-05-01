@@ -145,54 +145,38 @@ export async function listCarriers(): Promise<Carrier[]> {
   }
 }
 
-/** Upsert a single doctor. Errors are logged and swallowed. */
+/** Upsert a single doctor. Throws on DDB failure; caller is responsible for handling. */
 export async function putDoctor(doctor: Doctor): Promise<void> {
-  try {
-    const client = buildDocClient();
-    const item: DoctorRow = { kind: "DOCTOR", updatedAt: nowIso(), ...doctor };
-    await client.send(new PutCommand({ TableName: getTableName(), Item: item }));
-  } catch (error) {
-    console.error("putDoctor failed:", error);
-  }
+  const client = buildDocClient();
+  const item: DoctorRow = { kind: "DOCTOR", updatedAt: nowIso(), ...doctor };
+  await client.send(new PutCommand({ TableName: getTableName(), Item: item }));
 }
 
-/** Upsert a single carrier. Errors are logged and swallowed. */
+/** Upsert a single carrier. Throws on DDB failure; caller is responsible for handling. */
 export async function putCarrier(carrier: Carrier): Promise<void> {
-  try {
-    const client = buildDocClient();
-    const item: CarrierRow = { kind: "CARRIER", updatedAt: nowIso(), ...carrier };
-    await client.send(new PutCommand({ TableName: getTableName(), Item: item }));
-  } catch (error) {
-    console.error("putCarrier failed:", error);
-  }
+  const client = buildDocClient();
+  const item: CarrierRow = { kind: "CARRIER", updatedAt: nowIso(), ...carrier };
+  await client.send(new PutCommand({ TableName: getTableName(), Item: item }));
 }
 
-/** Remove a doctor by id. Errors are logged and swallowed. */
+/** Remove a doctor by id. Throws on DDB failure; caller is responsible for handling. */
 export async function deleteDoctor(id: string): Promise<void> {
-  try {
-    const client = buildDocClient();
-    await client.send(
-      new DeleteCommand({
-        TableName: getTableName(),
-        Key: { kind: "DOCTOR", id },
-      })
-    );
-  } catch (error) {
-    console.error("deleteDoctor failed:", error);
-  }
+  const client = buildDocClient();
+  await client.send(
+    new DeleteCommand({
+      TableName: getTableName(),
+      Key: { kind: "DOCTOR", id },
+    })
+  );
 }
 
-/** Remove a carrier by id. Errors are logged and swallowed. */
+/** Remove a carrier by id. Throws on DDB failure; caller is responsible for handling. */
 export async function deleteCarrier(id: string): Promise<void> {
-  try {
-    const client = buildDocClient();
-    await client.send(
-      new DeleteCommand({
-        TableName: getTableName(),
-        Key: { kind: "CARRIER", id },
-      })
-    );
-  } catch (error) {
-    console.error("deleteCarrier failed:", error);
-  }
+  const client = buildDocClient();
+  await client.send(
+    new DeleteCommand({
+      TableName: getTableName(),
+      Key: { kind: "CARRIER", id },
+    })
+  );
 }

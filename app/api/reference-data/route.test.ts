@@ -291,6 +291,41 @@ describe("PUT /api/reference-data — input validation hardening", () => {
   });
 });
 
+describe("PUT /api/reference-data — store error propagation", () => {
+  test("returns 500 when putDoctor rejects", async () => {
+    putDoctorMock.mockRejectedValueOnce(new Error("DDB throttled"));
+    const doctor = { id: "d1", name: "Dr New", providerNumber: "9999999Z" };
+    const response = await PUT(
+      makeRequest("", { method: "PUT", body: { kind: "DOCTOR", item: doctor } })
+    );
+    expect(response.status).toBe(500);
+    const body = await response.json();
+    expect(body).toEqual({
+      success: false,
+      error: "Failed to persist reference data",
+    });
+    // Don't leak raw error details
+    expect(JSON.stringify(body)).not.toContain("DDB throttled");
+    expect(putDoctorMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("returns 500 when putCarrier rejects", async () => {
+    putCarrierMock.mockRejectedValueOnce(new Error("DDB unavailable"));
+    const carrier = { id: "c1", value: "POST", label: "Post" };
+    const response = await PUT(
+      makeRequest("", { method: "PUT", body: { kind: "CARRIER", item: carrier } })
+    );
+    expect(response.status).toBe(500);
+    const body = await response.json();
+    expect(body).toEqual({
+      success: false,
+      error: "Failed to persist reference data",
+    });
+    expect(JSON.stringify(body)).not.toContain("DDB unavailable");
+    expect(putCarrierMock).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("DELETE /api/reference-data", () => {
   test("returns 401 without session", async () => {
     const response = await DELETE(
@@ -332,5 +367,35 @@ describe("DELETE /api/reference-data", () => {
     expect(response.status).toBe(400);
     expect(deleteDoctorMock).not.toHaveBeenCalled();
     expect(deleteCarrierMock).not.toHaveBeenCalled();
+  });
+
+  test("returns 500 when deleteDoctor rejects", async () => {
+    deleteDoctorMock.mockRejectedValueOnce(new Error("DDB conditional check failed"));
+    const response = await DELETE(
+      makeRequest("?kind=DOCTOR&id=d1", { method: "DELETE" })
+    );
+    expect(response.status).toBe(500);
+    const body = await response.json();
+    expect(body).toEqual({
+      success: false,
+      error: "Failed to persist reference data",
+    });
+    expect(JSON.stringify(body)).not.toContain("conditional check");
+    expect(deleteDoctorMock).toHaveBeenCalledWith("d1");
+  });
+
+  test("returns 500 when deleteCarrier rejects", async () => {
+    deleteCarrierMock.mockRejectedValueOnce(new Error("DDB throttled"));
+    const response = await DELETE(
+      makeRequest("?kind=CARRIER&id=c1", { method: "DELETE" })
+    );
+    expect(response.status).toBe(500);
+    const body = await response.json();
+    expect(body).toEqual({
+      success: false,
+      error: "Failed to persist reference data",
+    });
+    expect(JSON.stringify(body)).not.toContain("DDB throttled");
+    expect(deleteCarrierMock).toHaveBeenCalledWith("c1");
   });
 });
