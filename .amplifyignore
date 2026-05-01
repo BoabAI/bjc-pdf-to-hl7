@@ -57,6 +57,6 @@ yarn-error.log*
 # Python scripts
 *.py
 
-# Bun lockfiles (not used by npm)
-bun.lock
+# bun.lock is needed by Amplify's bun install --frozen-lockfile
+# (only the legacy binary lockfile is excluded)
 bun.lockb

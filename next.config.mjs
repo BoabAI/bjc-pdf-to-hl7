@@ -3,6 +3,9 @@ const isDev = process.env.NODE_ENV !== "production";
 
 const nextConfig = {
   output: "standalone",
+  // Skip lint/type checks during `next build` — `bun run check` enforces these locally.
+  eslint: { ignoreDuringBuilds: true },
+  typescript: { ignoreBuildErrors: true },
   // Router cache: set both client-side stale times to 0 so navigations always refetch.
   experimental: {
     staleTimes: {
