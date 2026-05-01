@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 // Whitelist of directories to include. Everything else under `docs/input PDF/`
 // (e.g. real consent forms in `originals/`, redacted real referrals) is
 // gitignored and may contain PHI — NEVER expose those through this endpoint.
-const SAFE_DIRS = ["mock-referrals", "addressee-scenarios", "results"] as const;
+const SAFE_DIRS = ["referrals", "addressees", "results"] as const;
 
 // Single-file allowlist for committed dummies that live in otherwise-PHI dirs.
 const SAFE_FILES: { dir: string; file: string }[] = [

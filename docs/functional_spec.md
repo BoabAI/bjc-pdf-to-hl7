@@ -790,9 +790,10 @@ Test PDFs live under `docs/input PDF/`:
 
 | Subdirectory | Purpose |
 |--------------|---------|
-| `mock-referrals/` | Five generated mock referral PDFs (`test_mock_referral1.pdf`–`5`) |
-| `addressee-scenarios/` | Three CC / addressee resolution scenarios (BJC primary, BJC in CC, both BJC) |
-| `originals/` | Sample original PDFs used as fixtures |
+| `referrals/` | Five generated mock referral PDFs (`referral_1.pdf`–`referral_5.pdf`) |
+| `addressees/` | Three CC / addressee resolution scenarios (BJC primary, BJC in CC, both BJC) |
+| `results/` | Four pathology / radiology result PDFs (`result_{1-4}_*.pdf`) plus `redacted-style/` mimics of real-world layouts |
+| `originals/` | Committed dummy referral plus a local-only real consent form |
 
 ---
 
@@ -898,7 +899,7 @@ bjc-pdf-to-hl7/
 |   |   +-- genie-hl7-input-format.md            Genie HL7 input requirements
 |   |   +-- genie-desktop-results-workflow.md    Genie desktop results research
 |   |   +-- sister-system-pdf-to-directory.md    Sister system reference
-|   +-- input PDF/                       Test PDF fixtures (mock-referrals/, addressee-scenarios/, originals/)
+|   +-- input PDF/                       Test PDF fixtures (referrals/, addressees/, results/, originals/)
 |   +-- archive/                         Historical / superseded docs
 +-- middleware.ts                        Auth + cache-control middleware
 +-- middleware.test.ts                   Middleware tests

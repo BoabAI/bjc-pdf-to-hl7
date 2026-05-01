@@ -71,7 +71,7 @@ type Scenario = PathologyScenario | RadiologyScenario;
 const SCENARIOS: Scenario[] = [
   {
     kind: "pathology",
-    filename: "test_result1_pathology_chemistry.pdf",
+    filename: "result_1_pathology_chemistry.pdf",
     description: "Pathology — U&E + LFT panel from Douglass Hanly Moir",
     labName: "Douglass Hanly Moir Pathology",
     labAddress: "14 Giffnock Avenue, Macquarie Park NSW 2113",
@@ -134,7 +134,7 @@ const SCENARIOS: Scenario[] = [
   },
   {
     kind: "pathology",
-    filename: "test_result2_pathology_microbiology.pdf",
+    filename: "result_2_pathology_microbiology.pdf",
     description: "Pathology — Urine MCS from Laverty Pathology",
     labName: "Laverty Pathology",
     labAddress: "60 Waterloo Road, Macquarie Park NSW 2113",
@@ -196,7 +196,7 @@ const SCENARIOS: Scenario[] = [
   },
   {
     kind: "radiology",
-    filename: "test_result3_radiology_mri.pdf",
+    filename: "result_3_radiology_mri.pdf",
     description: "Radiology — MRI right knee from PRP Diagnostic Imaging",
     providerName: "PRP Diagnostic Imaging",
     providerAddress: "Suite 12, 320 Victoria Avenue, Chatswood NSW 2067",
@@ -232,7 +232,7 @@ const SCENARIOS: Scenario[] = [
   },
   {
     kind: "radiology",
-    filename: "test_result4_radiology_ultrasound.pdf",
+    filename: "result_4_radiology_ultrasound.pdf",
     description: "Radiology — Abdominal ultrasound from I-MED Radiology",
     providerName: "I-MED Radiology Network",
     providerAddress: "Level 1, 22 Macquarie Street, Parramatta NSW 2150",

@@ -9,7 +9,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { extractPatientDataWithVision } from "../lib/vision-extractor";
 
-const ADDRESSEE_DIR = join(import.meta.dir, "..", "docs", "input PDF", "addressee-scenarios");
+const ADDRESSEE_DIR = join(import.meta.dir, "..", "docs", "input PDF", "addressees");
 
 const BJC_DOCTORS = [
   "Dr Irwin Lim",
@@ -21,19 +21,19 @@ const BJC_DOCTORS = [
 
 const SCENARIOS = [
   {
-    file: "test_addressee1_bjc_primary.pdf",
+    file: "addressee_1_bjc_primary.pdf",
     description: "BJC doctor as primary (no CC)",
     expectedAddressee: "Maundrell",
     expectedCC: null,
   },
   {
-    file: "test_addressee2_bjc_in_cc.pdf",
+    file: "addressee_2_bjc_in_cc.pdf",
     description: "External primary, BJC doctor in CC",
     expectedAddressee: "Lim",
     expectedCC: "Lim",
   },
   {
-    file: "test_addressee3_both_bjc.pdf",
+    file: "addressee_3_both_bjc.pdf",
     description: "Both primary and CC are BJC",
     expectedAddressee: "Ginges",
     expectedCC: "Chung",

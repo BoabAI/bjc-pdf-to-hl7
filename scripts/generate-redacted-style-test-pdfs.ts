@@ -874,27 +874,27 @@ function buildImedDexaLetter(): string {
 
 const SCENARIOS: Scenario[] = [
   {
-    filename: "test_redacted1_dhm_haematology_serial.pdf",
+    filename: "redacted_1_dhm_haematology_serial.pdf",
     description: "DHM haematology serial trend (5 dates) → Dr Herman Lau",
     build: buildDhmSerial,
   },
   {
-    filename: "test_redacted2_mmi_mri_brain.pdf",
+    filename: "redacted_2_mmi_mri_brain.pdf",
     description: "MMI MRI brain, multi-page, To/Copies-To header → Dr Kate Celkys",
     build: buildMmiMri,
   },
   {
-    filename: "test_redacted3_prp_ct_xray_combined.pdf",
+    filename: "redacted_3_prp_ct_xray_combined.pdf",
     description: "PRP CT lumbar + X-ray wrist combined → Dr Kate Celkys",
     build: buildPrpCombined,
   },
   {
-    filename: "test_redacted4_nswhp_multipanel_fax.pdf",
+    filename: "redacted_4_nswhp_multipanel_fax.pdf",
     description: "NSW Health Pathology Hunter, 3 panels, sideways labels → Dr Elaine Ng",
     build: buildNswhpMultiPanel,
   },
   {
-    filename: "test_redacted5_imed_dexa_letter.pdf",
+    filename: "redacted_5_imed_dexa_letter.pdf",
     description: "I-MED DEXA letter, addressee external, CC = Dr Pauline Habib",
     build: buildImedDexaLetter,
   },

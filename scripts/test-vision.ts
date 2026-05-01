@@ -10,14 +10,14 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { extractPatientDataWithVision } from "../lib/vision-extractor";
 
-const MOCK_DIR = join(import.meta.dir, "..", "docs", "input PDF", "mock-referrals");
+const MOCK_DIR = join(import.meta.dir, "..", "docs", "input PDF", "referrals");
 
 const EXPECTED = [
-  { file: "test_mock_referral1.pdf", firstName: "James", lastName: "MITCHELL", dob: "18/09/1978" },
-  { file: "test_mock_referral2.pdf", firstName: "Patricia Anne", lastName: "Henderson", dob: "03/11/1956" },
-  { file: "test_mock_referral3.pdf", firstName: "Karen", lastName: "Phillips", dob: "14/07/1982" },
-  { file: "test_mock_referral4.pdf", firstName: "Amira", lastName: "Karim", dob: "08/11/1985" },
-  { file: "test_mock_referral5.pdf", firstName: "Thomas", lastName: "Whitaker", dob: "15/06/1948" },
+  { file: "referral_1.pdf", firstName: "James", lastName: "MITCHELL", dob: "18/09/1978" },
+  { file: "referral_2.pdf", firstName: "Patricia Anne", lastName: "Henderson", dob: "03/11/1956" },
+  { file: "referral_3.pdf", firstName: "Karen", lastName: "Phillips", dob: "14/07/1982" },
+  { file: "referral_4.pdf", firstName: "Amira", lastName: "Karim", dob: "08/11/1985" },
+  { file: "referral_5.pdf", firstName: "Thomas", lastName: "Whitaker", dob: "15/06/1948" },
 ];
 
 console.log("=".repeat(70));
