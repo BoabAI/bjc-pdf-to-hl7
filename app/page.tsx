@@ -51,36 +51,6 @@ export default function Home() {
     []
   );
 
-  const detectDocumentType = useCallback(
-    async (entry: FileEntry) => {
-      updateEntry(entry.id, { status: "detecting" });
-      try {
-        const formData = new FormData();
-        formData.append("pdf", entry.file);
-        formData.append("detectOnly", "true");
-
-        const response = await fetch("/api/convert", {
-          method: "POST",
-          body: formData,
-        });
-
-        const data = await response.json();
-        if (data.success && isDocumentType(data.documentType)) {
-          updateEntry(entry.id, {
-            detectedType: data.documentType,
-            status: "ready",
-          });
-        } else {
-          updateEntry(entry.id, { status: "ready" });
-        }
-      } catch (error) {
-        console.error("Detection error:", error);
-        updateEntry(entry.id, { status: "ready" });
-      }
-    },
-    [updateEntry]
-  );
-
   const addFiles = useCallback(
     (incoming: File[]) => {
       const pdfs = incoming.filter((f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"));
@@ -94,26 +64,20 @@ export default function Home() {
         id: newId(),
         file,
         detectedType: null,
-        status: "queued",
+        status: "ready",
       }));
 
       setEntries((prev) => {
         const next = [...prev, ...newEntries];
-        // Only pre-detect when there will be exactly one file in the queue.
-        // Multi-file batches skip the upfront detection LLM call — the
-        // convert step classifies each file anyway, so pre-detection just
-        // doubles the Bedrock cost without changing the outcome.
-        if (next.length === 1 && newEntries.length === 1) {
-          void detectDocumentType(newEntries[0]);
-        } else if (next.length > 1) {
-          // Reset any prior single-file override so a multi-file batch
-          // always classifies per file.
+        // Reset any prior single-file override so a fresh batch always
+        // classifies per file at convert time.
+        if (next.length > 1) {
           setDocumentType("auto");
         }
         return next;
       });
     },
-    [detectDocumentType]
+    []
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -168,7 +132,14 @@ export default function Home() {
       });
       const data: ConversionResult = await response.json();
       if (data.success) {
-        updateEntry(entry.id, { status: "done", result: data });
+        const detected = isDocumentType(data.documentType)
+          ? data.documentType
+          : entry.detectedType;
+        updateEntry(entry.id, {
+          status: "done",
+          result: data,
+          detectedType: detected,
+        });
       } else {
         updateEntry(entry.id, {
           status: "failed",
@@ -228,7 +199,7 @@ export default function Home() {
   };
 
   const pendingCount = entries.filter(
-    (e) => e.status === "queued" || e.status === "ready" || e.status === "detecting"
+    (e) => e.status === "queued" || e.status === "ready"
   ).length;
   const doneCount = entries.filter((e) => e.status === "done").length;
   const failedCount = entries.filter((e) => e.status === "failed").length;
@@ -236,9 +207,9 @@ export default function Home() {
   const showSummary =
     entries.length > 0 && completedCount > 0 && pendingCount === 0 && !isConverting;
 
-  // Use the first detected type for the shared options panel
+  // Use the first detected type for the shared options panel (populated
+  // post-conversion since pre-detection has been removed to halve Bedrock cost).
   const firstDetected = entries.find((e) => e.detectedType !== null)?.detectedType ?? null;
-  const anyDetecting = entries.some((e) => e.status === "detecting");
 
   return (
     <>
@@ -341,7 +312,6 @@ export default function Home() {
               <ConversionOptions
                 documentType={documentType}
                 detectedType={firstDetected}
-                isDetecting={anyDetecting}
                 showDocumentType={entries.length === 1}
                 carrier={carrier}
                 carriers={carriers}

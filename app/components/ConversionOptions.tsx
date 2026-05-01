@@ -11,7 +11,6 @@ import { CogIcon } from "./ui/icons";
 interface ConversionOptionsProps {
   documentType: DocumentTypeOption;
   detectedType: string | null;
-  isDetecting: boolean;
   /** Hide the per-batch Document Type override (true for single-file mode). */
   showDocumentType?: boolean;
   carrier: string;
@@ -30,7 +29,6 @@ interface ConversionOptionsProps {
 export function ConversionOptions({
   documentType,
   detectedType,
-  isDetecting,
   showDocumentType = true,
   carrier,
   carriers,
@@ -52,16 +50,7 @@ export function ConversionOptions({
         <div className="space-y-1.5">
           <label htmlFor="documentType" className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
             Document Type
-            {isDetecting && (
-              <span className="badge badge-blue text-[11px]">
-                <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                detecting
-              </span>
-            )}
-            {detectedType && !isDetecting && (
+            {detectedType && (
               <span className="badge badge-success text-[11px]">auto-detected</span>
             )}
           </label>
@@ -69,8 +58,7 @@ export function ConversionOptions({
             id="documentType"
             value={documentType}
             onChange={(e) => onDocumentTypeChange(e.target.value as DocumentTypeOption)}
-            disabled={isDetecting}
-            className="select-field w-full max-w-xs disabled:opacity-50 disabled:cursor-wait"
+            className="select-field w-full max-w-xs"
           >
             <option value="auto">Auto-detect</option>
             <option value="consent_form">Consent Form</option>

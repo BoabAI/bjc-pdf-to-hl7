@@ -8,7 +8,6 @@ import type { DocumentType } from "@/lib/domain/types";
 
 export type FileEntryStatus =
   | "queued"
-  | "detecting"
   | "ready"
   | "converting"
   | "done"
@@ -30,7 +29,6 @@ interface FileQueueItemProps {
 
 const STATUS_LABELS: Record<FileEntryStatus, string> = {
   queued: "Queued",
-  detecting: "Detecting…",
   ready: "Ready",
   converting: "Converting…",
   done: "Done",
@@ -39,8 +37,6 @@ const STATUS_LABELS: Record<FileEntryStatus, string> = {
 
 const STATUS_BADGES: Record<FileEntryStatus, string> = {
   queued: "bg-[var(--bg-inner)] text-[var(--text-muted)]",
-  detecting:
-    "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
   ready: "bg-[var(--bg-inner)] text-[var(--text-secondary)]",
   converting:
     "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
