@@ -1,0 +1,23 @@
+{
+  "name": "bjc-explainer-video",
+  "private": true,
+  "scripts": {
+    "studio": "remotion studio",
+    "render": "remotion render ExplainerVideo --output ../../../output/explainer-video.mp4"
+  },
+  "dependencies": {
+    "remotion": "^4.0.300",
+    "@remotion/cli": "^4.0.300",
+    "@remotion/google-fonts": "^4.0.300",
+    "@remotion/transitions": "^4.0.300",
+    "@remotion/light-leaks": "^4.0.300",
+    "@remotion/media-utils": "^4.0.300",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "typescript": "^5.5.0"
+  }
+}

@@ -1,10 +1,10 @@
 {
   "company": "SMEC AI",
-  "productName": "BJC PDF-to-HL7 Automated Workflow",
+  "productName": "PDF to HL7 Converter — UI walkthrough",
   "clientName": "BJC Health",
   "logoPath": "logo.png",
   "url": "smecai.au",
-  "tagline": "From inbox to Genie. Automatically.",
+  "tagline": "Drop, convert, download.",
   "colors": {
     "bgPrimary": "#0d0618",
     "bgSecondary": "#1a0a2e",
@@ -29,11 +29,12 @@
     "layoutStyle": "editorial-centered"
   },
   "voice": {
-    "id": "spZS54yMfsj80VHtUQFY",
-    "name": "Chris - Australian Executive",
-    "stability": 0.6,
+    "id": "ys3XeJJA4ArWMhRpcX1D",
+    "name": "Jess - Relaxed, Conversational Australian Accent",
+    "modelId": "eleven_multilingual_v2",
+    "stability": 0.55,
     "similarityBoost": 0.8,
     "style": 0.15,
-    "speed": 1.05
+    "speed": 0.97
   }
 }

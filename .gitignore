@@ -76,3 +76,8 @@ supabase/.temp/
 # AWS Amplify
 amplify-builds/
 aws-exports.js
+
+# Explainer video pipeline (Remotion subproject)
+scripts/video/remotion/node_modules/
+scripts/video/remotion/package-lock.json
+scripts/video/remotion/.remotion/

@@ -1,0 +1,58 @@
+[
+  {
+    "id": "01-drop-zone",
+    "file": "screenshots/01-drop-zone.png",
+    "label": "Drop zone",
+    "url": "app.example.com",
+    "shotArchetype": "establish",
+    "zoom": 2.0
+  },
+  {
+    "id": "02-supports",
+    "file": "screenshots/02-supports.png",
+    "label": "Document types",
+    "url": "app.example.com",
+    "shotArchetype": "detail-crop",
+    "zoom": 2
+  },
+  {
+    "id": "03-queue",
+    "file": "screenshots/03-queue.png",
+    "label": "File queue",
+    "url": "app.example.com",
+    "shotArchetype": "result-state",
+    "zoom": 1.6
+  },
+  {
+    "id": "04-options",
+    "file": "screenshots/04-options.png",
+    "label": "Options",
+    "url": "app.example.com",
+    "shotArchetype": "detail-crop",
+    "zoom": 1.8
+  },
+  {
+    "id": "05-converting",
+    "file": "screenshots/05-converting.png",
+    "label": "Converting",
+    "url": "app.example.com",
+    "shotArchetype": "push-in",
+    "zoom": 1.6
+  },
+  {
+    "id": "06-result",
+    "file": "screenshots/06-result.png",
+    "label": "Routing",
+    "url": "app.example.com",
+    "shotArchetype": "result-state",
+    "zoom": 1.6
+  },
+  {
+    "id": "07-download",
+    "file": "screenshots/07-download.png",
+    "label": "Download",
+    "url": "app.example.com",
+    "shotArchetype": "detail-crop",
+    "zoom": 2
+  }
+]

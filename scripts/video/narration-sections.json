@@ -1,38 +1,45 @@
 [
   {
     "sceneId": "title",
-    "text": "B J C Health referral automation. From email inbox to Genie, with zero manual handling."
+    "text": "How to use the Smeck A-I, PDF to HL7 converter."
   },
   {
-    "sceneId": "problem",
-    "text": "Processing hundreds of referral letters each month takes hours of staff time. Reading each P D F, entering patient details, filing to the right doctor. It all adds up."
+    "sceneId": "step-drop",
+    "screenshotId": "01-drop-zone",
+    "text": "On the home screen, drag a PDF into the drop zone, or click to browse. Up to ten files at once, ten megabytes each."
   },
   {
-    "sceneId": "transition",
-    "text": "Here's how the automation changes that."
+    "sceneId": "step-types",
+    "screenshotId": "02-supports",
+    "text": "The converter handles six document types. Referrals — both specialist and GP. Results — pathology and radiology. Plus consent forms, and any generic medical PDF."
   },
   {
-    "sceneId": "demo-01",
-    "text": "Referral emails arrive in a dedicated mailbox. Every fifteen minutes, the system picks up each new P D F attachment automatically."
+    "sceneId": "step-queue",
+    "screenshotId": "03-queue",
+    "text": "Files appear in the queue, ready to convert. For a single file, you can override the document type manually before converting."
   },
   {
-    "sceneId": "demo-02",
-    "text": "A I reads the letter and extracts the patient's name, date of birth, Medicare number, the referring doctor, and which B J C Health doctor should receive it."
+    "sceneId": "step-options",
+    "screenshotId": "04-options",
+    "text": "Open Conversion Options to set the carrier, choose auto-file or queue-for-review, and optionally route the message to a specific BJC Health doctor."
   },
   {
-    "sceneId": "demo-03",
-    "text": "A Genie-compatible H L 7 file is created with patient details and the original P D F attached. It's saved directly to the Genie import folder on the server."
+    "sceneId": "step-convert",
+    "screenshotId": "05-converting",
+    "text": "Click Convert. Each PDF goes through Bedrock vision — patient details and routing are extracted, and an HL7 version two point four message is built."
   },
   {
-    "sceneId": "demo-04",
-    "text": "Processed emails move to the Linked folder automatically. If the system can't read a letter, it goes to Review, and staff receive a notification."
+    "sceneId": "step-routing",
+    "screenshotId": "06-result",
+    "text": "Every HL7 file lands in the same Genie drop folder. The message itself tells Genie where to file it — incoming letters for referrals, pathology, or radiology — based on the document type."
   },
   {
-    "sceneId": "security",
-    "text": "No patient documents are stored in the cloud. Everything is processed in memory, in Australian data centres, and discarded immediately after conversion."
+    "sceneId": "step-download",
+    "screenshotId": "07-download",
+    "text": "Download the HL7 file from the queue, or let the auto-filer drop it straight into Genie."
   },
   {
     "sceneId": "cta",
-    "text": "Built by SMECK A I for B J C Health."
+    "text": "That's it. Drop, convert, download. From PDF to Genie in seconds."
   }
 ]
