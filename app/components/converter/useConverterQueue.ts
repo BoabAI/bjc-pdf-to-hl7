@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { isDocumentType } from "@/lib/conversion-config";
+import { MAX_PDF_SIZE_BYTES, isDocumentType } from "@/lib/conversion-config";
 import type { FileEntry } from "../FileQueueItem";
 import { convertPdf, type ConvertOptions } from "./convertClient";
 
@@ -15,6 +15,10 @@ function isPdf(file: File): boolean {
   return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
 }
 
+function isWithinSizeLimit(file: File): boolean {
+  return file.size <= MAX_PDF_SIZE_BYTES;
+}
+
 interface UseConverterQueueOptions {
   /** Resolves the per-conversion request options at submit time. */
   resolveOptions: () => ConvertOptions;
@@ -26,8 +30,10 @@ interface UseConverterQueueOptions {
 export interface UseConverterQueueResult {
   entries: FileEntry[];
   isConverting: boolean;
-  /** Count of non-PDF files dropped on the most recent `addFiles` call. */
+  /** Cumulative count of non-PDF files dropped since the last dismissal. */
   skippedNonPdf: number;
+  /** Cumulative count of PDFs rejected for exceeding MAX_PDF_SIZE_BYTES. */
+  skippedOversize: number;
   /** Clears the skipped-files notice. */
   clearSkippedNotice: () => void;
   addFiles: (files: File[]) => void;
@@ -46,6 +52,7 @@ export function useConverterQueue(
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [isConverting, setIsConverting] = useState(false);
   const [skippedNonPdf, setSkippedNonPdf] = useState(0);
+  const [skippedOversize, setSkippedOversize] = useState(0);
 
   const updateEntry = useCallback(
     (id: string, patch: Partial<FileEntry>) => {
@@ -59,13 +66,18 @@ export function useConverterQueue(
   const addFiles = useCallback(
     (incoming: File[]) => {
       const pdfs = incoming.filter(isPdf);
-      const skipped = incoming.length - pdfs.length;
-      if (skipped > 0) {
-        setSkippedNonPdf((prev) => prev + skipped);
+      const nonPdfSkipped = incoming.length - pdfs.length;
+      const accepted = pdfs.filter(isWithinSizeLimit);
+      const oversizeSkipped = pdfs.length - accepted.length;
+      if (nonPdfSkipped > 0) {
+        setSkippedNonPdf((prev) => prev + nonPdfSkipped);
       }
-      if (pdfs.length === 0) return;
+      if (oversizeSkipped > 0) {
+        setSkippedOversize((prev) => prev + oversizeSkipped);
+      }
+      if (accepted.length === 0) return;
 
-      const newEntries: FileEntry[] = pdfs.map((file) => ({
+      const newEntries: FileEntry[] = accepted.map((file) => ({
         id: newId(),
         file,
         detectedType: null,
@@ -85,6 +97,7 @@ export function useConverterQueue(
 
   const clearSkippedNotice = useCallback(() => {
     setSkippedNonPdf(0);
+    setSkippedOversize(0);
   }, []);
 
   const removeEntry = useCallback((id: string) => {
@@ -94,6 +107,7 @@ export function useConverterQueue(
   const resetQueue = useCallback(() => {
     setEntries([]);
     setSkippedNonPdf(0);
+    setSkippedOversize(0);
   }, []);
 
   const convertEntry = useCallback(
@@ -148,6 +162,7 @@ export function useConverterQueue(
     entries,
     isConverting,
     skippedNonPdf,
+    skippedOversize,
     clearSkippedNotice,
     addFiles,
     removeEntry,

@@ -27,9 +27,15 @@ export function AuditDateRangeHeader({
   onToChange,
 }: AuditDateRangeHeaderProps) {
   return (
-    <header className="card p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    // `<section>` rather than `<header>` — the page already has a top-level
+    // `<header>` (AppNav). Two banner landmarks per page is a screen-reader
+    // smell; this band is page content, not site chrome.
+    <section
+      aria-labelledby="audit-range-title"
+      className="card p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4"
+    >
       <div>
-        <h1 className="text-2xl font-bold text-[var(--text-primary)]">{title}</h1>
+        <h1 id="audit-range-title" className="text-2xl font-bold text-[var(--text-primary)]">{title}</h1>
         <p className="text-sm text-[var(--text-secondary)] mt-1">{subtitle}</p>
       </div>
       <div className="flex flex-wrap items-end gap-3">
@@ -67,6 +73,6 @@ export function AuditDateRangeHeader({
           />
         </div>
       </div>
-    </header>
+    </section>
   );
 }

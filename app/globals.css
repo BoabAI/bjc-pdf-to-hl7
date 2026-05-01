@@ -148,6 +148,23 @@ body::before {
   background: var(--success-bg);
 }
 
+/* ── Focus ring (a11y — keyboard nav) ──
+ * Use :focus-visible so mouse clicks don't show a ring, but Tab/keyboard does.
+ * Applied broadly to interactive elements that don't already have their own
+ * focus styling (.input-field, .select-field, .checkbox-custom handle their own).
+ */
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-success:focus-visible,
+.icon-btn:focus-visible,
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--bjc-blue);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
 /* ── Buttons ── */
 .btn-primary {
   background: var(--bjc-blue);

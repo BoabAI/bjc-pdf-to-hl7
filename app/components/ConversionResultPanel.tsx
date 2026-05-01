@@ -6,14 +6,12 @@ interface ConversionResultPanelProps {
   result: ConvertResponse;
   missingPatientData: boolean;
   onDownload: () => void;
-  onReset: () => void;
 }
 
 export function ConversionResultPanel({
   result,
   missingPatientData,
   onDownload,
-  onReset,
 }: ConversionResultPanelProps) {
   // The convert-service stitches a duplicate "Mailbox/content mismatch" string
   // into `warnings` whenever `mailboxDisagreement` is true. We render the
@@ -42,12 +40,6 @@ export function ConversionResultPanel({
 
         {result.mailboxDisagreement && <MailboxDisagreementCallout />}
         {visibleWarnings.length > 0 && <WarningList warnings={visibleWarnings} />}
-
-        <div className="flex gap-3 justify-center">
-          <button onClick={onReset} className="btn-primary">
-            Try Another File
-          </button>
-        </div>
       </div>
     );
   }
@@ -105,16 +97,13 @@ export function ConversionResultPanel({
       {result.mailboxDisagreement && <MailboxDisagreementCallout />}
       {visibleWarnings.length > 0 && <WarningList warnings={visibleWarnings} />}
 
-      <div className="flex gap-3 justify-center">
-        {!missingPatientData && (
+      {!missingPatientData && (
+        <div className="flex gap-3 justify-center">
           <button onClick={onDownload} className="btn-success">
             Download HL7 File
           </button>
-        )}
-        <button onClick={onReset} className="btn-secondary">
-          Convert Another
-        </button>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

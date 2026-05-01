@@ -33,6 +33,13 @@ function isValidProviderNumber(value: string): boolean {
   return PROVIDER_NUMBER_RE.test(value);
 }
 
+// Sanity caps to prevent absurd payloads (a 297-char doctor name was accepted
+// before this was added). The HL7 spec limits some of these fields, but we
+// pick generous human-friendly bounds rather than tight HL7 lengths.
+const MAX_DOCTOR_NAME_LEN = 100;
+const MAX_CARRIER_VALUE_LEN = 20;
+const MAX_CARRIER_LABEL_LEN = 60;
+
 type ValidatedDoctor = { ok: true; value: Doctor } | { ok: false; error: string };
 type ValidatedCarrier = { ok: true; value: Carrier } | { ok: false; error: string };
 
@@ -74,6 +81,12 @@ function validateDoctor(value: unknown): ValidatedDoctor {
         "Invalid doctor payload: name must not contain HL7 separators or control characters",
     };
   }
+  if (value.name.length > MAX_DOCTOR_NAME_LEN) {
+    return {
+      ok: false,
+      error: `Invalid doctor payload: name must be ${MAX_DOCTOR_NAME_LEN} characters or fewer`,
+    };
+  }
   return { ok: true, value };
 }
 
@@ -107,6 +120,18 @@ function validateCarrier(value: unknown): ValidatedCarrier {
       ok: false,
       error:
         "Invalid carrier payload: label must not contain HL7 separators or control characters",
+    };
+  }
+  if (value.value.length > MAX_CARRIER_VALUE_LEN) {
+    return {
+      ok: false,
+      error: `Invalid carrier payload: value must be ${MAX_CARRIER_VALUE_LEN} characters or fewer`,
+    };
+  }
+  if (value.label.length > MAX_CARRIER_LABEL_LEN) {
+    return {
+      ok: false,
+      error: `Invalid carrier payload: label must be ${MAX_CARRIER_LABEL_LEN} characters or fewer`,
     };
   }
   return { ok: true, value };

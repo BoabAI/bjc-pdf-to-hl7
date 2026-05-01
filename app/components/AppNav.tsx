@@ -46,8 +46,12 @@ export function AppNav() {
         })}
         {userEmail && (
           <div className="ml-auto flex items-center gap-3">
+            {/* Hide email on narrow viewports — at < 640px, the nav already
+             *  wraps onto multiple rows. Keeping the email visible eats a
+             *  third row for marginal value; the title attribute on the
+             *  Sign out button preserves discoverability. */}
             <span
-              className="text-xs text-[var(--text-muted)] truncate max-w-[220px]"
+              className="hidden sm:inline text-xs text-[var(--text-muted)] truncate max-w-[220px]"
               title={userEmail}
             >
               {userEmail}
@@ -56,6 +60,7 @@ export function AppNav() {
               type="button"
               onClick={() => signOut({ callbackUrl: "/login" })}
               className="px-3 py-1.5 rounded-lg text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-colors"
+              title={`Signed in as ${userEmail}. Click to sign out.`}
             >
               Sign out
             </button>

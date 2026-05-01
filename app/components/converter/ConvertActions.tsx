@@ -39,7 +39,7 @@ export function ConvertActions({
       <button
         onClick={onReset}
         disabled={isConverting}
-        className="text-xs text-[var(--text-muted)] hover:text-[var(--error)] transition-colors disabled:opacity-50"
+        className="text-sm text-[var(--text-muted)] hover:text-[var(--error)] transition-colors disabled:opacity-50 px-4 py-2 min-h-[44px]"
       >
         Clear all
       </button>

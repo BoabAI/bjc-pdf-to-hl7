@@ -138,9 +138,9 @@ function BreakdownPie({ title, data }: BreakdownPieProps): JSX.Element {
         <span className="w-7 h-7 rounded-md bg-[var(--blue-50)] text-[var(--bjc-blue)] flex items-center justify-center">
           <ChartPieIcon className="w-3.5 h-3.5" />
         </span>
-        <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+        <h2 className="text-sm font-semibold text-[var(--text-primary)]">
           {title}
-        </h3>
+        </h2>
       </div>
       {total === 0 ? (
         <p className="text-sm text-[var(--text-muted)] py-8 text-center">

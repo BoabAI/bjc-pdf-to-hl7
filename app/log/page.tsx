@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { AppNav } from "../components/AppNav";
 import { LogoStrip } from "../components/LogoStrip";
 import { SectionHeader } from "../components/ui/SectionHeader";
@@ -14,6 +14,29 @@ import {
 } from "../components/auditShared";
 import { AuditDateRangeHeader } from "../components/audit/AuditDateRangeHeader";
 import { AuditPageState } from "../components/audit/AuditPageState";
+
+type SortKey =
+  | "ts"
+  | "patientInitials"
+  | "documentType"
+  | "source"
+  | "outcome"
+  | "filenameHash"
+  | "warningCount";
+type SortDir = "asc" | "desc";
+
+function compareRows(a: AuditRow, b: AuditRow, key: SortKey): number {
+  const av = a[key];
+  const bv = b[key];
+  // Treat undefined/null as the "smallest" value so blanks group at the
+  // bottom on desc sort and the top on asc — matches user expectation that
+  // missing values aren't louder than real ones.
+  if (av === undefined && bv === undefined) return 0;
+  if (av === undefined) return 1;
+  if (bv === undefined) return -1;
+  if (typeof av === "number" && typeof bv === "number") return av - bv;
+  return String(av).localeCompare(String(bv));
+}
 
 function csvEscape(value: string | number | undefined | null): string {
   if (value === undefined || value === null) return "";
@@ -63,8 +86,29 @@ export default function LogPage(): JSX.Element {
     today
   );
 
+  const [sortKey, setSortKey] = useState<SortKey>("ts");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  const sortedRows = useMemo(() => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...rows].sort((a, b) => compareRows(a, b, sortKey) * dir);
+  }, [rows, sortKey, sortDir]);
+
+  const toggleSort = useCallback(
+    (key: SortKey) => {
+      if (sortKey === key) {
+        setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+      } else {
+        setSortKey(key);
+        // Newest first feels right for ts; ascending feels right elsewhere.
+        setSortDir(key === "ts" || key === "warningCount" ? "desc" : "asc");
+      }
+    },
+    [sortKey]
+  );
+
   const handleDownloadCsv = useCallback(() => {
-    const csv = buildCsv(rows);
+    const csv = buildCsv(sortedRows);
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -74,9 +118,9 @@ export default function LogPage(): JSX.Element {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, [rows, from, to]);
+  }, [sortedRows, from, to]);
 
-  const hasRows = rows.length > 0;
+  const hasRows = sortedRows.length > 0;
 
   return (
     <>
@@ -119,17 +163,17 @@ export default function LogPage(): JSX.Element {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-[var(--text-secondary)] border-b border-[var(--border-light)]">
-                    <th className="py-2 pr-4 font-medium">Time</th>
-                    <th className="py-2 pr-4 font-medium">Patient</th>
-                    <th className="py-2 pr-4 font-medium">Doc Type</th>
-                    <th className="py-2 pr-4 font-medium">Source</th>
-                    <th className="py-2 pr-4 font-medium">Outcome</th>
-                    <th className="py-2 pr-4 font-medium">Filename Hash</th>
-                    <th className="py-2 pr-4 font-medium">Warnings</th>
+                    <SortableHeader label="Time"          sortKey="ts"               currentKey={sortKey} dir={sortDir} onClick={toggleSort} />
+                    <SortableHeader label="Patient"       sortKey="patientInitials"  currentKey={sortKey} dir={sortDir} onClick={toggleSort} />
+                    <SortableHeader label="Doc Type"      sortKey="documentType"     currentKey={sortKey} dir={sortDir} onClick={toggleSort} />
+                    <SortableHeader label="Source"        sortKey="source"           currentKey={sortKey} dir={sortDir} onClick={toggleSort} />
+                    <SortableHeader label="Outcome"       sortKey="outcome"          currentKey={sortKey} dir={sortDir} onClick={toggleSort} />
+                    <SortableHeader label="Filename Hash" sortKey="filenameHash"     currentKey={sortKey} dir={sortDir} onClick={toggleSort} />
+                    <SortableHeader label="Warnings"      sortKey="warningCount"     currentKey={sortKey} dir={sortDir} onClick={toggleSort} />
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row) => (
+                  {sortedRows.map((row) => (
                     <tr
                       key={row.ts}
                       className="border-b border-[var(--border-light)] hover:bg-[var(--bg-hover)]"
@@ -172,5 +216,46 @@ export default function LogPage(): JSX.Element {
         </div>
       </main>
     </>
+  );
+}
+
+interface SortableHeaderProps {
+  label: string;
+  sortKey: SortKey;
+  currentKey: SortKey;
+  dir: SortDir;
+  onClick: (key: SortKey) => void;
+}
+
+function SortableHeader({
+  label,
+  sortKey,
+  currentKey,
+  dir,
+  onClick,
+}: SortableHeaderProps) {
+  const active = currentKey === sortKey;
+  const ariaSort: "ascending" | "descending" | "none" = active
+    ? dir === "asc"
+      ? "ascending"
+      : "descending"
+    : "none";
+
+  return (
+    <th aria-sort={ariaSort} className="py-2 pr-4 font-medium">
+      <button
+        type="button"
+        onClick={() => onClick(sortKey)}
+        className={
+          "inline-flex items-center gap-1 -mx-1 px-1 rounded hover:text-[var(--text-primary)] " +
+          (active ? "text-[var(--text-primary)]" : "")
+        }
+      >
+        {label}
+        <span aria-hidden="true" className="text-[var(--text-faint)] text-xs leading-none">
+          {active ? (dir === "asc" ? "▲" : "▼") : "↕"}
+        </span>
+      </button>
+    </th>
   );
 }

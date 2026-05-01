@@ -46,7 +46,7 @@ export default function Home() {
     // A multi-file batch should fall back to per-file auto-classification.
     onMultiFileBatch: () => setDocumentType("auto"),
   });
-  const { entries, isConverting, skippedNonPdf } = queue;
+  const { entries, isConverting, skippedNonPdf, skippedOversize } = queue;
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -146,13 +146,23 @@ export default function Home() {
                 </div>
               )}
 
-              {skippedNonPdf > 0 && (
+              {(skippedNonPdf > 0 || skippedOversize > 0) && (
                 <div
                   role="status"
                   className="flex items-start justify-between gap-3 p-3 rounded-md border border-[var(--border-light)] bg-[var(--bg-inner)] text-xs text-[var(--text-secondary)]"
                 >
                   <span>
-                    {skippedNonPdf} file{skippedNonPdf === 1 ? "" : "s"} skipped — PDFs only.
+                    {skippedNonPdf > 0 && (
+                      <>
+                        {skippedNonPdf} file{skippedNonPdf === 1 ? "" : "s"} skipped — PDFs only.
+                      </>
+                    )}
+                    {skippedNonPdf > 0 && skippedOversize > 0 && " "}
+                    {skippedOversize > 0 && (
+                      <>
+                        {skippedOversize} file{skippedOversize === 1 ? "" : "s"} skipped — over 10 MB limit.
+                      </>
+                    )}
                   </span>
                   <button
                     onClick={queue.clearSkippedNotice}

@@ -101,6 +101,7 @@ function DoctorRow({
             }}
             className="input-field w-full text-sm py-1.5"
             placeholder="Dr First Last"
+            maxLength={100}
           />
         </label>
         <label className="block">
@@ -117,6 +118,7 @@ function DoctorRow({
             }}
             className="input-field w-full text-sm font-mono py-1.5"
             placeholder="9000001Z"
+            maxLength={12}
           />
         </label>
         {duplicate && (
@@ -232,6 +234,7 @@ function CarrierRow({
             }}
             className="input-field w-full text-sm font-mono uppercase py-1.5"
             placeholder="SMECAI"
+            maxLength={20}
           />
         </label>
         <label className="block">
@@ -248,6 +251,7 @@ function CarrierRow({
             }}
             className="input-field w-full text-sm py-1.5"
             placeholder="SMEC AI"
+            maxLength={60}
           />
         </label>
         {duplicate && (
@@ -375,6 +379,7 @@ export function ReferenceDataTab({
             onChange={(e) => setNewDoctorName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && submitDoctor()}
             className="input-field w-full text-sm"
+            maxLength={100}
           />
           <div className="flex gap-2">
             <input
@@ -384,6 +389,7 @@ export function ReferenceDataTab({
               onChange={(e) => setNewDoctorProvider(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && submitDoctor()}
               className="input-field flex-1 text-sm font-mono"
+              maxLength={12}
             />
             <button
               onClick={submitDoctor}
@@ -454,6 +460,7 @@ export function ReferenceDataTab({
             onChange={(e) => setNewCarrierValue(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && submitCarrier()}
             className="input-field w-full text-sm font-mono uppercase"
+            maxLength={20}
           />
           <div className="flex gap-2">
             <input
@@ -463,6 +470,7 @@ export function ReferenceDataTab({
               onChange={(e) => setNewCarrierLabel(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && submitCarrier()}
               className="input-field flex-1 text-sm"
+              maxLength={60}
             />
             <button
               onClick={submitCarrier}

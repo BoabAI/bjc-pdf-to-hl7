@@ -102,7 +102,6 @@ export function FileQueueItem({
           result={result}
           missingPatientData={missingPatientData}
           onDownload={onDownload}
-          onReset={onRemove}
         />
       )}
     </div>

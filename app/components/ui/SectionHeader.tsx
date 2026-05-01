@@ -8,6 +8,9 @@ interface SectionHeaderProps {
   count?: number;
   description?: string;
   action?: ReactNode;
+  /** Heading level for the section title. Defaults to h2 — set explicitly when
+   *  nesting under another section to keep the document outline well-formed. */
+  as?: "h2" | "h3";
 }
 
 export function SectionHeader({
@@ -16,6 +19,7 @@ export function SectionHeader({
   count,
   description,
   action,
+  as: HeadingTag = "h2",
 }: SectionHeaderProps) {
   return (
     <div className="space-y-2">
@@ -24,9 +28,9 @@ export function SectionHeader({
           <span className="w-8 h-8 rounded-lg bg-[var(--blue-50)] text-[var(--bjc-blue)] flex items-center justify-center flex-shrink-0">
             {icon}
           </span>
-          <h3 className="text-base font-semibold text-[var(--text-primary)]">
+          <HeadingTag className="text-base font-semibold text-[var(--text-primary)]">
             {title}
-          </h3>
+          </HeadingTag>
           {count !== undefined && <span className="section-pill">{count}</span>}
         </div>
         {action}

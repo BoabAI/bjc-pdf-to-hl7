@@ -1,5 +1,7 @@
 "use client";
 
+import { useRef } from "react";
+
 interface UploadZoneProps {
   isDragging: boolean;
   disabled?: boolean;
@@ -17,6 +19,13 @@ export function UploadZone({
   onDrop,
   onFileChange,
 }: UploadZoneProps) {
+  // Use a real <button> that proxies clicks to the hidden input via ref.
+  // The previous `<label>` wrapping a `display:none` input was not keyboard
+  // focusable — Tab skipped past it entirely. `sr-only` keeps the input
+  // visually hidden but in the accessibility tree, and the button takes
+  // keyboard focus.
+  const inputRef = useRef<HTMLInputElement>(null);
+
   return (
     <div
       onDragOver={onDragOver}
@@ -38,19 +47,25 @@ export function UploadZone({
           </p>
           <p className="text-xs text-[var(--text-muted)] mt-1">or</p>
         </div>
-        <label className="inline-block">
-          <span className="btn-primary inline-block text-sm">
-            Browse Files
-          </span>
-          <input
-            type="file"
-            accept=".pdf,application/pdf"
-            multiple
-            onChange={onFileChange}
-            className="hidden"
-            disabled={disabled}
-          />
-        </label>
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={disabled}
+          className="btn-primary text-sm"
+        >
+          Browse Files
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".pdf,application/pdf"
+          multiple
+          onChange={onFileChange}
+          className="sr-only"
+          disabled={disabled}
+          tabIndex={-1}
+          aria-hidden="true"
+        />
         <p className="text-[11px] text-[var(--text-faint)] tracking-wide uppercase">
           PDF files only &middot; Max 10MB each
         </p>
