@@ -59,7 +59,7 @@ bun.lockb
 
 # Patient PDFs (may contain real patient data)
 docs/input PDF/**/*.pdf
-!docs/input PDF/originals/Referral_dummy.pdf
+!docs/input PDF/originals/referral_dummy.pdf
 !docs/input PDF/mock-referrals/*.pdf
 !docs/input PDF/addressee-scenarios/*.pdf
 !docs/input PDF/results/*.pdf

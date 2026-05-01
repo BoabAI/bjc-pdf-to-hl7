@@ -13,9 +13,9 @@ real patient data and must never be committed.
 |---|---|
 | `mock-referrals/` | `lib/pdf-parser.test.ts`, `scripts/test-vision.ts`, `/api/test-pdfs` zip |
 | `addressee-scenarios/` | `scripts/test-addressee-scenarios.ts`, `/api/test-pdfs` zip |
-| `results/` | `scripts/test-result-scenarios.ts`, `/api/test-pdfs` zip |
-| `originals/Referral_dummy.pdf` | committed dummy in `/api/test-pdfs` zip |
-| `originals/Patient_Information_and_Consent_Form_*.pdf` | `lib/hl7-builder.test.ts` (gitignored real consent form fixture) |
+| `results/` (top level + `results/redacted-style/`) | `scripts/test-result-scenarios.ts`, `/api/test-pdfs` zip |
+| `originals/referral_dummy.pdf` | committed dummy in `/api/test-pdfs` zip |
+| `originals/consent_form_real_sample.pdf` | `lib/hl7-builder.test.ts` (gitignored real consent form fixture) |
 
 ## What's here and why it was archived
 
@@ -27,6 +27,7 @@ real patient data and must never be committed.
 | `redacted/` | Synthetic redacted-name variations. Not part of the active test suite. |
 | `specialist-referrals/` | Generic synthetic specialist referrals. Superseded by `mock-referrals/test_mock_referral{1,5}.pdf`. |
 | `originals-real/` | Real PHI samples (`BP2026012137327.pdf`, `Referral_example.pdf`) from the very first iteration. Reference only — never run through the converter outside a controlled local test. |
+| `results-real-samples/` | Real (redacted) result PDFs received from the field. Superseded by the synthetic `results/redacted-style/` set, which mirrors the same layouts without PHI. Reference only. |
 
 ## Regenerating
 
