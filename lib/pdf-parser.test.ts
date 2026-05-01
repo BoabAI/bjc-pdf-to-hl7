@@ -47,11 +47,14 @@ describe("extractPatientData", () => {
     });
   });
 
-  test("passes a forced document type hint to Bedrock", async () => {
-    const pdfBuffer = Buffer.from("%PDF-1.4 forced");
+  test("passes a forced document type hint to Bedrock as an advisory tie-breaker", async () => {
+    // The hint is forwarded to Bedrock via the prompt, but Bedrock's
+    // classification is what the result reflects. When Bedrock agrees with
+    // the hint, the result matches the hint.
+    const pdfBuffer = Buffer.from("%PDF-1.4 hint-matches");
     extractPatientDataWithVisionMock.mockResolvedValue({
       ...baseVisionResult,
-      documentType: "generic",
+      documentType: "gp_referral",
     });
 
     const result = await extractPatientData(pdfBuffer, "gp_referral");
@@ -60,6 +63,68 @@ describe("extractPatientData", () => {
       documentTypeHint: "gp_referral",
     });
     expect(result.documentType).toBe("gp_referral");
+  });
+
+  test("Bedrock classification wins when it disagrees with the hint", async () => {
+    // Regression test: previously the hint was authoritative
+    // (`documentTypeHint ?? visionResult.documentType`), which would shadow
+    // Bedrock's classification. If a caller passes `referral_letter` but the
+    // PDF is actually a pathology result, the document must route as a
+    // pathology result (ORU^R01/LAB), not a referral (REF^I12/PHY).
+    const pdfBuffer = Buffer.from("%PDF-1.4 hint-disagrees");
+    extractPatientDataWithVisionMock.mockResolvedValue({
+      ...baseVisionResult,
+      documentType: "pathology_result",
+    });
+
+    const result = await extractPatientData(pdfBuffer, "referral_letter");
+
+    expect(extractPatientDataWithVisionMock).toHaveBeenCalledWith(pdfBuffer, {
+      documentTypeHint: "referral_letter",
+    });
+    expect(result.documentType).toBe("pathology_result");
+  });
+
+  test("uses Bedrock classification when no hint is provided", async () => {
+    const pdfBuffer = Buffer.from("%PDF-1.4 no-hint");
+    extractPatientDataWithVisionMock.mockResolvedValue({
+      ...baseVisionResult,
+      documentType: "gp_referral",
+    });
+
+    const result = await extractPatientData(pdfBuffer, "auto");
+
+    expect(extractPatientDataWithVisionMock).toHaveBeenCalledWith(pdfBuffer, {
+      documentTypeHint: undefined,
+    });
+    expect(result.documentType).toBe("gp_referral");
+  });
+
+  test("falls back to the hint when extraction throws", async () => {
+    // The catch path is the only place the hint may legitimately stand in for
+    // a classification — Bedrock returned nothing usable.
+    extractPatientDataWithVisionMock.mockRejectedValue(
+      new Error("Bedrock runtime unavailable")
+    );
+
+    const result = await extractPatientData(
+      Buffer.from("%PDF-1.4 catch"),
+      "gp_referral"
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.documentType).toBe("gp_referral");
+  });
+
+  test("falls back to 'generic' when extraction throws and no hint is provided", async () => {
+    extractPatientDataWithVisionMock.mockRejectedValue(
+      new Error("Bedrock runtime unavailable")
+    );
+
+    const result = await extractPatientData(Buffer.from("%PDF-1.4 catch-no-hint"));
+
+    expect(result.success).toBe(false);
+    expect(result.documentType).toBe("generic");
   });
 
   test("returns a failed vision result without any fallback path", async () => {

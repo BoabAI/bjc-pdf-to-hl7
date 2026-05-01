@@ -52,7 +52,12 @@ export async function extractPatientData(
       success: visionResult.success,
       data: visionResult.data,
       warnings: visionResult.warnings,
-      documentType: documentTypeHint ?? visionResult.documentType,
+      // Bedrock's classification wins. The hint already influenced Bedrock via
+      // the prompt as an advisory tie-breaker; using the hint here as a
+      // post-hoc override would let a wrong caller-supplied hint shadow
+      // Bedrock's actual classification (e.g. forcing REF^I12/PHY routing on a
+      // pathology PDF). `documentType` is non-optional in VisionExtractionResult.
+      documentType: visionResult.documentType,
       extractionMethod: "vision",
       referralInfo: visionResult.referralInfo,
     };
