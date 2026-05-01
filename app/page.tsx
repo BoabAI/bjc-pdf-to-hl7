@@ -175,6 +175,25 @@ export default function Home() {
               )}
 
               {entries.length > 0 && (
+                <ConversionOptions
+                  documentType={documentType}
+                  detectedType={firstDetected}
+                  showDocumentType={entries.length === 1}
+                  carrier={carrier}
+                  carriers={carriers}
+                  doctors={doctors}
+                  autoFile={autoFile}
+                  sendToDoctor={sendToDoctor}
+                  selectedDoctorId={selectedDoctorId}
+                  onDocumentTypeChange={setDocumentType}
+                  onCarrierChange={setCarrier}
+                  onAutoFileChange={setAutoFile}
+                  onSendToDoctorChange={setSendToDoctor}
+                  onSelectedDoctorIdChange={setSelectedDoctorId}
+                />
+              )}
+
+              {entries.length > 0 && (
                 <div className="space-y-3">
                   <SectionHeader
                     icon={<FilesIcon />}
@@ -200,25 +219,6 @@ export default function Home() {
                     ))}
                   </div>
                 </div>
-              )}
-
-              {entries.length > 0 && (
-                <ConversionOptions
-                  documentType={documentType}
-                  detectedType={firstDetected}
-                  showDocumentType={entries.length === 1}
-                  carrier={carrier}
-                  carriers={carriers}
-                  doctors={doctors}
-                  autoFile={autoFile}
-                  sendToDoctor={sendToDoctor}
-                  selectedDoctorId={selectedDoctorId}
-                  onDocumentTypeChange={setDocumentType}
-                  onCarrierChange={setCarrier}
-                  onAutoFileChange={setAutoFile}
-                  onSendToDoctorChange={setSendToDoctor}
-                  onSelectedDoctorIdChange={setSelectedDoctorId}
-                />
               )}
 
               {entries.length > 0 && (
