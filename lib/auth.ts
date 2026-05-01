@@ -30,10 +30,9 @@ export function trustedDomainFromProfile(profile: unknown): string | null {
     ? p.preferred_username
     : typeof p.upn === "string"
       ? p.upn
-      : typeof p.email === "string"
-        ? p.email
-        : "";
+      : "";
   const upn = upnRaw.toLowerCase().trim();
+  if (!upn) return null;
   const at = upn.lastIndexOf("@");
   if (at < 0 || at === upn.length - 1) return null;
   const domain = upn.slice(at + 1);
@@ -107,10 +106,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             ? p.preferred_username
             : typeof p.upn === "string"
               ? p.upn
-              : typeof p.email === "string"
-                ? p.email
-                : undefined;
-        if (upn) token.email = upn.toLowerCase();
+              : undefined;
+        if (upn) {
+          token.email = upn.toLowerCase();
+        } else {
+          // Defense in depth: signIn should already have rejected this token,
+          // but never trust the email claim as a UPN substitute.
+          console.warn(
+            "[auth] jwt callback skipped token.email — no UPN claim present"
+          );
+        }
         if (typeof p.name === "string") token.name = p.name;
       }
       return token;

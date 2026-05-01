@@ -24,10 +24,27 @@ describe("trustedDomainFromProfile", () => {
     ).toBe("smecai.au");
   });
 
-  test("falls back to email when upn and preferred_username missing", () => {
+  test("ignores email claim when UPN claims are missing", () => {
+    // The email claim is self-asserted and must never be used as the trust
+    // anchor — only preferred_username/upn are administratively controlled.
     expect(
       trustedDomainFromProfile({ email: "carol@smecai.au" })
-    ).toBe("smecai.au");
+    ).toBeNull();
+  });
+
+  test("UPN wins over a spoofed email claim", () => {
+    // An attacker in another tenant could set email=victim@trusted.domain,
+    // but their UPN is from their own tenant. The UPN domain must win.
+    expect(
+      trustedDomainFromProfile({
+        email: "attacker@bjchealth.com.au",
+        upn: "attacker@evil.com",
+      })
+    ).toBe("evil.com");
+  });
+
+  test("returns null for empty profile object", () => {
+    expect(trustedDomainFromProfile({})).toBeNull();
   });
 
   test("returns null for missing profile", () => {
