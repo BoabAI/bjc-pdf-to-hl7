@@ -49,7 +49,7 @@ export function isAllowedDomain(
   return allowed.includes(domain);
 }
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+const nextAuth = NextAuth({
   providers: [
     MicrosoftEntraID({
       clientId: process.env.AZURE_AD_CLIENT_ID,
@@ -138,3 +138,77 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
 });
+
+export const signIn = nextAuth.signIn;
+export const signOut = nextAuth.signOut;
+
+/**
+ * TEST_MODE bypass — when `TEST_MODE=true` AND not running in production,
+ * `auth()` returns a synthetic session for an allowed test user. This lets
+ * automated UI tests (browser agents, playwright) skip Microsoft Entra SSO,
+ * which can't be completed by a non-human caller.
+ *
+ * Hard-gated to non-production. Production builds keep the real Entra flow.
+ */
+const TEST_MODE_BYPASS =
+  process.env.TEST_MODE === "true" && process.env.NODE_ENV !== "production";
+
+if (TEST_MODE_BYPASS) {
+  // eslint-disable-next-line no-console
+  console.warn(
+    "[auth] TEST_MODE=true — auth is bypassed with a synthetic session. Never enable this in production."
+  );
+}
+
+const TEST_SESSION = {
+  user: {
+    email: "test@bjchealth.com.au",
+    name: "Test Mode",
+  },
+  expires: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
+} as unknown as import("next-auth").Session;
+
+type AuthFn = typeof nextAuth.auth;
+
+const realAuth = nextAuth.auth;
+
+const bypassAuth = ((...args: unknown[]) => {
+  // Zero-arg form: `await auth()` returns a Session | null.
+  if (args.length === 0) {
+    return Promise.resolve(TEST_SESSION);
+  }
+  // Handler-wrapping form: `auth(async (request) => ...)`. Inject synthetic
+  // session onto request.auth before delegating to the user handler.
+  const handler = args[0] as (
+    request: { auth: unknown } & Record<string, unknown>,
+    ctx?: unknown
+  ) => unknown;
+  return (request: { auth: unknown } & Record<string, unknown>, ctx?: unknown) => {
+    request.auth = TEST_SESSION;
+    return handler(request, ctx);
+  };
+}) as AuthFn;
+
+export const auth: AuthFn = TEST_MODE_BYPASS ? bypassAuth : realAuth;
+
+/**
+ * In TEST_MODE, intercept the `/api/auth/session` endpoint that
+ * `useSession()` polls so client components also see the synthetic session.
+ * Without this, a real Auth.js cookie left over from a prior login would
+ * leak the real user into client UI even though server-side `auth()` is
+ * bypassed.
+ */
+const realHandlers = nextAuth.handlers;
+
+export const handlers: typeof realHandlers = TEST_MODE_BYPASS
+  ? {
+      GET: (async (request: Parameters<typeof realHandlers.GET>[0]) => {
+        const url = new URL(request.url);
+        if (url.pathname.endsWith("/api/auth/session")) {
+          return Response.json(TEST_SESSION);
+        }
+        return realHandlers.GET(request);
+      }) as typeof realHandlers.GET,
+      POST: realHandlers.POST,
+    }
+  : realHandlers;
