@@ -176,7 +176,12 @@ export default function LogPage(): JSX.Element {
                   {sortedRows.map((row) => (
                     <tr
                       key={row.ts}
-                      className="border-b border-[var(--border-light)] hover:bg-[var(--bg-hover)]"
+                      className={
+                        "border-b border-[var(--border-light)] " +
+                        (row.outcome === "ok"
+                          ? "bg-emerald-50/60 hover:bg-emerald-100/60"
+                          : "bg-red-50/60 hover:bg-red-100/60")
+                      }
                     >
                       <td className="py-2 pr-4 whitespace-nowrap text-[var(--text-primary)]">
                         {formatSydneyTimestamp(row.ts)}
