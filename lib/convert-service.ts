@@ -10,7 +10,8 @@ import {
   type DocumentTypeOption,
 } from "./conversion-config";
 import { messageTypeDisplayLabel, messageTypeForDocumentType } from "./convert/policy";
-import type { DocumentType, MailboxSource, MessageType } from "./domain/types";
+import type { MailboxSource, MessageType } from "./domain/types";
+import type { ConvertResponse } from "./contracts/convert";
 
 export interface ConvertRequest {
   pdfBuffer: Buffer;
@@ -28,27 +29,11 @@ export type ParseConvertFormDataResult =
   | { data: ConvertRequest; originalFilename: string }
   | { error: string; status: number };
 
-export interface ConvertResult {
-  success: boolean;
-  filename?: string;
-  hl7Content?: string;
-  extractedData?: ReturnType<typeof formatExtractedData> & {
-    date: string;
-    messageType: string;
-    carrier: string;
-  };
-  warnings?: string[];
-  extractionMethod?: "vision";
-  documentType?: DocumentType;
-  /**
-   * True when the LLM's family classification disagrees with the upstream
-   * mailbox (e.g. PDF arrived in `referrals` but classified as a result).
-   * Not flagged for consent_form/generic. Caller decides what to do — we
-   * still trust the LLM verdict for routing.
-   */
-  mailboxDisagreement?: boolean;
-  error?: string;
-}
+/**
+ * Alias retained for callers inside the server bundle. The wire shape is
+ * defined once in `lib/contracts/convert.ts` and shared with the client.
+ */
+export type ConvertResult = ConvertResponse;
 
 function parseDoctorList(value: string | null | undefined): string[] | undefined {
   if (!value) return undefined;

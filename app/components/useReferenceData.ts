@@ -8,11 +8,24 @@ import {
   type Carrier,
   type Doctor,
 } from "@/lib/conversion-config";
+import {
+  deleteCarrier as apiDeleteCarrier,
+  deleteDoctor as apiDeleteDoctor,
+  getReferenceData,
+  putCarrier as apiPutCarrier,
+  putDoctor as apiPutDoctor,
+} from "./referenceDataClient";
 
 function newId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  return "Unknown error";
 }
 
 export interface UseReferenceDataResult {
@@ -21,6 +34,10 @@ export interface UseReferenceDataResult {
   carrier: string;
   setCarrier: (value: string) => void;
   loaded: boolean;
+  /** True while a mutation is in flight. UI should disable destructive actions. */
+  saving: boolean;
+  /** Last save error, or null. Cleared on the next successful save. */
+  error: string | null;
   addDoctor: (name: string, providerNumber: string) => Promise<void>;
   updateDoctor: (id: string, patch: { name: string; providerNumber: string }) => Promise<void>;
   removeDoctor: (id: string) => Promise<void>;
@@ -35,32 +52,29 @@ export interface UseReferenceDataResult {
 /**
  * Centralised reference-data state for the converter and reference pages.
  * Loads from /api/reference-data on mount, persists every mutation, and
- * falls back to bundled defaults if the API is unreachable.
+ * rolls back optimistic updates when persistence fails.
  */
 export function useReferenceData(): UseReferenceDataResult {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [carriers, setCarriers] = useState<Carrier[]>([]);
   const [carrier, setCarrier] = useState(DEFAULT_CARRIER);
   const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const response = await fetch("/api/reference-data", { cache: "no-store" });
-        const data = await response.json();
+        const { doctors: ds, carriers: cs } = await getReferenceData();
         if (cancelled) return;
-        if (data.success) {
-          setDoctors(data.doctors as Doctor[]);
-          setCarriers(data.carriers as Carrier[]);
-          const def = (data.carriers as Carrier[]).find((c) => c.isDefault);
-          if (def) setCarrier(def.value);
-        } else {
-          setDoctors(DEFAULT_BJC_DOCTORS);
-          setCarriers(DEFAULT_CARRIERS);
-        }
+        setDoctors(ds);
+        setCarriers(cs);
+        const def = cs.find((c) => c.isDefault);
+        if (def) setCarrier(def.value);
       } catch {
         if (cancelled) return;
+        // Bundled defaults are intentional fallback when the API is unreachable.
         setDoctors(DEFAULT_BJC_DOCTORS);
         setCarriers(DEFAULT_CARRIERS);
       } finally {
@@ -72,160 +86,189 @@ export function useReferenceData(): UseReferenceDataResult {
     };
   }, []);
 
-  const putDoctor = async (item: Doctor) => {
-    await fetch("/api/reference-data", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ kind: "DOCTOR", item }),
-    });
-  };
-
-  const putCarrier = async (item: Carrier) => {
-    await fetch("/api/reference-data", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ kind: "CARRIER", item }),
-    });
-  };
-
-  const deleteRow = async (kind: "DOCTOR" | "CARRIER", id: string) => {
-    await fetch(
-      `/api/reference-data?kind=${kind}&id=${encodeURIComponent(id)}`,
-      { method: "DELETE" }
-    );
-  };
-
-  const addDoctor = useCallback(async (name: string, providerNumber: string) => {
-    const doctor: Doctor = { id: newId(), name, providerNumber };
-    setDoctors((prev) => [...prev, doctor]);
-    try {
-      await putDoctor(doctor);
-    } catch (error) {
-      console.error("Failed to save doctor:", error);
-    }
-  }, []);
-
-  const updateDoctor = useCallback(
-    async (id: string, patch: { name: string; providerNumber: string }) => {
-      let updated: Doctor | null = null;
-      setDoctors((prev) =>
-        prev.map((d) => {
-          if (d.id !== id) return d;
-          updated = { ...d, name: patch.name, providerNumber: patch.providerNumber };
-          return updated;
-        })
-      );
-      if (!updated) return;
+  /**
+   * Run an optimistic mutation. The optimistic state is applied immediately
+   * via `apply()`; on persistence failure we restore the snapshot via
+   * `rollback()` and surface the error.
+   */
+  const runOptimistic = useCallback(
+    async (
+      apply: () => void,
+      rollback: () => void,
+      persist: () => Promise<void>
+    ): Promise<void> => {
+      apply();
+      setSaving(true);
       try {
-        await putDoctor(updated);
-      } catch (error) {
-        console.error("Failed to update doctor:", error);
+        await persist();
+        setError(null);
+      } catch (err) {
+        rollback();
+        setError(errorMessage(err));
+      } finally {
+        setSaving(false);
       }
     },
     []
   );
 
-  const removeDoctor = useCallback(async (id: string) => {
-    setDoctors((prev) => prev.filter((d) => d.id !== id));
-    try {
-      await deleteRow("DOCTOR", id);
-    } catch (error) {
-      console.error("Failed to delete doctor:", error);
-    }
-  }, []);
+  const addDoctor = useCallback(
+    async (name: string, providerNumber: string) => {
+      const doctor: Doctor = { id: newId(), name, providerNumber };
+      const previous = doctors;
+      await runOptimistic(
+        () => setDoctors((prev) => [...prev, doctor]),
+        () => setDoctors(previous),
+        () => apiPutDoctor(doctor)
+      );
+    },
+    [doctors, runOptimistic]
+  );
+
+  const updateDoctor = useCallback(
+    async (id: string, patch: { name: string; providerNumber: string }) => {
+      const previous = doctors;
+      const target = previous.find((d) => d.id === id);
+      if (!target) return;
+      const updated: Doctor = { ...target, name: patch.name, providerNumber: patch.providerNumber };
+      await runOptimistic(
+        () =>
+          setDoctors((prev) => prev.map((d) => (d.id === id ? updated : d))),
+        () => setDoctors(previous),
+        () => apiPutDoctor(updated)
+      );
+    },
+    [doctors, runOptimistic]
+  );
+
+  const removeDoctor = useCallback(
+    async (id: string) => {
+      const previous = doctors;
+      await runOptimistic(
+        () => setDoctors((prev) => prev.filter((d) => d.id !== id)),
+        () => setDoctors(previous),
+        () => apiDeleteDoctor(id)
+      );
+    },
+    [doctors, runOptimistic]
+  );
 
   const resetDoctors = useCallback(async () => {
     const previous = doctors;
-    setDoctors(DEFAULT_BJC_DOCTORS);
-    try {
-      await Promise.all(previous.map((d) => deleteRow("DOCTOR", d.id)));
-      await Promise.all(DEFAULT_BJC_DOCTORS.map((d) => putDoctor(d)));
-    } catch (error) {
-      console.error("Failed to reset doctors:", error);
-    }
-  }, [doctors]);
+    await runOptimistic(
+      () => setDoctors(DEFAULT_BJC_DOCTORS),
+      () => setDoctors(previous),
+      async () => {
+        await Promise.all(previous.map((d) => apiDeleteDoctor(d.id)));
+        await Promise.all(DEFAULT_BJC_DOCTORS.map((d) => apiPutDoctor(d)));
+      }
+    );
+  }, [doctors, runOptimistic]);
 
-  const addCarrier = useCallback(async (value: string, label: string) => {
-    const item: Carrier = { id: newId(), value, label };
-    setCarriers((prev) => [...prev, item]);
-    try {
-      await putCarrier(item);
-    } catch (error) {
-      console.error("Failed to save carrier:", error);
-    }
-  }, []);
+  const addCarrier = useCallback(
+    async (value: string, label: string) => {
+      const item: Carrier = { id: newId(), value, label };
+      const previous = carriers;
+      await runOptimistic(
+        () => setCarriers((prev) => [...prev, item]),
+        () => setCarriers(previous),
+        () => apiPutCarrier(item)
+      );
+    },
+    [carriers, runOptimistic]
+  );
 
   const updateCarrier = useCallback(
     async (id: string, patch: { value: string; label: string }) => {
-      let updated: Carrier | null = null;
-      let oldValue = "";
-      setCarriers((prev) =>
-        prev.map((c) => {
-          if (c.id !== id) return c;
-          oldValue = c.value;
-          updated = { ...c, value: patch.value, label: patch.label };
-          return updated;
-        })
+      const previous = carriers;
+      const target = previous.find((c) => c.id === id);
+      if (!target) return;
+      const updated: Carrier = { ...target, value: patch.value, label: patch.label };
+      const previousActive = carrier;
+      const oldValue = target.value;
+      await runOptimistic(
+        () => {
+          setCarriers((prev) => prev.map((c) => (c.id === id ? updated : c)));
+          if (carrier === oldValue && oldValue !== patch.value) {
+            setCarrier(patch.value);
+          }
+        },
+        () => {
+          setCarriers(previous);
+          setCarrier(previousActive);
+        },
+        () => apiPutCarrier(updated)
       );
-      if (!updated) return;
-      // Keep the active carrier selection in sync if its value just changed.
-      if (carrier === oldValue && oldValue !== patch.value) {
-        setCarrier(patch.value);
-      }
-      try {
-        await putCarrier(updated);
-      } catch (error) {
-        console.error("Failed to update carrier:", error);
-      }
     },
-    [carrier]
+    [carriers, carrier, runOptimistic]
   );
 
   const removeCarrier = useCallback(
     async (id: string) => {
-      const target = carriers.find((c) => c.id === id);
-      if (target?.isDefault) return;
-      setCarriers((prev) => prev.filter((c) => c.id !== id));
-      if (target && carrier === target.value) {
-        const fallback = carriers.find((c) => c.id !== id && c.isDefault);
-        setCarrier(fallback?.value ?? DEFAULT_CARRIER);
-      }
-      try {
-        await deleteRow("CARRIER", id);
-      } catch (error) {
-        console.error("Failed to delete carrier:", error);
-      }
+      const previous = carriers;
+      const target = previous.find((c) => c.id === id);
+      if (!target || target.isDefault) return;
+      const previousActive = carrier;
+      await runOptimistic(
+        () => {
+          setCarriers((prev) => prev.filter((c) => c.id !== id));
+          if (carrier === target.value) {
+            const fallback = previous.find((c) => c.id !== id && c.isDefault);
+            setCarrier(fallback?.value ?? DEFAULT_CARRIER);
+          }
+        },
+        () => {
+          setCarriers(previous);
+          setCarrier(previousActive);
+        },
+        () => apiDeleteCarrier(id)
+      );
     },
-    [carriers, carrier]
+    [carriers, carrier, runOptimistic]
   );
 
   const setDefaultCarrier = useCallback(
     async (id: string) => {
-      const updated = carriers.map((c) => ({ ...c, isDefault: c.id === id }));
-      setCarriers(updated);
+      const previous = carriers;
+      const previousActive = carrier;
+      const updated = previous.map((c) => ({ ...c, isDefault: c.id === id }));
       const newDefault = updated.find((c) => c.id === id);
-      if (newDefault) setCarrier(newDefault.value);
-      try {
-        await Promise.all(updated.map((c) => putCarrier(c)));
-      } catch (error) {
-        console.error("Failed to update default carrier:", error);
-      }
+      await runOptimistic(
+        () => {
+          setCarriers(updated);
+          if (newDefault) setCarrier(newDefault.value);
+        },
+        () => {
+          setCarriers(previous);
+          setCarrier(previousActive);
+        },
+        async () => {
+          await Promise.all(updated.map((c) => apiPutCarrier(c)));
+        }
+      );
     },
-    [carriers]
+    [carriers, carrier, runOptimistic]
   );
 
   const resetCarriers = useCallback(async () => {
     const previous = carriers;
-    setCarriers(DEFAULT_CARRIERS);
+    const previousActive = carrier;
     const def = DEFAULT_CARRIERS.find((c) => c.isDefault);
-    if (def) setCarrier(def.value);
-    try {
-      await Promise.all(previous.map((c) => deleteRow("CARRIER", c.id)));
-      await Promise.all(DEFAULT_CARRIERS.map((c) => putCarrier(c)));
-    } catch (error) {
-      console.error("Failed to reset carriers:", error);
-    }
-  }, [carriers]);
+    await runOptimistic(
+      () => {
+        setCarriers(DEFAULT_CARRIERS);
+        if (def) setCarrier(def.value);
+      },
+      () => {
+        setCarriers(previous);
+        setCarrier(previousActive);
+      },
+      async () => {
+        await Promise.all(previous.map((c) => apiDeleteCarrier(c.id)));
+        await Promise.all(DEFAULT_CARRIERS.map((c) => apiPutCarrier(c)));
+      }
+    );
+  }, [carriers, carrier, runOptimistic]);
 
   return {
     doctors,
@@ -233,6 +276,8 @@ export function useReferenceData(): UseReferenceDataResult {
     carrier,
     setCarrier,
     loaded,
+    saving,
+    error,
     addDoctor,
     updateDoctor,
     removeDoctor,

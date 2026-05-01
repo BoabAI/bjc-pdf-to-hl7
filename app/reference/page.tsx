@@ -26,11 +26,20 @@ export default function ReferenceDataPage(): JSX.Element {
               </p>
             </div>
 
-            <div className="px-7 py-6">
+            <div className="px-7 py-6 space-y-4">
+              {ref.error && (
+                <div
+                  role="alert"
+                  className="p-3 rounded-md border border-[var(--error-border)] bg-[var(--error-bg)] text-sm text-[var(--error)]"
+                >
+                  Save failed: {ref.error}
+                </div>
+              )}
               {ref.loaded ? (
                 <ReferenceDataTab
                   doctors={ref.doctors}
                   carriers={ref.carriers}
+                  saving={ref.saving}
                   onAddDoctor={ref.addDoctor}
                   onUpdateDoctor={ref.updateDoctor}
                   onRemoveDoctor={ref.removeDoctor}

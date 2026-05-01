@@ -18,6 +18,8 @@ import {
 interface ReferenceDataTabProps {
   doctors: Doctor[];
   carriers: Carrier[];
+  /** True while a save is in flight; disables destructive buttons. */
+  saving?: boolean;
   onAddDoctor: (name: string, providerNumber: string) => void;
   onUpdateDoctor: (id: string, patch: { name: string; providerNumber: string }) => void;
   onRemoveDoctor: (id: string) => void;
@@ -317,6 +319,7 @@ function CarrierRow({
 export function ReferenceDataTab({
   doctors,
   carriers,
+  saving = false,
   onAddDoctor,
   onUpdateDoctor,
   onRemoveDoctor,
@@ -434,7 +437,8 @@ export function ReferenceDataTab({
           action={
             <button
               onClick={onResetCarriers}
-              className="inline-flex items-center gap-1.5 text-[11px] text-[var(--bjc-blue)] hover:bg-[var(--blue-50)] px-2 py-1 rounded-md transition-colors flex-shrink-0"
+              disabled={saving}
+              className="inline-flex items-center gap-1.5 text-[11px] text-[var(--bjc-blue)] hover:bg-[var(--blue-50)] px-2 py-1 rounded-md transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <ResetIcon />
               Reset to defaults

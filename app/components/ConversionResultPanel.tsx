@@ -1,29 +1,9 @@
 "use client";
 
-export interface ConversionResult {
-  success: boolean;
-  filename?: string;
-  hl7Content?: string;
-  extractedData?: {
-    firstName: string;
-    lastName: string;
-    dob: string;
-    sex: string;
-    medicareNo: string;
-    sender?: string;
-    addressee?: string;
-    cc?: string;
-    date?: string;
-    messageType?: string;
-    carrier?: string;
-  };
-  extractionMethod?: "vision";
-  documentType?: string;
-  error?: string;
-}
+import type { ConvertResponse } from "@/lib/contracts/convert";
 
 interface ConversionResultPanelProps {
-  result: ConversionResult;
+  result: ConvertResponse;
   missingPatientData: boolean;
   onDownload: () => void;
   onReset: () => void;
@@ -35,6 +15,14 @@ export function ConversionResultPanel({
   onDownload,
   onReset,
 }: ConversionResultPanelProps) {
+  // The convert-service stitches a duplicate "Mailbox/content mismatch" string
+  // into `warnings` whenever `mailboxDisagreement` is true. We render the
+  // disagreement as its own callout, so suppress the matching warning to
+  // avoid showing the same sentence twice.
+  const visibleWarnings = (result.warnings ?? []).filter(
+    (w) => !(result.mailboxDisagreement && w.startsWith("Mailbox/content mismatch"))
+  );
+
   if (!result.success) {
     return (
       <div className="space-y-5 animate-fade-in-up">
@@ -51,6 +39,9 @@ export function ConversionResultPanel({
             {result.error}
           </p>
         </div>
+
+        {result.mailboxDisagreement && <MailboxDisagreementCallout />}
+        {visibleWarnings.length > 0 && <WarningList warnings={visibleWarnings} />}
 
         <div className="flex gap-3 justify-center">
           <button onClick={onReset} className="btn-primary">
@@ -111,6 +102,9 @@ export function ConversionResultPanel({
         )}
       </div>
 
+      {result.mailboxDisagreement && <MailboxDisagreementCallout />}
+      {visibleWarnings.length > 0 && <WarningList warnings={visibleWarnings} />}
+
       <div className="flex gap-3 justify-center">
         {!missingPatientData && (
           <button onClick={onDownload} className="btn-success">
@@ -121,6 +115,42 @@ export function ConversionResultPanel({
           Convert Another
         </button>
       </div>
+    </div>
+  );
+}
+
+function MailboxDisagreementCallout() {
+  return (
+    <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-700">
+      <div className="flex items-start gap-2.5">
+        <svg className="w-5 h-5 text-amber-700 dark:text-amber-300 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+        </svg>
+        <div className="flex-1 min-w-0">
+          <h4 className="font-semibold text-sm text-amber-800 dark:text-amber-200">
+            Mailbox / content mismatch
+          </h4>
+          <p className="text-xs text-amber-700 dark:text-amber-300 mt-1 leading-relaxed">
+            The PDF arrived in one mailbox but was classified as a different document
+            family. Routing follows the AI verdict — verify before filing.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WarningList({ warnings }: { warnings: string[] }) {
+  return (
+    <div className="p-4 rounded-xl bg-[var(--bg-inner)] border border-[var(--border-light)]">
+      <h4 className="font-semibold text-xs uppercase tracking-wider text-[var(--text-muted)] mb-2">
+        Warnings
+      </h4>
+      <ul className="space-y-1 text-xs text-[var(--text-secondary)] list-disc list-inside">
+        {warnings.map((w, i) => (
+          <li key={i}>{w}</li>
+        ))}
+      </ul>
     </div>
   );
 }

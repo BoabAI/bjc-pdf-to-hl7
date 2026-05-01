@@ -1,9 +1,7 @@
 "use client";
 
-import {
-  ConversionResultPanel,
-  type ConversionResult,
-} from "./ConversionResultPanel";
+import { ConversionResultPanel } from "./ConversionResultPanel";
+import type { ConvertResponse } from "@/lib/contracts/convert";
 import type { DocumentType } from "@/lib/domain/types";
 
 export type FileEntryStatus =
@@ -18,7 +16,7 @@ export interface FileEntry {
   file: File;
   detectedType: DocumentType | null;
   status: FileEntryStatus;
-  result?: ConversionResult;
+  result?: ConvertResponse;
 }
 
 interface FileQueueItemProps {

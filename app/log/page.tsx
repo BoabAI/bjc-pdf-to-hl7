@@ -12,6 +12,8 @@ import {
   formatSydneyTimestamp,
   useAuditDataRange,
 } from "../components/auditShared";
+import { AuditDateRangeHeader } from "../components/audit/AuditDateRangeHeader";
+import { AuditPageState } from "../components/audit/AuditPageState";
 
 function csvEscape(value: string | number | undefined | null): string {
   if (value === undefined || value === null) return "";
@@ -83,78 +85,17 @@ export default function LogPage(): JSX.Element {
         <div className="max-w-7xl mx-auto space-y-6">
           <LogoStrip />
 
-          <header className="card p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-[var(--text-primary)]">
-              Audit Log
-            </h1>
-            <p className="text-sm text-[var(--text-secondary)] mt-1">
-              Per-conversion audit rows from {from} to {to}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="flex flex-col">
-              <label
-                htmlFor="from-date"
-                className="text-xs text-[var(--text-secondary)] mb-1"
-              >
-                From
-              </label>
-              <input
-                id="from-date"
-                type="date"
-                className="input-field"
-                value={from}
-                max={to || today}
-                onChange={(e) => setFrom(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col">
-              <label
-                htmlFor="to-date"
-                className="text-xs text-[var(--text-secondary)] mb-1"
-              >
-                To
-              </label>
-              <input
-                id="to-date"
-                type="date"
-                className="input-field"
-                value={to}
-                min={from || undefined}
-                max={today}
-                onChange={(e) => setTo(e.target.value)}
-              />
-            </div>
-          </div>
-        </header>
+          <AuditDateRangeHeader
+            title="Audit Log"
+            subtitle={`Per-conversion audit rows from ${from} to ${to}`}
+            from={from}
+            to={to}
+            today={today}
+            onFromChange={setFrom}
+            onToChange={setTo}
+          />
 
-        {error && (
-          <div className="card p-4 border-l-4 border-[var(--error)]">
-            <p className="text-sm text-[var(--error)] font-medium">
-              Failed to load audit logs
-            </p>
-            <p className="text-sm text-[var(--text-secondary)] mt-1">{error}</p>
-          </div>
-        )}
-
-        {loading && !error && (
-          <div className="card p-6">
-            <p className="text-sm text-[var(--text-secondary)]">
-              Loading audit data…
-            </p>
-          </div>
-        )}
-
-        {!loading && !error && !hasRows && (
-          <div className="card p-10 text-center">
-            <p className="text-base text-[var(--text-secondary)]">
-              No conversions logged in this date range.
-            </p>
-          </div>
-        )}
-
-        {!loading && !error && hasRows && (
+          <AuditPageState loading={loading} error={error} hasRows={hasRows}>
           <section className="card p-6">
             <div className="mb-4">
               <SectionHeader
@@ -227,7 +168,7 @@ export default function LogPage(): JSX.Element {
               </table>
             </div>
           </section>
-        )}
+          </AuditPageState>
         </div>
       </main>
     </>

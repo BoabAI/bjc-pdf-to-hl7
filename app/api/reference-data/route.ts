@@ -8,6 +8,7 @@ import {
   putDoctor,
 } from "@/lib/reference-data-store";
 import type { Carrier, Doctor } from "@/lib/conversion-config";
+import type { ReferenceDataResponse } from "@/lib/contracts/reference-data";
 import { auth } from "@/lib/auth";
 
 export const runtime = "nodejs";
@@ -118,7 +119,8 @@ export const GET = auth(async (request) => {
     listCarriers(),
   ]);
 
-  return NextResponse.json({ success: true, doctors, carriers });
+  const body: ReferenceDataResponse = { success: true, doctors, carriers };
+  return NextResponse.json(body);
 });
 
 export const PUT = auth(async (request) => {

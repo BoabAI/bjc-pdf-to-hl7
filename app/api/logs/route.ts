@@ -1,22 +1,11 @@
 import { NextResponse } from "next/server";
 import { listConversionsForSydneyMonth } from "@/lib/audit";
 import { auth } from "@/lib/auth";
+import { currentSydneyMonth } from "@/lib/dates/sydney";
 
 export const runtime = "nodejs";
 
 const MONTH_PATTERN = /^\d{4}-\d{2}$/;
-
-function currentSydneyMonth(): string {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Australia/Sydney",
-    year: "numeric",
-    month: "2-digit",
-  });
-  const parts = formatter.formatToParts(new Date());
-  const year = parts.find((p) => p.type === "year")?.value ?? "1970";
-  const month = parts.find((p) => p.type === "month")?.value ?? "01";
-  return `${year}-${month}`;
-}
 
 /**
  * GET /api/logs?month=YYYY-MM
