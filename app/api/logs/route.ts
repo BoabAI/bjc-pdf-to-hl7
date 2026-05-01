@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listConversions } from "@/lib/audit";
+import { listConversionsForSydneyMonth } from "@/lib/audit";
 import { auth } from "@/lib/auth";
 
 export const runtime = "nodejs";
@@ -18,6 +18,15 @@ function currentSydneyMonth(): string {
   return `${year}-${month}`;
 }
 
+/**
+ * GET /api/logs?month=YYYY-MM
+ *
+ * The `month` query parameter is a **Sydney calendar month** (Australia/Sydney).
+ * Audit rows are partitioned by UTC month at write-time, but operators think
+ * in Sydney months — `listConversionsForSydneyMonth` translates between the
+ * two so rows landing in the late-evening tail of a Sydney month aren't
+ * dropped because they live in the next UTC partition.
+ */
 export const GET = auth(async (request) => {
   // Defense in depth: middleware already gates /api/logs, but enforce the
   // session check here too so this endpoint is safe even if middleware config
@@ -39,7 +48,7 @@ export const GET = auth(async (request) => {
     );
   }
 
-  const rows = await listConversions(month);
+  const rows = await listConversionsForSydneyMonth(month);
 
   return NextResponse.json({ success: true, month, rows });
 });

@@ -5,9 +5,12 @@ import {
   PutCommand,
   QueryCommand,
 } from "@aws-sdk/lib-dynamodb";
+import { DateTime } from "luxon";
 
 const REGION = "ap-southeast-2";
 const DEFAULT_TABLE = "bjc-pdf-to-hl7-audit";
+const SYDNEY_ZONE = "Australia/Sydney";
+const SYDNEY_MONTH_PATTERN = /^\d{4}-\d{2}$/;
 
 export interface AuditRow {
   /** Partition key: "YYYY-MM" */
@@ -178,6 +181,80 @@ export async function listConversions(month: string): Promise<AuditRow[]> {
     console.error("Audit query failed:", error);
     return [];
   }
+}
+
+/**
+ * Returns the UTC month-partition keys that any timestamp inside the given
+ * Sydney calendar month could fall into. A Sydney month always spans either
+ * one or two adjacent UTC months because Sydney is UTC+10 / UTC+11. The
+ * results are returned in ascending order and deduplicated.
+ *
+ * @param sydneyMonth - YYYY-MM, interpreted as a Sydney calendar month.
+ * @throws Error when sydneyMonth is not a YYYY-MM string or is invalid.
+ */
+export function utcMonthsForSydneyMonth(sydneyMonth: string): string[] {
+  if (typeof sydneyMonth !== "string" || !SYDNEY_MONTH_PATTERN.test(sydneyMonth)) {
+    throw new Error(
+      `utcMonthsForSydneyMonth: expected YYYY-MM, got ${JSON.stringify(sydneyMonth)}`
+    );
+  }
+  const [yearStr, monthStr] = sydneyMonth.split("-");
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const start = DateTime.fromObject(
+    { year, month, day: 1, hour: 0, minute: 0, second: 0, millisecond: 0 },
+    { zone: SYDNEY_ZONE }
+  );
+  if (!start.isValid) {
+    throw new Error(
+      `utcMonthsForSydneyMonth: invalid Sydney month ${sydneyMonth} (${start.invalidReason})`
+    );
+  }
+  const end = start.endOf("month");
+  const startKey = start.toUTC().toFormat("yyyy-MM");
+  const endKey = end.toUTC().toFormat("yyyy-MM");
+  return startKey === endKey ? [startKey] : [startKey, endKey];
+}
+
+/**
+ * List audit rows for a Sydney calendar month. Queries every UTC partition
+ * the Sydney month can span, filters to rows whose `ts` falls inside the
+ * Sydney month, and returns them sorted by descending timestamp.
+ *
+ * Audit rows are partitioned by UTC month at write-time (see `monthKey`),
+ * but operators think in Sydney calendar months. A Sydney month always
+ * straddles two UTC partitions, so a single-partition query would miss
+ * rows landing in the late-evening tail of the month.
+ */
+export async function listConversionsForSydneyMonth(
+  sydneyMonth: string
+): Promise<AuditRow[]> {
+  const utcMonths = utcMonthsForSydneyMonth(sydneyMonth);
+  const partitionResults = await Promise.all(
+    utcMonths.map((m) => listConversions(m))
+  );
+  const merged: AuditRow[] = [];
+  for (const rows of partitionResults) {
+    for (const row of rows) {
+      if (sydneyMonthOfTs(row.ts) === sydneyMonth) {
+        merged.push(row);
+      }
+    }
+  }
+  merged.sort((a, b) => (a.ts < b.ts ? 1 : a.ts > b.ts ? -1 : 0));
+  return merged;
+}
+
+/**
+ * Convert an audit `ts` (UTC ISO + optional `#suffix`) to the Sydney calendar
+ * month (`YYYY-MM`) the timestamp falls inside. Returns an empty string when
+ * the timestamp is unparseable so misformatted rows are filtered out rather
+ * than surfaced under the wrong month.
+ */
+function sydneyMonthOfTs(ts: string): string {
+  const isoPart = ts.split("#")[0];
+  const dt = DateTime.fromISO(isoPart, { zone: "utc" }).setZone(SYDNEY_ZONE);
+  return dt.isValid ? dt.toFormat("yyyy-MM") : "";
 }
 
 function isAuditRow(value: unknown): value is AuditRow {

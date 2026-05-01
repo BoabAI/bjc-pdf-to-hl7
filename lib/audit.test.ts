@@ -43,6 +43,8 @@ mock.module("@aws-sdk/lib-dynamodb", () => ({
 const {
   recordConversion,
   listConversions,
+  listConversionsForSydneyMonth,
+  utcMonthsForSydneyMonth,
   hashFilename,
   extractFilenameExt,
   monthKey,
@@ -388,5 +390,163 @@ describe("listConversions", () => {
 
     const result = await listConversions("2026-04");
     expect(result).toHaveLength(1);
+  });
+});
+
+describe("utcMonthsForSydneyMonth", () => {
+  test("April 2026 (DST end on Apr 5) spans UTC March + April", () => {
+    // Sydney April 2026 starts 2026-04-01T00:00+11 = 2026-03-31T13:00Z (UTC March)
+    // Sydney April 2026 ends 2026-04-30T23:59:59+10 = 2026-04-30T13:59:59Z (UTC April)
+    expect(utcMonthsForSydneyMonth("2026-04")).toEqual(["2026-03", "2026-04"]);
+  });
+
+  test("July 2026 (austral winter, UTC+10) spans UTC June + July", () => {
+    // Sydney July 2026 starts 2026-07-01T00:00+10 = 2026-06-30T14:00Z (UTC June)
+    // Sydney July 2026 ends 2026-07-31T23:59:59+10 = 2026-07-31T13:59:59Z (UTC July)
+    expect(utcMonthsForSydneyMonth("2026-07")).toEqual(["2026-06", "2026-07"]);
+  });
+
+  test("January 2026 spans UTC December 2025 + January 2026", () => {
+    // Sydney January starts 2026-01-01T00:00+11 = 2025-12-31T13:00Z (UTC Dec 2025)
+    expect(utcMonthsForSydneyMonth("2026-01")).toEqual(["2025-12", "2026-01"]);
+  });
+
+  test("December 2026 spans UTC November + December", () => {
+    // Sydney Dec starts 2026-12-01T00:00+11 = 2026-11-30T13:00Z
+    expect(utcMonthsForSydneyMonth("2026-12")).toEqual(["2026-11", "2026-12"]);
+  });
+
+  test("returns ascending, deduplicated keys", () => {
+    const months = utcMonthsForSydneyMonth("2026-04");
+    expect(months[0] < months[1]).toBe(true);
+    expect(new Set(months).size).toBe(months.length);
+  });
+
+  test("rejects invalid format", () => {
+    expect(() => utcMonthsForSydneyMonth("garbage")).toThrow();
+    expect(() => utcMonthsForSydneyMonth("2026-4")).toThrow();
+    expect(() => utcMonthsForSydneyMonth("2026-13")).toThrow();
+    expect(() => utcMonthsForSydneyMonth("")).toThrow();
+    // @ts-expect-error - intentionally testing runtime guard for non-string
+    expect(() => utcMonthsForSydneyMonth(undefined)).toThrow();
+  });
+});
+
+describe("listConversionsForSydneyMonth", () => {
+  test("queries both UTC partitions and filters to the Sydney month", async () => {
+    // Sydney April 2026 spans UTC 2026-03 and 2026-04. Underlying DDB queries
+    // run once per partition; we mock send() to return rows tagged by which
+    // partition was queried.
+    const inMarchPartitionInsideAprilSydney = makeRow({
+      month: "2026-03",
+      // 2026-03-31T14:00Z = 2026-04-01T01:00+11 = inside Sydney April
+      ts: "2026-03-31T14:00:00.000Z#aaaaaa",
+    });
+    const inMarchPartitionOutsideAprilSydney = makeRow({
+      month: "2026-03",
+      // 2026-03-30T00:00Z = 2026-03-30T11:00+11 = inside Sydney March, NOT April
+      ts: "2026-03-30T00:00:00.000Z#bbbbbb",
+    });
+    const inAprilPartitionInsideAprilSydney = makeRow({
+      month: "2026-04",
+      ts: "2026-04-15T03:00:00.000Z#cccccc",
+    });
+    const inAprilPartitionOutsideAprilSydney = makeRow({
+      month: "2026-04",
+      // 2026-04-30T14:30Z = 2026-05-01T00:30+10 = inside Sydney May, NOT April
+      ts: "2026-04-30T14:30:00.000Z#dddddd",
+    });
+
+    sendMock.mockImplementation((command: { input: { ExpressionAttributeValues: Record<string, string> } }) => {
+      const month = command.input.ExpressionAttributeValues[":month"];
+      if (month === "2026-03") {
+        return Promise.resolve({
+          Items: [
+            inMarchPartitionInsideAprilSydney,
+            inMarchPartitionOutsideAprilSydney,
+          ],
+        });
+      }
+      if (month === "2026-04") {
+        return Promise.resolve({
+          Items: [
+            inAprilPartitionInsideAprilSydney,
+            inAprilPartitionOutsideAprilSydney,
+          ],
+        });
+      }
+      return Promise.resolve({ Items: [] });
+    });
+
+    const result = await listConversionsForSydneyMonth("2026-04");
+
+    expect(sendMock).toHaveBeenCalledTimes(2);
+    // Only the two rows whose Sydney date falls in April 2026 should remain.
+    expect(result).toHaveLength(2);
+    expect(result.map((r) => r.ts)).toContain(
+      inMarchPartitionInsideAprilSydney.ts
+    );
+    expect(result.map((r) => r.ts)).toContain(
+      inAprilPartitionInsideAprilSydney.ts
+    );
+  });
+
+  test("returns rows sorted by descending timestamp", async () => {
+    const earlier = makeRow({
+      month: "2026-03",
+      ts: "2026-03-31T14:00:00.000Z#aaaaaa",
+    });
+    const middle = makeRow({
+      month: "2026-04",
+      ts: "2026-04-10T00:00:00.000Z#bbbbbb",
+    });
+    const later = makeRow({
+      month: "2026-04",
+      ts: "2026-04-25T05:00:00.000Z#cccccc",
+    });
+
+    sendMock.mockImplementation((command: { input: { ExpressionAttributeValues: Record<string, string> } }) => {
+      const month = command.input.ExpressionAttributeValues[":month"];
+      if (month === "2026-03") return Promise.resolve({ Items: [earlier] });
+      if (month === "2026-04") return Promise.resolve({ Items: [later, middle] });
+      return Promise.resolve({ Items: [] });
+    });
+
+    const result = await listConversionsForSydneyMonth("2026-04");
+    expect(result.map((r) => r.ts)).toEqual([later.ts, middle.ts, earlier.ts]);
+  });
+
+  test("filters out rows with an unparseable timestamp", async () => {
+    // Both UTC partitions get queried; only the April partition returns rows
+    // here so we can pin assertions to a known set.
+    sendMock.mockImplementation((command: { input: { ExpressionAttributeValues: Record<string, string> } }) => {
+      const month = command.input.ExpressionAttributeValues[":month"];
+      if (month === "2026-04") {
+        return Promise.resolve({
+          Items: [
+            makeRow({ ts: "not-a-real-iso-timestamp" }),
+            makeRow({ ts: "2026-04-15T03:00:00.000Z#good01" }),
+          ],
+        });
+      }
+      return Promise.resolve({ Items: [] });
+    });
+
+    const result = await listConversionsForSydneyMonth("2026-04");
+    expect(result).toHaveLength(1);
+    expect(result[0]?.ts).toBe("2026-04-15T03:00:00.000Z#good01");
+  });
+
+  test("returns empty array when both partitions are empty", async () => {
+    sendMock.mockResolvedValue({ Items: [] });
+    const result = await listConversionsForSydneyMonth("2026-07");
+    expect(result).toEqual([]);
+    expect(sendMock).toHaveBeenCalledTimes(2);
+  });
+
+  test("propagates throws from utcMonthsForSydneyMonth on bad input", async () => {
+    await expect(
+      listConversionsForSydneyMonth("garbage")
+    ).rejects.toThrow();
   });
 });

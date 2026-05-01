@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
 
-const listConversionsMock = mock();
+const listConversionsForSydneyMonthMock = mock();
 const originalConsoleError = console.error;
 
 mock.module("@/lib/audit", () => ({
-  listConversions: listConversionsMock,
+  listConversionsForSydneyMonth: listConversionsForSydneyMonthMock,
 }));
 
 // Mock Auth.js so auth() becomes a passthrough that injects request.auth from
@@ -36,8 +36,8 @@ function makeRequest(query: string, opts?: { authed?: boolean }): NextRequest {
 }
 
 beforeEach(() => {
-  listConversionsMock.mockReset();
-  listConversionsMock.mockResolvedValue([]);
+  listConversionsForSydneyMonthMock.mockReset();
+  listConversionsForSydneyMonthMock.mockResolvedValue([]);
   console.error = (() => {}) as typeof console.error;
 });
 
@@ -65,7 +65,7 @@ describe("GET /api/logs", () => {
         warningCount: 0,
       },
     ];
-    listConversionsMock.mockResolvedValue(rows);
+    listConversionsForSydneyMonthMock.mockResolvedValue(rows);
 
     const response = await GET(makeRequest("?month=2026-04"));
     const data = await response.json();
@@ -76,7 +76,7 @@ describe("GET /api/logs", () => {
       month: "2026-04",
       rows,
     });
-    expect(listConversionsMock).toHaveBeenCalledWith("2026-04");
+    expect(listConversionsForSydneyMonthMock).toHaveBeenCalledWith("2026-04");
   });
 
   test("returns 400 for an invalid month format", async () => {
