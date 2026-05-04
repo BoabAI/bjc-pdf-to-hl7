@@ -10,11 +10,11 @@ export function InstructionalVideo() {
     <div className="card overflow-hidden animate-fade-in-up">
       <div className="px-5 pt-4 pb-3">
         <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-          How the portal works
+          Operator portal — quick tour
         </h2>
         <p className="text-xs text-[var(--text-muted)] mt-0.5">
-          A 90-second walkthrough — production runs the same engine
-          unattended.
+          Every page on the top nav, in 2 minutes. Production runs the
+          same engine unattended.
         </p>
       </div>
       <div className="aspect-video bg-black">
