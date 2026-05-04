@@ -1,6 +1,12 @@
 import NextAuth, { type DefaultSession } from "next-auth";
 import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
 import { logAuthRejection } from "@/lib/server/logging";
+import {
+  getAuthMode,
+  PASSWORD_COOKIE_NAME,
+  passwordSession,
+  verifyPasswordCookie,
+} from "@/lib/auth-mode";
 
 declare module "next-auth" {
   interface Session {
@@ -143,31 +149,27 @@ export const signIn = nextAuth.signIn;
 export const signOut = nextAuth.signOut;
 
 /**
- * Auth bypass triggers — either flag short-circuits Entra and returns a
- * synthetic session for an allowed test user.
- *
- * - `AUTH_ENABLED=false`: explicit feature toggle to disable auth entirely.
- *   Honoured in any environment (including production). Use with care —
- *   only set this on environments that have other access controls in place
- *   (e.g. private demos, internal-only deployments).
- * - `TEST_MODE=true`: legacy bypass for browser-agent UI tests. Hard-gated
- *   to non-production.
+ * Selected auth mode — see lib/auth-mode.ts for the full matrix:
+ *   - oauth (default): Microsoft Entra SSO via Auth.js
+ *   - password: shared APP_PASSWORD with HMAC-signed cookie
+ *   - disabled: synthetic session for everyone (legacy AUTH_ENABLED=false /
+ *               TEST_MODE=true also resolve here)
  */
-const AUTH_DISABLED = process.env.AUTH_ENABLED === "false";
-const TEST_MODE_BYPASS =
-  AUTH_DISABLED ||
-  (process.env.TEST_MODE === "true" && process.env.NODE_ENV !== "production");
+export const AUTH_MODE = getAuthMode();
 
-if (TEST_MODE_BYPASS) {
+if (AUTH_MODE === "disabled") {
   // eslint-disable-next-line no-console
   console.warn(
-    AUTH_DISABLED
-      ? "[auth] AUTH_ENABLED=false — auth is disabled. All requests receive a synthetic session."
-      : "[auth] TEST_MODE=true — auth is bypassed with a synthetic session. Never enable this in production."
+    "[auth] AUTH_MODE=disabled — auth is bypassed with a synthetic session. Do not use in production without compensating controls."
+  );
+} else if (AUTH_MODE === "password") {
+  // eslint-disable-next-line no-console
+  console.warn(
+    "[auth] AUTH_MODE=password — using shared APP_PASSWORD. Audit-log entries will be attributed to a single shared user."
   );
 }
 
-const TEST_SESSION = {
+const DISABLED_SESSION = {
   user: {
     email: "test@bjchealth.com.au",
     name: "Test Mode",
@@ -179,43 +181,117 @@ type AuthFn = typeof nextAuth.auth;
 
 const realAuth = nextAuth.auth;
 
-const bypassAuth = ((...args: unknown[]) => {
-  // Zero-arg form: `await auth()` returns a Session | null.
+const disabledAuth = ((...args: unknown[]) => {
   if (args.length === 0) {
-    return Promise.resolve(TEST_SESSION);
+    return Promise.resolve(DISABLED_SESSION);
   }
-  // Handler-wrapping form: `auth(async (request) => ...)`. Inject synthetic
-  // session onto request.auth before delegating to the user handler.
   const handler = args[0] as (
     request: { auth: unknown } & Record<string, unknown>,
     ctx?: unknown
   ) => unknown;
   return (request: { auth: unknown } & Record<string, unknown>, ctx?: unknown) => {
-    request.auth = TEST_SESSION;
+    request.auth = DISABLED_SESSION;
     return handler(request, ctx);
   };
 }) as AuthFn;
 
-export const auth: AuthFn = TEST_MODE_BYPASS ? bypassAuth : realAuth;
+/**
+ * Password-mode auth() implementation.
+ *
+ * - Zero-arg form: read the password cookie from `next/headers`. If valid,
+ *   resolve to a synthetic password session; otherwise null.
+ * - Wrapped-handler form: read the cookie off the NextRequest passed in by
+ *   Auth.js' wrapper signature. We can't import next/server here (Edge) so
+ *   we duck-type the request.cookies API.
+ */
+const passwordAuth = ((...args: unknown[]) => {
+  if (args.length === 0) {
+    // Zero-arg form returns a Promise<Session | null> — the route handlers
+    // that use `await auth()` already expect that.
+    return (async () => {
+      const { cookies } = await import("next/headers");
+      const value = cookies().get(PASSWORD_COOKIE_NAME)?.value;
+      const verified = await verifyPasswordCookie(value);
+      return verified
+        ? (passwordSession() as unknown as import("next-auth").Session)
+        : null;
+    })();
+  }
+  // Wrapped-handler form must return a function synchronously — Next.js
+  // middleware loads `export default auth(...)` and expects a callable, not
+  // a Promise. The async work happens *inside* the returned function.
+  const handler = args[0] as (
+    request: { auth: unknown; cookies?: { get: (n: string) => { value: string } | undefined } } & Record<string, unknown>,
+    ctx?: unknown
+  ) => unknown;
+  return async (
+    request: { auth: unknown; cookies?: { get: (n: string) => { value: string } | undefined } } & Record<string, unknown>,
+    ctx?: unknown
+  ) => {
+    const cookieValue = request.cookies?.get(PASSWORD_COOKIE_NAME)?.value;
+    const verified = await verifyPasswordCookie(cookieValue);
+    request.auth = verified ? (passwordSession() as unknown) : null;
+    return handler(request, ctx);
+  };
+}) as unknown as AuthFn;
+
+export const auth: AuthFn =
+  AUTH_MODE === "disabled"
+    ? disabledAuth
+    : AUTH_MODE === "password"
+      ? passwordAuth
+      : realAuth;
 
 /**
- * In TEST_MODE, intercept the `/api/auth/session` endpoint that
- * `useSession()` polls so client components also see the synthetic session.
- * Without this, a real Auth.js cookie left over from a prior login would
- * leak the real user into client UI even though server-side `auth()` is
- * bypassed.
+ * `/api/auth/[...nextauth]` handlers. In disabled mode, intercept
+ * `/api/auth/session` so `useSession()` polls return the synthetic session
+ * even if a stale Auth.js cookie is present. In password mode, return the
+ * synthetic password session when the password cookie is valid.
  */
 const realHandlers = nextAuth.handlers;
 
-export const handlers: typeof realHandlers = TEST_MODE_BYPASS
-  ? {
-      GET: (async (request: Parameters<typeof realHandlers.GET>[0]) => {
-        const url = new URL(request.url);
-        if (url.pathname.endsWith("/api/auth/session")) {
-          return Response.json(TEST_SESSION);
+async function readPasswordCookieFromRequest(
+  request: Parameters<typeof realHandlers.GET>[0]
+): Promise<{ expires: number } | null> {
+  // NextRequest exposes .cookies; Web Request does not.
+  const req = request as unknown as {
+    cookies?: { get: (n: string) => { value: string } | undefined };
+    headers: Headers;
+  };
+  const direct = req.cookies?.get(PASSWORD_COOKIE_NAME)?.value;
+  if (direct) return verifyPasswordCookie(direct);
+  // Fallback: parse the raw Cookie header.
+  const raw = req.headers.get("cookie") ?? "";
+  const match = raw.split(/;\s*/).find((c) => c.startsWith(`${PASSWORD_COOKIE_NAME}=`));
+  if (!match) return null;
+  return verifyPasswordCookie(match.slice(PASSWORD_COOKIE_NAME.length + 1));
+}
+
+export const handlers: typeof realHandlers =
+  AUTH_MODE === "disabled"
+    ? {
+        GET: (async (request: Parameters<typeof realHandlers.GET>[0]) => {
+          const url = new URL(request.url);
+          if (url.pathname.endsWith("/api/auth/session")) {
+            return Response.json(DISABLED_SESSION);
+          }
+          return realHandlers.GET(request);
+        }) as typeof realHandlers.GET,
+        POST: realHandlers.POST,
+      }
+    : AUTH_MODE === "password"
+      ? {
+          GET: (async (request: Parameters<typeof realHandlers.GET>[0]) => {
+            const url = new URL(request.url);
+            if (url.pathname.endsWith("/api/auth/session")) {
+              const verified = await readPasswordCookieFromRequest(request);
+              return Response.json(verified ? passwordSession() : null);
+            }
+            // Block Entra endpoints in password mode — they'd 500 anyway
+            // without provider env vars, but a clean 404 is friendlier.
+            return new Response("Not found", { status: 404 });
+          }) as typeof realHandlers.GET,
+          POST: (async () =>
+            new Response("Not found", { status: 404 })) as typeof realHandlers.POST,
         }
-        return realHandlers.GET(request);
-      }) as typeof realHandlers.GET,
-      POST: realHandlers.POST,
-    }
-  : realHandlers;
+      : realHandlers;

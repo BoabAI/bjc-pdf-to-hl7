@@ -3,6 +3,26 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
+
+// Mode-aware sign out. In password mode the next-auth signout endpoint is
+// disabled (no provider); we DELETE the password cookie instead, then
+// redirect to /login the same way next-auth would.
+const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE ?? "oauth";
+
+async function handleSignOut() {
+  if (AUTH_MODE === "password") {
+    try {
+      await fetch("/api/auth/password", {
+        method: "DELETE",
+        credentials: "same-origin",
+      });
+    } finally {
+      window.location.assign("/login");
+    }
+    return;
+  }
+  await signOut({ callbackUrl: "/login" });
+}
 import { WalkthroughButton } from "./WalkthroughButton";
 
 interface NavItem {
@@ -60,7 +80,7 @@ export function AppNav() {
             </span>
             <button
               type="button"
-              onClick={() => signOut({ callbackUrl: "/login" })}
+              onClick={handleSignOut}
               className="px-3 py-1.5 rounded-lg text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-colors"
               title={`Signed in as ${userEmail}. Click to sign out.`}
             >

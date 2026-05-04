@@ -1,4 +1,4 @@
-import { signIn } from "@/lib/auth";
+import { signIn, AUTH_MODE } from "@/lib/auth";
 import { LogoStrip } from "../components/LogoStrip";
 
 interface LoginPageProps {
@@ -10,6 +10,7 @@ const ERROR_MESSAGES: Record<string, string> = {
     "Your account isn't authorised. Sign in with an authorised work account.",
   Configuration: "Authentication is misconfigured. Contact your administrator.",
   Verification: "Sign-in link expired or already used. Try again.",
+  PasswordIncorrect: "Incorrect password. Try again.",
 };
 
 function errorMessage(code?: string): string | null {
@@ -21,10 +22,12 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
   const error = errorMessage(searchParams.error);
   const callbackUrl = searchParams.callbackUrl ?? "/";
 
-  async function handleSignIn() {
+  async function handleEntraSignIn() {
     "use server";
     await signIn("microsoft-entra-id", { redirectTo: callbackUrl });
   }
+
+  const isPasswordMode = AUTH_MODE === "password";
 
   return (
     <main className="min-h-screen flex items-center justify-center px-4">
@@ -37,55 +40,86 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
               PDF to HL7 Converter
             </h1>
             <p className="text-sm text-[var(--text-muted)] mt-1.5">
-              Sign in with your work Microsoft 365 account
+              {isPasswordMode
+                ? "Enter the shared access password"
+                : "Sign in with your work Microsoft 365 account"}
             </p>
           </div>
 
           <div className="divider-subtle" />
 
           <div className="px-7 py-6">
-            <form action={handleSignIn} className="space-y-5">
-              {error && (
-                <div className="p-3 rounded-lg bg-[var(--error-bg)] border border-[var(--error-border)] animate-fade-in">
-                  <div className="flex items-start gap-2">
-                    <svg
-                      className="w-4 h-4 text-[var(--error)] shrink-0 mt-0.5"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
-                      />
-                    </svg>
+            {isPasswordMode ? (
+              <form
+                action="/api/auth/password"
+                method="POST"
+                className="space-y-5"
+              >
+                {error && (
+                  <div className="p-3 rounded-lg bg-[var(--error-bg)] border border-[var(--error-border)] animate-fade-in">
                     <p className="text-sm text-[var(--error)]">{error}</p>
                   </div>
-                </div>
-              )}
+                )}
+                <label className="block">
+                  <span className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
+                    Password
+                  </span>
+                  <input
+                    type="password"
+                    name="password"
+                    required
+                    autoFocus
+                    autoComplete="current-password"
+                    className="w-full px-3 py-2 rounded-md border border-[var(--border-light)] bg-[var(--bg-inner)] focus:outline-none focus:ring-2 focus:ring-[var(--bjc-blue)]"
+                  />
+                </label>
+                <button type="submit" className="btn-primary w-full">
+                  Sign in
+                </button>
+              </form>
+            ) : (
+              <form action={handleEntraSignIn} className="space-y-5">
+                {error && (
+                  <div className="p-3 rounded-lg bg-[var(--error-bg)] border border-[var(--error-border)] animate-fade-in">
+                    <div className="flex items-start gap-2">
+                      <svg
+                        className="w-4 h-4 text-[var(--error)] shrink-0 mt-0.5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+                        />
+                      </svg>
+                      <p className="text-sm text-[var(--error)]">{error}</p>
+                    </div>
+                  </div>
+                )}
 
-              <button type="submit" className="btn-primary w-full">
-                <span className="flex items-center justify-center gap-2">
-                  <svg
-                    className="w-4 h-4"
-                    viewBox="0 0 23 23"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                  >
-                    <rect x="1" y="1" width="10" height="10" fill="#f25022" />
-                    <rect x="12" y="1" width="10" height="10" fill="#7fba00" />
-                    <rect x="1" y="12" width="10" height="10" fill="#00a4ef" />
-                    <rect x="12" y="12" width="10" height="10" fill="#ffb900" />
-                  </svg>
-                  Sign in with Microsoft
-                </span>
-              </button>
-            </form>
+                <button type="submit" className="btn-primary w-full">
+                  <span className="flex items-center justify-center gap-2">
+                    <svg
+                      className="w-4 h-4"
+                      viewBox="0 0 23 23"
+                      xmlns="http://www.w3.org/2000/svg"
+                      aria-hidden="true"
+                    >
+                      <rect x="1" y="1" width="10" height="10" fill="#f25022" />
+                      <rect x="12" y="1" width="10" height="10" fill="#7fba00" />
+                      <rect x="1" y="12" width="10" height="10" fill="#00a4ef" />
+                      <rect x="12" y="12" width="10" height="10" fill="#ffb900" />
+                    </svg>
+                    Sign in with Microsoft
+                  </span>
+                </button>
+              </form>
+            )}
           </div>
         </div>
-
       </div>
     </main>
   );
