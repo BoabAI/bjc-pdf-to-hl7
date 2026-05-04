@@ -82,9 +82,9 @@ scripts/video/remotion/node_modules/
 scripts/video/remotion/package-lock.json
 scripts/video/remotion/.remotion/
 
-# Login instructional video — generated, served from public/
-/public/login-instructional.mp4
-/public/login-instructional-poster.jpg
+# Login instructional video — rendered output is committed (Amplify needs it
+# at deploy time and we don't have a regen-on-build pipeline). Re-render via
+# `npx remotion render` in scripts/video/remotion/ when narration changes.
 
 # Old narration segment archive (kept locally, not in repo)
 scripts/video/remotion/public/narration-segments/_archive/
