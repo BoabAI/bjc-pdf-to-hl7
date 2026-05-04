@@ -18,6 +18,8 @@ frontend:
         - echo "AZURE_AD_CLIENT_SECRET=$AZURE_AD_CLIENT_SECRET" >> .env.production
         - echo "AZURE_AD_TENANT_ID=$AZURE_AD_TENANT_ID" >> .env.production
         - echo "AUTH_ALLOWED_DOMAINS=$AUTH_ALLOWED_DOMAINS" >> .env.production
+        - echo "AUTH_MODE=$AUTH_MODE" >> .env.production
+        - echo "APP_PASSWORD=$APP_PASSWORD" >> .env.production
         - echo "PAD_TOKEN=$PAD_TOKEN" >> .env.production
         - echo "Wrote Auth.js + PAD env vars to .env.production"
         - npm run build
