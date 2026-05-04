@@ -1,8 +1,6 @@
 import React from "react";
 import { AbsoluteFill, Audio, Series, staticFile, useVideoConfig } from "remotion";
 import { Timing, durationFor } from "./lib/timing";
-import { HookScene } from "./scenes/HookScene";
-import { ProblemScene } from "./scenes/ProblemScene";
 import { IntroScene } from "./scenes/IntroScene";
 import { ScopeCalloutScene } from "./scenes/ScopeCalloutScene";
 import { StepScene } from "./scenes/StepScene";
@@ -24,8 +22,6 @@ type StepDef = {
   stepLabel: string;
   caption: string;
   shotId: string;
-  secondaryShot?: { shotId: string; zoom: number; objectPosition: string };
-  splitProgress?: number;
 };
 
 const STEPS: StepDef[] = [
@@ -33,31 +29,59 @@ const STEPS: StepDef[] = [
     sceneId: "step-signin",
     shotId: "00-login-screen",
     stepLabel: "Sign in",
-    caption: "Use the password your administrator gave you. Sessions last seven days.",
+    caption: "Password from your administrator.",
   },
   {
-    sceneId: "step-options",
+    sceneId: "step-converter-drop",
+    shotId: "10-nav-converter",
+    stepLabel: "Converter — home page",
+    caption:
+      "Drag a PDF, or click Browse Files. Six document types: consent, specialist + GP referrals, pathology + radiology results.",
+  },
+  {
+    sceneId: "step-converter-options",
     shotId: "04-options",
-    stepLabel: "Configure once",
-    caption: "Set your carrier code and paste in your clinic's doctor list — saved in your browser.",
+    stepLabel: "Per-file options",
+    caption: "Override doc type, set carrier, choose auto-file or queue for review.",
   },
   {
-    sceneId: "step-drop",
-    shotId: "01-drop-zone",
-    stepLabel: "Drop a PDF",
-    caption: "Referrals, pathology, radiology, consent forms, even mixed batches.",
-  },
-  {
-    sceneId: "step-convert",
+    sceneId: "step-converter-convert",
     shotId: "05-converting",
-    stepLabel: "Hit Convert",
-    caption: "Claude vision classifies, extracts, and matches the addressee to the right doctor.",
+    stepLabel: "Convert + download",
+    caption:
+      "Bedrock vision extracts patient + routing details. Download the HL7, or auto-deliver to the practice software.",
   },
   {
-    sceneId: "step-download",
-    shotId: "07-download",
-    stepLabel: "Download or auto-file",
-    caption: "Pull it from the queue, or drop it straight into the inbound folder.",
+    sceneId: "step-log",
+    shotId: "11-nav-log",
+    stepLabel: "Log — audit trail",
+    caption:
+      "One row per conversion: patient initials, doc type, source, outcome, warnings. Date filter + CSV export.",
+  },
+  {
+    sceneId: "step-stats",
+    shotId: "12-nav-stats",
+    stepLabel: "Stats — charts",
+    caption: "Document type, outcome, source. Web vs email pipeline. For monthly reporting.",
+  },
+  {
+    sceneId: "step-reference",
+    shotId: "13-nav-reference",
+    stepLabel: "Reference Data",
+    caption:
+      "Doctors with provider numbers route HL7 to the right inbox. Carrier codes too. Auto-saves.",
+  },
+  {
+    sceneId: "step-compliance",
+    shotId: "14-nav-compliance",
+    stepLabel: "Data Handling",
+    caption: "In-memory only, no persistent storage, IRAP PROTECTED AWS in Australia.",
+  },
+  {
+    sceneId: "step-privacy",
+    shotId: "15-nav-privacy",
+    stepLabel: "Privacy",
+    caption: "Full Privacy Policy under the Australian Privacy Act and 13 Privacy Principles.",
   },
 ];
 
@@ -73,15 +97,7 @@ export const ExplainerVideo: React.FC = () => {
   return (
     <AbsoluteFill style={{ background: "#000" }}>
       <Series>
-        <Series.Sequence durationInFrames={durationFor("hook", fps)}>
-          <HookScene />
-        </Series.Sequence>
-
-        <Series.Sequence durationInFrames={durationFor("problem", fps)}>
-          <ProblemScene />
-        </Series.Sequence>
-
-        <Series.Sequence durationInFrames={durationFor("title", fps)}>
+        <Series.Sequence durationInFrames={durationFor("intro", fps)}>
           <IntroScene />
         </Series.Sequence>
 
@@ -91,13 +107,6 @@ export const ExplainerVideo: React.FC = () => {
 
         {STEPS.map((step, i) => {
           const primary = findShot(step.shotId);
-          const secondary = step.secondaryShot
-            ? {
-                ...findShot(step.secondaryShot.shotId),
-                zoom: step.secondaryShot.zoom,
-                objectPosition: step.secondaryShot.objectPosition,
-              }
-            : undefined;
           return (
             <Series.Sequence key={step.sceneId} durationInFrames={durationFor(step.sceneId, fps)}>
               <StepScene
@@ -105,8 +114,6 @@ export const ExplainerVideo: React.FC = () => {
                 stepLabel={step.stepLabel}
                 caption={step.caption}
                 shot={primary}
-                secondaryShot={secondary}
-                splitProgress={step.splitProgress}
               />
             </Series.Sequence>
           );
@@ -128,11 +135,11 @@ export const ExplainerVideo: React.FC = () => {
           const totalFrames = Math.ceil(totalSec * fps);
           const fadeIn = fps * 1.2;
           const fadeOut = fps * 1.5;
-          if (f < fadeIn) return (f / fadeIn) * 0.1;
+          if (f < fadeIn) return (f / fadeIn) * 0.08;
           if (f > totalFrames - fadeOut) {
-            return Math.max(0, (totalFrames - f) / fadeOut) * 0.1;
+            return Math.max(0, (totalFrames - f) / fadeOut) * 0.08;
           }
-          return 0.1;
+          return 0.08;
         }}
       />
     </AbsoluteFill>

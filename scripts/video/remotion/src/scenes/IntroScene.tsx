@@ -83,9 +83,9 @@ export const IntroScene: React.FC = () => {
               textShadow: `0 0 38px ${Brand.colors.accentSolid}60`,
             }}
           >
-            From PDF to HL7,
+            Operator portal
             <br />
-            <span style={{ color: Brand.colors.accentSolid }}>automatically.</span>
+            <span style={{ color: Brand.colors.accentSolid }}>quick tour</span>
           </h1>
 
           {/* Accent line */}
@@ -112,7 +112,7 @@ export const IntroScene: React.FC = () => {
               letterSpacing: 0.3,
             }}
           >
-            HL7 v2.4 messages your practice software files for you
+            Every page on the top nav, in 2 minutes
           </p>
         </div>
       </AbsoluteFill>

@@ -1,17 +1,18 @@
 {
   "segments": [
-    { "sceneId": "hook", "file": "narration-segments/01-hook.mp3", "duration": 5.526, "offset": 0.0 },
-    { "sceneId": "problem", "file": "narration-segments/02-problem.mp3", "duration": 8.127, "offset": 5.726 },
-    { "sceneId": "title", "file": "narration-segments/03-title.mp3", "duration": 5.573, "offset": 14.053 },
-    { "sceneId": "scope-callout", "file": "narration-segments/04-scope-callout.mp3", "duration": 12.214, "offset": 19.976 },
-    { "sceneId": "step-signin", "file": "narration-segments/05-step-signin.mp3", "duration": 7.152, "offset": 32.54, "screenshotId": "00-login-screen" },
-    { "sceneId": "step-options", "file": "narration-segments/06-step-options.mp3", "duration": 7.059, "offset": 40.042, "screenshotId": "04-options" },
-    { "sceneId": "step-drop", "file": "narration-segments/07-step-drop.mp3", "duration": 8.173, "offset": 47.301, "screenshotId": "01-drop-zone" },
-    { "sceneId": "step-convert", "file": "narration-segments/08-step-convert.mp3", "duration": 12.539, "offset": 55.674, "screenshotId": "05-converting" },
-    { "sceneId": "step-download", "file": "narration-segments/09-step-download.mp3", "duration": 9.056, "offset": 68.413, "screenshotId": "07-download" },
-    { "sceneId": "cta", "file": "narration-segments/10-cta.mp3", "duration": 12.83, "offset": 77.819 }
+    { "sceneId": "intro", "file": "narration-segments/01-intro.mp3", "duration": 3.808, "offset": 0.0 },
+    { "sceneId": "scope-callout", "file": "narration-segments/02-scope-callout.mp3", "duration": 12.910, "offset": 4.008 },
+    { "sceneId": "step-signin", "file": "narration-segments/03-step-signin.mp3", "duration": 2.786, "offset": 17.118, "screenshotId": "00-login-screen" },
+    { "sceneId": "step-converter-drop", "file": "narration-segments/04-step-converter-drop.mp3", "duration": 15.093, "offset": 20.104, "screenshotId": "10-nav-converter" },
+    { "sceneId": "step-converter-options", "file": "narration-segments/05-step-converter-options.mp3", "duration": 9.845, "offset": 35.397, "screenshotId": "04-options" },
+    { "sceneId": "step-converter-convert", "file": "narration-segments/06-step-converter-convert.mp3", "duration": 12.817, "offset": 45.442, "screenshotId": "05-converting" },
+    { "sceneId": "step-log", "file": "narration-segments/07-step-log.mp3", "duration": 10.774, "offset": 58.459, "screenshotId": "11-nav-log" },
+    { "sceneId": "step-stats", "file": "narration-segments/08-step-stats.mp3", "duration": 9.288, "offset": 69.433, "screenshotId": "12-nav-stats" },
+    { "sceneId": "step-reference", "file": "narration-segments/09-step-reference.mp3", "duration": 12.771, "offset": 78.921, "screenshotId": "13-nav-reference" },
+    { "sceneId": "step-compliance", "file": "narration-segments/10-step-compliance.mp3", "duration": 10.588, "offset": 91.892, "screenshotId": "14-nav-compliance" },
+    { "sceneId": "step-privacy", "file": "narration-segments/11-step-privacy.mp3", "duration": 6.734, "offset": 102.68, "screenshotId": "15-nav-privacy" },
+    { "sceneId": "cta", "file": "narration-segments/12-cta.mp3", "duration": 9.42, "offset": 109.614 }
   ],
   "paddingSeconds": 0.2,
-  "paddingMajorBreaks": 0.35,
-  "totalDuration": 90.5
+  "totalDuration": 119.5
 }

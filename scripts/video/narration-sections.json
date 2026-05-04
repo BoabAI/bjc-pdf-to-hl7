@@ -1,47 +1,59 @@
 [
   {
-    "sceneId": "hook",
-    "text": "Every clinic gets the same flood. Referrals, pathology, radiology, all arriving as PDFs."
-  },
-  {
-    "sceneId": "problem",
-    "text": "Each one has to be read, classified, and routed to the right doctor's inbox by hand. It's slow, and it's the kind of work that quietly burns a day a week."
-  },
-  {
-    "sceneId": "title",
-    "text": "This tool turns those PDFs into HL7 messages your practice software files automatically."
+    "sceneId": "intro",
+    "text": "This is the operator portal. A quick tour of every page on the top nav."
   },
   {
     "sceneId": "scope-callout",
-    "text": "Heads up — what you're about to see is the operator portal, used for one-off uploads and spot checks. The production pipeline runs fully automated, end to end. No clicks, no logins, no humans in the loop."
+    "text": "First — what you're about to see is the operator portal, used for one-off uploads and spot checks. The production pipeline runs fully automated, end to end. No clicks, no logins, no humans in the loop."
   },
   {
     "sceneId": "step-signin",
     "screenshotId": "00-login-screen",
-    "text": "To use the portal, sign in with the password your administrator gave you. Sessions last seven days, so you only do this once a week."
+    "text": "Sign in with the password your administrator gave you."
   },
   {
-    "sceneId": "step-options",
+    "sceneId": "step-converter-drop",
+    "screenshotId": "10-nav-converter",
+    "text": "Converter is the home page. Drag any patient PDF onto the dropzone, or click Browse Files. The badges show the six document types it handles — consent forms, specialist and GP referrals, pathology and radiology results."
+  },
+  {
+    "sceneId": "step-converter-options",
     "screenshotId": "04-options",
-    "text": "Set your carrier code and paste in your clinic's doctor list. The app remembers these in your browser, so this is a one-time setup."
+    "text": "Per-file options sit on each row. Override the document type if the classifier got it wrong, set the carrier code, and choose auto-file or queue for review."
   },
   {
-    "sceneId": "step-drop",
-    "screenshotId": "01-drop-zone",
-    "text": "Drag any patient PDF into the dropzone — referrals, pathology, radiology, consent forms, even mixed batches. Queue as many as you like."
-  },
-  {
-    "sceneId": "step-convert",
+    "sceneId": "step-converter-convert",
     "screenshotId": "05-converting",
-    "text": "Hit convert. Claude vision reads each document, classifies it, pulls out the patient details, and matches the addressee to the right doctor on your list — even when the letter just says, Dear Rheumatologist."
+    "text": "Hit Convert. Bedrock vision reads the document, classifies it, and pulls out patient and routing details. Then download the HL7 from the queue, or drop it straight into the practice software's inbound folder."
   },
   {
-    "sceneId": "step-download",
-    "screenshotId": "07-download",
-    "text": "Download the HL7 file, or drop it straight into your practice software's inbound folder. The file is tagged so it lands in the right inbox automatically."
+    "sceneId": "step-log",
+    "screenshotId": "11-nav-log",
+    "text": "The Log tab is the audit trail. One row per conversion — time, patient initials, document type, source, outcome, and any warnings. Filter by date range, and export to CSV."
+  },
+  {
+    "sceneId": "step-stats",
+    "screenshotId": "12-nav-stats",
+    "text": "Stats shows the same audit data as charts. Document type, outcome, and source — web uploads versus the email pipeline. Useful for monthly reporting."
+  },
+  {
+    "sceneId": "step-reference",
+    "screenshotId": "13-nav-reference",
+    "text": "Reference Data is where doctors and carriers live. Add a doctor with their provider number — that's how the HL7 message routes to the right inbox. Carrier codes go in the same place. Changes save automatically."
+  },
+  {
+    "sceneId": "step-compliance",
+    "screenshotId": "14-nav-compliance",
+    "text": "Data Handling explains how patient information is processed. In-memory only, no persistent storage, all infrastructure inside Australia on IRAP PROTECTED AWS services."
+  },
+  {
+    "sceneId": "step-privacy",
+    "screenshotId": "15-nav-privacy",
+    "text": "Privacy is the full Privacy Policy, written against the Australian Privacy Act and the thirteen Privacy Principles."
   },
   {
     "sceneId": "cta",
-    "text": "Every conversion is logged for compliance. Again — this is the portal flow. In production, the same engine runs unattended on every inbound document. Sign in above to try the portal."
+    "text": "Sign out is in the top right. And remember — this portal is the manual path. In production, the same engine runs unattended on every inbound document."
   }
 ]

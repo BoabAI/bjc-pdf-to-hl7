@@ -61,7 +61,7 @@ export const CtaScene: React.FC = () => {
           <h2
             style={{
               fontFamily: `${Brand.font.display}, sans-serif`,
-              fontSize: 78,
+              fontSize: 72,
               fontWeight: 700,
               color: Brand.colors.textPrimary,
               margin: 0,
@@ -79,11 +79,11 @@ export const CtaScene: React.FC = () => {
 
           <div
             style={{
-              marginTop: 56,
+              marginTop: 48,
               display: "inline-flex",
               alignItems: "center",
               gap: 24,
-              padding: "20px 44px",
+              padding: "18px 38px",
               borderRadius: 999,
               background: `${Brand.colors.accentSolid}18`,
               border: `1.5px solid ${Brand.colors.accentSolid}55`,
@@ -93,13 +93,13 @@ export const CtaScene: React.FC = () => {
             <span
               style={{
                 fontFamily: `${Brand.font.body}, sans-serif`,
-                fontSize: 32,
+                fontSize: 28,
                 fontWeight: 600,
                 color: Brand.colors.accentSolid,
                 letterSpacing: 0.4,
               }}
             >
-              Sign in to try the portal
+              Sign out — top right
             </span>
           </div>
         </div>

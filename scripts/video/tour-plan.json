@@ -16,25 +16,9 @@
     "zoom": 2.0
   },
   {
-    "id": "02-supports",
-    "file": "screenshots/02-supports.png",
-    "label": "Document types",
-    "url": "app.example.com",
-    "shotArchetype": "detail-crop",
-    "zoom": 2
-  },
-  {
-    "id": "03-queue",
-    "file": "screenshots/03-queue.png",
-    "label": "File queue",
-    "url": "app.example.com",
-    "shotArchetype": "result-state",
-    "zoom": 1.6
-  },
-  {
     "id": "04-options",
     "file": "screenshots/04-options.png",
-    "label": "Options",
+    "label": "Per-file options",
     "url": "app.example.com",
     "shotArchetype": "detail-crop",
     "zoom": 1.8
@@ -48,19 +32,59 @@
     "zoom": 1.6
   },
   {
-    "id": "06-result",
-    "file": "screenshots/06-result.png",
-    "label": "Routing",
-    "url": "app.example.com",
-    "shotArchetype": "result-state",
-    "zoom": 1.6
-  },
-  {
     "id": "07-download",
     "file": "screenshots/07-download.png",
     "label": "Download",
     "url": "app.example.com",
     "shotArchetype": "detail-crop",
     "zoom": 2
+  },
+  {
+    "id": "10-nav-converter",
+    "file": "screenshots/10-nav-converter.png",
+    "label": "Converter",
+    "url": "app.example.com",
+    "shotArchetype": "establish",
+    "zoom": 1.4
+  },
+  {
+    "id": "11-nav-log",
+    "file": "screenshots/11-nav-log.png",
+    "label": "Log",
+    "url": "app.example.com/log",
+    "shotArchetype": "establish",
+    "zoom": 1.4
+  },
+  {
+    "id": "12-nav-stats",
+    "file": "screenshots/12-nav-stats.png",
+    "label": "Stats",
+    "url": "app.example.com/stats",
+    "shotArchetype": "establish",
+    "zoom": 1.4
+  },
+  {
+    "id": "13-nav-reference",
+    "file": "screenshots/13-nav-reference.png",
+    "label": "Reference Data",
+    "url": "app.example.com/reference",
+    "shotArchetype": "establish",
+    "zoom": 1.4
+  },
+  {
+    "id": "14-nav-compliance",
+    "file": "screenshots/14-nav-compliance.png",
+    "label": "Data Handling",
+    "url": "app.example.com/compliance",
+    "shotArchetype": "establish",
+    "zoom": 1.4
+  },
+  {
+    "id": "15-nav-privacy",
+    "file": "screenshots/15-nav-privacy.png",
+    "label": "Privacy",
+    "url": "app.example.com/privacy",
+    "shotArchetype": "establish",
+    "zoom": 1.4
   }
 ]
