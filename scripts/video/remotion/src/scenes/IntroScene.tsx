@@ -83,9 +83,9 @@ export const IntroScene: React.FC = () => {
               textShadow: `0 0 38px ${Brand.colors.accentSolid}60`,
             }}
           >
-            How to use the
+            From PDF to HL7,
             <br />
-            <span style={{ color: Brand.colors.accentSolid }}>PDF → HL7 Converter</span>
+            <span style={{ color: Brand.colors.accentSolid }}>automatically.</span>
           </h1>
 
           {/* Accent line */}
@@ -112,7 +112,7 @@ export const IntroScene: React.FC = () => {
               letterSpacing: 0.3,
             }}
           >
-            A short walkthrough of the converter UI
+            HL7 v2.4 messages your practice software files for you
           </p>
         </div>
       </AbsoluteFill>

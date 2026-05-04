@@ -61,18 +61,20 @@ export const CtaScene: React.FC = () => {
           <h2
             style={{
               fontFamily: `${Brand.font.display}, sans-serif`,
-              fontSize: 88,
+              fontSize: 78,
               fontWeight: 700,
               color: Brand.colors.textPrimary,
               margin: 0,
-              lineHeight: 1.1,
-              letterSpacing: -1.2,
+              lineHeight: 1.08,
+              letterSpacing: -1.0,
               transform: `translateY(${taglineY}px)`,
               opacity: taglineOpacity,
               textShadow: `0 0 28px ${Brand.colors.accentSolid}50`,
             }}
           >
-            Drop. Convert. Download.
+            In production, the same engine
+            <br />
+            runs <span style={{ color: Brand.colors.accentSolid }}>unattended</span>.
           </h2>
 
           <div
@@ -91,13 +93,13 @@ export const CtaScene: React.FC = () => {
             <span
               style={{
                 fontFamily: `${Brand.font.body}, sans-serif`,
-                fontSize: 36,
+                fontSize: 32,
                 fontWeight: 600,
                 color: Brand.colors.accentSolid,
                 letterSpacing: 0.4,
               }}
             >
-              {Brand.url}
+              Sign in to try the portal
             </span>
           </div>
         </div>

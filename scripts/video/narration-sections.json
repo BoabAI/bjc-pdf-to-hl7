@@ -1,45 +1,47 @@
 [
   {
+    "sceneId": "hook",
+    "text": "Every clinic gets the same flood. Referrals, pathology, radiology, all arriving as PDFs."
+  },
+  {
+    "sceneId": "problem",
+    "text": "Each one has to be read, classified, and routed to the right doctor's inbox by hand. It's slow, and it's the kind of work that quietly burns a day a week."
+  },
+  {
     "sceneId": "title",
-    "text": "How to use the Smeck A-I, PDF to HL7 converter."
+    "text": "This tool turns those PDFs into HL7 messages your practice software files automatically."
   },
   {
-    "sceneId": "step-drop",
-    "screenshotId": "01-drop-zone",
-    "text": "On the home screen, drag a PDF into the drop zone, or click to browse. Up to ten files at once, ten megabytes each."
+    "sceneId": "scope-callout",
+    "text": "Heads up — what you're about to see is the operator portal, used for one-off uploads and spot checks. The production pipeline runs fully automated, end to end. No clicks, no logins, no humans in the loop."
   },
   {
-    "sceneId": "step-types",
-    "screenshotId": "02-supports",
-    "text": "The converter handles six document types. Referrals — both specialist and GP. Results — pathology and radiology. Plus consent forms, and any generic medical PDF."
-  },
-  {
-    "sceneId": "step-queue",
-    "screenshotId": "03-queue",
-    "text": "Files appear in the queue, ready to convert. For a single file, you can override the document type manually before converting."
+    "sceneId": "step-signin",
+    "screenshotId": "00-login-screen",
+    "text": "To use the portal, sign in with the password your administrator gave you. Sessions last seven days, so you only do this once a week."
   },
   {
     "sceneId": "step-options",
     "screenshotId": "04-options",
-    "text": "Open Conversion Options to set the carrier, choose auto-file or queue-for-review, and optionally route the message to a specific BJC Health doctor."
+    "text": "Set your carrier code and paste in your clinic's doctor list. The app remembers these in your browser, so this is a one-time setup."
+  },
+  {
+    "sceneId": "step-drop",
+    "screenshotId": "01-drop-zone",
+    "text": "Drag any patient PDF into the dropzone — referrals, pathology, radiology, consent forms, even mixed batches. Queue as many as you like."
   },
   {
     "sceneId": "step-convert",
     "screenshotId": "05-converting",
-    "text": "Click Convert. Each PDF goes through Bedrock vision — patient details and routing are extracted, and an HL7 version two point four message is built."
-  },
-  {
-    "sceneId": "step-routing",
-    "screenshotId": "06-result",
-    "text": "Every HL7 file lands in the same Genie drop folder. The message itself tells Genie where to file it — incoming letters for referrals, pathology, or radiology — based on the document type."
+    "text": "Hit convert. Claude vision reads each document, classifies it, pulls out the patient details, and matches the addressee to the right doctor on your list — even when the letter just says, Dear Rheumatologist."
   },
   {
     "sceneId": "step-download",
     "screenshotId": "07-download",
-    "text": "Download the HL7 file from the queue, or let the auto-filer drop it straight into Genie."
+    "text": "Download the HL7 file, or drop it straight into your practice software's inbound folder. The file is tagged so it lands in the right inbox automatically."
   },
   {
     "sceneId": "cta",
-    "text": "That's it. Drop, convert, download. From PDF to Genie in seconds."
+    "text": "Every conversion is logged for compliance. Again — this is the portal flow. In production, the same engine runs unattended on every inbound document. Sign in above to try the portal."
   }
 ]

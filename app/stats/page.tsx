@@ -1,14 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-  Cell,
-  Legend,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-} from "recharts";
+import { DonutChart, Legend } from "@tremor/react";
 import { AppNav } from "../components/AppNav";
 import { LogoStrip } from "../components/LogoStrip";
 import { ChartPieIcon } from "../components/ui/icons";
@@ -26,13 +19,7 @@ interface ChartDatum {
   value: number;
 }
 
-const CHART_COLORS = [
-  "#2563eb",
-  "#16a34a",
-  "#dc2626",
-  "#a855f7",
-  "#f59e0b",
-];
+const CHART_COLORS = ["blue", "emerald", "red", "violet", "amber"] as const;
 
 const LABEL_OVERRIDES: Record<string, string> = {
   gp_referral: "Referral",
@@ -67,70 +54,9 @@ interface BreakdownPieProps {
   data: ChartDatum[];
 }
 
-interface PieLabelArgs {
-  cx: number;
-  cy: number;
-  midAngle: number;
-  innerRadius: number;
-  outerRadius: number;
-  percent: number;
-  name?: string;
-  value?: number;
-  fill?: string;
-}
-
-function renderPieLabel(props: PieLabelArgs): JSX.Element | null {
-  const { cx, cy, midAngle, outerRadius, percent, name, value, fill } = props;
-  if (!percent || percent < 0.04) return null;
-
-  const RADIAN = Math.PI / 180;
-  const sin = Math.sin(-midAngle * RADIAN);
-  const cos = Math.cos(-midAngle * RADIAN);
-  const sx = cx + outerRadius * cos;
-  const sy = cy + outerRadius * sin;
-  const mx = cx + (outerRadius + 12) * cos;
-  const my = cy + (outerRadius + 12) * sin;
-  const isRight = cos >= 0;
-  const ex = mx + (isRight ? 14 : -14);
-  const ey = my;
-  const textAnchor = isRight ? "start" : "end";
-
-  return (
-    <g style={{ pointerEvents: "none" }}>
-      <path
-        d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`}
-        stroke={fill ?? "#94a3b8"}
-        fill="none"
-        strokeWidth={1}
-      />
-      <circle cx={ex} cy={ey} r={2} fill={fill ?? "#94a3b8"} />
-      <text
-        x={ex + (isRight ? 4 : -4)}
-        y={ey}
-        dy={4}
-        textAnchor={textAnchor}
-        fill="var(--text-primary)"
-        fontSize={11}
-        fontWeight={500}
-      >
-        {name}
-      </text>
-      <text
-        x={ex + (isRight ? 4 : -4)}
-        y={ey}
-        dy={18}
-        textAnchor={textAnchor}
-        fill="var(--text-muted)"
-        fontSize={10}
-      >
-        {value}
-      </text>
-    </g>
-  );
-}
-
 function BreakdownPie({ title, data }: BreakdownPieProps): JSX.Element {
   const total = data.reduce((acc, d) => acc + d.value, 0);
+  const colors = data.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]);
 
   return (
     <div className="card-inner p-4 flex-1 min-w-[280px]">
@@ -147,62 +73,32 @@ function BreakdownPie({ title, data }: BreakdownPieProps): JSX.Element {
           No data
         </p>
       ) : (
-        <div style={{ width: "100%", height: 280 }}>
-          <ResponsiveContainer>
-            <PieChart margin={{ top: 12, right: 12, bottom: 12, left: 12 }}>
-              <Pie
-                data={data}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                innerRadius={38}
-                outerRadius={68}
-                paddingAngle={1.5}
-                stroke="var(--card-bg, #ffffff)"
-                strokeWidth={2}
-                labelLine={false}
-                label={renderPieLabel as never}
-                isAnimationActive={false}
-              >
-                {data.map((_, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={CHART_COLORS[index % CHART_COLORS.length]}
-                  />
-                ))}
-              </Pie>
-              <Tooltip
-                cursor={{ fill: "transparent" }}
-                contentStyle={{
-                  borderRadius: 8,
-                  border: "1px solid var(--border-color, #e2e8f0)",
-                  fontSize: 12,
-                  padding: "6px 10px",
-                }}
-                formatter={(value, name) => {
-                  const numeric =
-                    typeof value === "number"
-                      ? value
-                      : typeof value === "string"
-                        ? Number(value)
-                        : 0;
-                  const safe = Number.isFinite(numeric) ? numeric : 0;
-                  const label =
-                    typeof name === "string" || typeof name === "number"
-                      ? String(name)
-                      : "";
-                  return [String(safe), label];
-                }}
-              />
-              <Legend
-                verticalAlign="bottom"
-                iconType="circle"
-                iconSize={8}
-                wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
+        <div className="flex flex-col items-center">
+          <div className="relative">
+            <DonutChart
+              data={data}
+              category="value"
+              index="name"
+              colors={[...colors]}
+              showLabel={false}
+              showAnimation={false}
+              className="h-44"
+              valueFormatter={(v) => String(v)}
+            />
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-2xl font-semibold text-[var(--text-primary)]">
+                {total}
+              </span>
+              <span className="text-[11px] text-[var(--text-muted)]">
+                total
+              </span>
+            </div>
+          </div>
+          <Legend
+            categories={data.map((d) => `${d.name} (${d.value})`)}
+            colors={[...colors]}
+            className="mt-3 justify-center"
+          />
         </div>
       )}
     </div>

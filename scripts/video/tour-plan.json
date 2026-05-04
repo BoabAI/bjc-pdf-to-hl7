@@ -1,5 +1,13 @@
 [
   {
+    "id": "00-login-screen",
+    "file": "screenshots/00-login-screen.png",
+    "label": "Sign in",
+    "url": "app.example.com/login",
+    "shotArchetype": "establish",
+    "zoom": 1.6
+  },
+  {
     "id": "01-drop-zone",
     "file": "screenshots/01-drop-zone.png",
     "label": "Drop zone",

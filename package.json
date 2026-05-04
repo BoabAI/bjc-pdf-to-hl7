@@ -15,6 +15,7 @@
     "@aws-sdk/client-bedrock-runtime": "^3.1040.0",
     "@aws-sdk/client-dynamodb": "^3.1040.0",
     "@aws-sdk/lib-dynamodb": "^3.1040.0",
+    "@tremor/react": "^3.18.7",
     "@types/jszip": "^3.4.1",
     "highlight.js": "^11.11.1",
     "jszip": "^3.10.1",

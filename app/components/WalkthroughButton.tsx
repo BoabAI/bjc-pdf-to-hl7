@@ -51,18 +51,18 @@ export function WalkthroughButton() {
           role="dialog"
           aria-modal="true"
           aria-label="Converter walkthrough"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 overflow-y-auto"
           onClick={() => setOpen(false)}
         >
           <div
-            className="relative w-full max-w-5xl"
+            className="relative w-full max-w-5xl my-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               type="button"
               onClick={() => setOpen(false)}
               aria-label="Close walkthrough"
-              className="absolute -top-10 right-0 text-white/80 hover:text-white text-sm flex items-center gap-1.5"
+              className="absolute top-2 right-2 z-10 text-white/90 hover:text-white text-sm flex items-center gap-1.5 bg-black/50 hover:bg-black/70 rounded-full px-3 py-1.5 backdrop-blur"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -75,7 +75,7 @@ export function WalkthroughButton() {
               controls
               autoPlay
               playsInline
-              className="w-full h-auto rounded-xl shadow-2xl bg-black"
+              className="w-full max-h-[90vh] rounded-xl shadow-2xl bg-black object-contain"
             />
           </div>
         </div>

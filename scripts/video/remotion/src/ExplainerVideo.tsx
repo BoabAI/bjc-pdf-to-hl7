@@ -1,7 +1,10 @@
 import React from "react";
 import { AbsoluteFill, Audio, Series, staticFile, useVideoConfig } from "remotion";
 import { Timing, durationFor } from "./lib/timing";
+import { HookScene } from "./scenes/HookScene";
+import { ProblemScene } from "./scenes/ProblemScene";
 import { IntroScene } from "./scenes/IntroScene";
+import { ScopeCalloutScene } from "./scenes/ScopeCalloutScene";
 import { StepScene } from "./scenes/StepScene";
 import { CtaScene } from "./scenes/CtaScene";
 import tourPlanRaw from "../../tour-plan.json";
@@ -21,62 +24,40 @@ type StepDef = {
   stepLabel: string;
   caption: string;
   shotId: string;
-  /** Optional second visual beat — uses the same screenshot file by default but
-   *  overrides zoom + objectPosition to refocus the framing. */
   secondaryShot?: { shotId: string; zoom: number; objectPosition: string };
   splitProgress?: number;
 };
 
 const STEPS: StepDef[] = [
   {
-    sceneId: "step-drop",
-    shotId: "01-drop-zone",
-    stepLabel: "Drop a PDF",
-    caption: "Drag onto the zone, or click Browse. Up to 10 files at a time, 10 MB each.",
-  },
-  {
-    sceneId: "step-types",
-    shotId: "02-supports",
-    stepLabel: "Six document types",
-    caption:
-      "Specialist & GP referrals, pathology & radiology results, consent forms, plus generic medical PDFs.",
-    // Beat A: full row of badges. Beat B (after 55%): tighter zoom on the
-    // results badges (Pathology Results / Radiology Results) — supports the
-    // second half of the narration which moves into "Results — pathology
-    // and radiology". The badges sit ~25% from the top of the source frame.
-    secondaryShot: { shotId: "02-supports", zoom: 3.0, objectPosition: "center 50%" },
-    splitProgress: 0.55,
-  },
-  {
-    sceneId: "step-queue",
-    shotId: "03-queue",
-    stepLabel: "Files queue up",
-    caption: "Each file shows its detected type. Override the type manually for a single file if needed.",
+    sceneId: "step-signin",
+    shotId: "00-login-screen",
+    stepLabel: "Sign in",
+    caption: "Use the password your administrator gave you. Sessions last seven days.",
   },
   {
     sceneId: "step-options",
     shotId: "04-options",
-    stepLabel: "Set options",
-    caption: "Carrier, auto-file vs review, and optional doctor routing for the message.",
+    stepLabel: "Configure once",
+    caption: "Set your carrier code and paste in your clinic's doctor list — saved in your browser.",
+  },
+  {
+    sceneId: "step-drop",
+    shotId: "01-drop-zone",
+    stepLabel: "Drop a PDF",
+    caption: "Referrals, pathology, radiology, consent forms, even mixed batches.",
   },
   {
     sceneId: "step-convert",
     shotId: "05-converting",
     stepLabel: "Hit Convert",
-    caption: "Bedrock vision extracts patient details and builds an HL7 v2.4 message.",
-  },
-  {
-    sceneId: "step-routing",
-    shotId: "06-result",
-    stepLabel: "One folder, four inboxes",
-    caption:
-      "Every HL7 file lands in the same Genie drop folder. The message tells Genie which inbox to file it in.",
+    caption: "Claude vision classifies, extracts, and matches the addressee to the right doctor.",
   },
   {
     sceneId: "step-download",
     shotId: "07-download",
     stepLabel: "Download or auto-file",
-    caption: "Pull the HL7 from the queue, or let auto-file deliver it straight into Genie.",
+    caption: "Pull it from the queue, or drop it straight into the inbound folder.",
   },
 ];
 
@@ -92,8 +73,20 @@ export const ExplainerVideo: React.FC = () => {
   return (
     <AbsoluteFill style={{ background: "#000" }}>
       <Series>
+        <Series.Sequence durationInFrames={durationFor("hook", fps)}>
+          <HookScene />
+        </Series.Sequence>
+
+        <Series.Sequence durationInFrames={durationFor("problem", fps)}>
+          <ProblemScene />
+        </Series.Sequence>
+
         <Series.Sequence durationInFrames={durationFor("title", fps)}>
           <IntroScene />
+        </Series.Sequence>
+
+        <Series.Sequence durationInFrames={durationFor("scope-callout", fps)}>
+          <ScopeCalloutScene />
         </Series.Sequence>
 
         {STEPS.map((step, i) => {

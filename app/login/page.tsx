@@ -1,5 +1,6 @@
 import { signIn, AUTH_MODE } from "@/lib/auth";
 import { LogoStrip } from "../components/LogoStrip";
+import { InstructionalVideo } from "../components/InstructionalVideo";
 
 interface LoginPageProps {
   searchParams: { error?: string; callbackUrl?: string };
@@ -30,9 +31,13 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
   const isPasswordMode = AUTH_MODE === "password";
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-4">
-      <div className="w-full max-w-[420px]">
-        <LogoStrip />
+    <main className="min-h-screen flex items-center justify-center px-4 py-8">
+      <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-[640px_420px] gap-6 items-start justify-center">
+        <div className="order-2 lg:order-1">
+          <InstructionalVideo />
+        </div>
+        <div className="order-1 lg:order-2 w-full max-w-[420px] mx-auto">
+          <LogoStrip />
 
         <div className="card mt-6 animate-fade-in-up stagger-1">
           <div className="px-7 pt-7 pb-5 text-center">
@@ -119,6 +124,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
               </form>
             )}
           </div>
+        </div>
         </div>
       </div>
     </main>

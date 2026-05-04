@@ -39,6 +39,13 @@ docs/
 # Scripts (dev tools, not needed in build)
 /scripts/
 
+# Playwright MCP debug artifacts
+.playwright-mcp/
+
+# Local UI test screenshots
+/login-mobile.png
+/login-with-video.png
+
 # Plans
 docs/plans/
 

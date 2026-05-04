@@ -81,3 +81,17 @@ aws-exports.js
 scripts/video/remotion/node_modules/
 scripts/video/remotion/package-lock.json
 scripts/video/remotion/.remotion/
+
+# Login instructional video — generated, served from public/
+/public/login-instructional.mp4
+/public/login-instructional-poster.jpg
+
+# Old narration segment archive (kept locally, not in repo)
+scripts/video/remotion/public/narration-segments/_archive/
+
+# Playwright MCP debug artifacts
+.playwright-mcp/
+
+# Local UI test screenshots
+/login-mobile.png
+/login-with-video.png
