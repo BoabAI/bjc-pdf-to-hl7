@@ -80,7 +80,7 @@ The 30-day warranty (§3) runs from the date of acceptance after the trial — n
 A 30-day warranty period begins on BJC Health's acceptance of the system after the free trial. During this period:
 
 - Bug fixes and issues caused by SMEC AI's implementation are resolved at no charge
-- Response time: within 1 business day
+- Initial response time: within 1 business day
 - Staff can report issues via email to info@smecai.com.au
 - Does not cover issues caused by third-party changes (Medihost server updates, Microsoft 365 changes, Genie configuration changes)
 
@@ -164,7 +164,7 @@ For reference, comparable services in the Australian and international healthcar
 | Power Platform consulting (AU)                 | $100-200+/hr                                                                                     |
 | Small practice automation projects             | $5,000-$20,000                                                                                   |
 | Manual staff processing                        | $1.50-2.50 per referral (3-5 min at ~$30/hr)                                                     |
-| **SMEC AI (this quote)**                       | **10c per document, all-inclusive**                                                              |
+| **SMEC AI (this quote)**                       | **10c per document**                                                                             |
 
 At 10 cents per document, SMEC AI's per-document cost is a fraction of both manual processing and comparable SaaS services — while delivering a complete end-to-end solution (AI extraction, HL7 generation, doctor matching, and Genie import) for both referrals and results.
 
@@ -207,7 +207,7 @@ BJC Health retains all rights to their patient data at all times. SMEC AI does n
 - The web dashboard
 - The conversion service code as deployed for BJC Health (referrals and results processing logic, HL7 generation, doctor-matching configuration)
 
-BJC Health may host this code itself or engage another provider to host and operate it for BJC Health's internal business purposes. SMEC AI's underlying AI extraction prompts, shared platform components, and any code used to deliver the service to other customers remain SMEC AI proprietary and are not part of the handover. This handover ensures BJC Health retains operational continuity for a system it has helped shape, regardless of the future of the SMEC AI commercial relationship.
+BJC Health may host this code itself or engage another provider to host and operate it for BJC Health's internal business purposes. This handover ensures BJC Health retains operational continuity for a system it has helped shape, regardless of the future of the SMEC AI commercial relationship.
 
 ### Data Processing & Privacy
 

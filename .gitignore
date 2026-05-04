@@ -86,8 +86,12 @@ scripts/video/remotion/.remotion/
 # at deploy time and we don't have a regen-on-build pipeline). Re-render via
 # `npx remotion render` in scripts/video/remotion/ when narration changes.
 
-# Old narration segment archive (kept locally, not in repo)
+# Old narration segment archives (kept locally, not in repo)
 scripts/video/remotion/public/narration-segments/_archive/
+scripts/video/remotion/public/narration-segments/_archive2/
+
+# Raw video render output (final committed copy lives in public/)
+/output/
 
 # Playwright MCP debug artifacts
 .playwright-mcp/
