@@ -10,6 +10,27 @@ import { getAuthMode } from "@/lib/auth-mode";
 export const runtime = "nodejs";
 
 /**
+ * Resolve the public origin for redirects. Behind Amplify/CloudFront the
+ * Lambda sees an internal request URL (often `http://localhost:3000`), so
+ * we can't use `request.url` — that would 303 the browser to localhost.
+ *
+ * Trust `x-forwarded-host` + `x-forwarded-proto` (Amplify / CloudFront /
+ * any standard reverse proxy sets these). Fall back to `host` and finally
+ * `request.nextUrl.origin` for local dev where no proxy is in front.
+ */
+function publicOrigin(request: NextRequest): string {
+  const proto =
+    request.headers.get("x-forwarded-proto") ??
+    request.nextUrl.protocol.replace(/:$/, "") ??
+    "https";
+  const host =
+    request.headers.get("x-forwarded-host") ??
+    request.headers.get("host") ??
+    request.nextUrl.host;
+  return `${proto}://${host}`;
+}
+
+/**
  * Issue a password-mode session cookie when the submitted password matches
  * APP_PASSWORD. Only enabled when AUTH_MODE=password — returns 404 in any
  * other mode so probing the endpoint doesn't reveal it.
@@ -40,7 +61,7 @@ export async function POST(request: NextRequest) {
   if (!isValidAppPassword(password)) {
     // For browser form posts, send back to /login with a friendly error.
     if (!contentType.includes("application/json")) {
-      const url = new URL("/login", request.url);
+      const url = new URL("/login", publicOrigin(request));
       url.searchParams.set("error", "PasswordIncorrect");
       const redirect = NextResponse.redirect(url, { status: 303 });
       redirect.headers.set("Cache-Control", "no-store, must-revalidate");
@@ -59,7 +80,7 @@ export async function POST(request: NextRequest) {
   // Only redirect for form posts (browser nav). JSON callers expect JSON.
   const wantsHtml = !contentType.includes("application/json");
   const response = wantsHtml
-    ? NextResponse.redirect(new URL("/", request.url), { status: 303 })
+    ? NextResponse.redirect(new URL("/", publicOrigin(request)), { status: 303 })
     : NextResponse.json({ success: true });
 
   response.cookies.set({
