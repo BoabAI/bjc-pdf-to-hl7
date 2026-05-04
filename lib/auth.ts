@@ -143,20 +143,27 @@ export const signIn = nextAuth.signIn;
 export const signOut = nextAuth.signOut;
 
 /**
- * TEST_MODE bypass — when `TEST_MODE=true` AND not running in production,
- * `auth()` returns a synthetic session for an allowed test user. This lets
- * automated UI tests (browser agents, playwright) skip Microsoft Entra SSO,
- * which can't be completed by a non-human caller.
+ * Auth bypass triggers — either flag short-circuits Entra and returns a
+ * synthetic session for an allowed test user.
  *
- * Hard-gated to non-production. Production builds keep the real Entra flow.
+ * - `AUTH_ENABLED=false`: explicit feature toggle to disable auth entirely.
+ *   Honoured in any environment (including production). Use with care —
+ *   only set this on environments that have other access controls in place
+ *   (e.g. private demos, internal-only deployments).
+ * - `TEST_MODE=true`: legacy bypass for browser-agent UI tests. Hard-gated
+ *   to non-production.
  */
+const AUTH_DISABLED = process.env.AUTH_ENABLED === "false";
 const TEST_MODE_BYPASS =
-  process.env.TEST_MODE === "true" && process.env.NODE_ENV !== "production";
+  AUTH_DISABLED ||
+  (process.env.TEST_MODE === "true" && process.env.NODE_ENV !== "production");
 
 if (TEST_MODE_BYPASS) {
   // eslint-disable-next-line no-console
   console.warn(
-    "[auth] TEST_MODE=true — auth is bypassed with a synthetic session. Never enable this in production."
+    AUTH_DISABLED
+      ? "[auth] AUTH_ENABLED=false — auth is disabled. All requests receive a synthetic session."
+      : "[auth] TEST_MODE=true — auth is bypassed with a synthetic session. Never enable this in production."
   );
 }
 
