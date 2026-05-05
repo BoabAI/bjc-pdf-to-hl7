@@ -18,6 +18,16 @@ describe("getAuthMode", () => {
     );
   });
 
+  test("AUTH_MODE=both selects both", () => {
+    expect(getAuthMode({ AUTH_MODE: "both" })).toBe("both");
+  });
+
+  test("AUTH_MODE=password+oauth alias selects both", () => {
+    expect(getAuthMode({ AUTH_MODE: "password+oauth" })).toBe("both");
+    expect(getAuthMode({ AUTH_MODE: "oauth+password" })).toBe("both");
+    expect(getAuthMode({ AUTH_MODE: "any" })).toBe("both");
+  });
+
   test("AUTH_MODE=disabled selects disabled", () => {
     expect(getAuthMode({ AUTH_MODE: "disabled" })).toBe(
       "disabled"

@@ -21,6 +21,20 @@ async function handleSignOut() {
     }
     return;
   }
+  if (AUTH_MODE === "both") {
+    // Clear the password cookie first (no-op if it wasn't set), then run the
+    // standard next-auth sign-out which also clears the Entra session.
+    try {
+      await fetch("/api/auth/password", {
+        method: "DELETE",
+        credentials: "same-origin",
+      });
+    } catch {
+      // ignore — best-effort
+    }
+    await signOut({ callbackUrl: "/login" });
+    return;
+  }
   await signOut({ callbackUrl: "/login" });
 }
 import { WalkthroughButton } from "./WalkthroughButton";

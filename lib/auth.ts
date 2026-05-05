@@ -167,6 +167,11 @@ if (AUTH_MODE === "disabled") {
   console.warn(
     "[auth] AUTH_MODE=password — using shared APP_PASSWORD. Audit-log entries will be attributed to a single shared user."
   );
+} else if (AUTH_MODE === "both") {
+  // eslint-disable-next-line no-console
+  console.warn(
+    "[auth] AUTH_MODE=both — either APP_PASSWORD or Microsoft Entra SSO is accepted."
+  );
 }
 
 const DISABLED_SESSION = {
@@ -235,12 +240,60 @@ const passwordAuth = ((...args: unknown[]) => {
   };
 }) as unknown as AuthFn;
 
+/**
+ * Combined-mode auth() implementation.
+ *
+ * Try the password cookie first; if valid, the user is authenticated as the
+ * shared password user. Otherwise fall through to the real Auth.js (Entra)
+ * implementation. This lets a single deployment accept either credential
+ * type without forcing the operator to pick.
+ */
+const bothAuth = ((...args: unknown[]) => {
+  if (args.length === 0) {
+    return (async () => {
+      const { cookies } = await import("next/headers");
+      const value = cookies().get(PASSWORD_COOKIE_NAME)?.value;
+      const verified = await verifyPasswordCookie(value);
+      if (verified) {
+        return passwordSession() as unknown as import("next-auth").Session;
+      }
+      // realAuth() is overloaded; zero-arg form returns Promise<Session|null>.
+      return (realAuth as unknown as () => Promise<import("next-auth").Session | null>)();
+    })();
+  }
+  const handler = args[0] as (
+    request: { auth: unknown; cookies?: { get: (n: string) => { value: string } | undefined } } & Record<string, unknown>,
+    ctx?: unknown
+  ) => unknown;
+  // Pre-wrap the real handler once; reuse on every request.
+  const realWrapped = (realAuth as unknown as (
+    h: typeof handler
+  ) => (
+    request: { auth: unknown; cookies?: { get: (n: string) => { value: string } | undefined } } & Record<string, unknown>,
+    ctx?: unknown
+  ) => unknown)(handler);
+  return async (
+    request: { auth: unknown; cookies?: { get: (n: string) => { value: string } | undefined } } & Record<string, unknown>,
+    ctx?: unknown
+  ) => {
+    const cookieValue = request.cookies?.get(PASSWORD_COOKIE_NAME)?.value;
+    const verified = await verifyPasswordCookie(cookieValue);
+    if (verified) {
+      request.auth = passwordSession() as unknown;
+      return handler(request, ctx);
+    }
+    return realWrapped(request, ctx);
+  };
+}) as unknown as AuthFn;
+
 export const auth: AuthFn =
   AUTH_MODE === "disabled"
     ? disabledAuth
     : AUTH_MODE === "password"
       ? passwordAuth
-      : realAuth;
+      : AUTH_MODE === "both"
+        ? bothAuth
+        : realAuth;
 
 /**
  * `/api/auth/[...nextauth]` handlers. In disabled mode, intercept
@@ -294,4 +347,18 @@ export const handlers: typeof realHandlers =
           POST: (async () =>
             new Response("Not found", { status: 404 })) as typeof realHandlers.POST,
         }
-      : realHandlers;
+      : AUTH_MODE === "both"
+        ? {
+            GET: (async (request: Parameters<typeof realHandlers.GET>[0]) => {
+              const url = new URL(request.url);
+              if (url.pathname.endsWith("/api/auth/session")) {
+                // Password cookie wins if present and valid; otherwise let
+                // Auth.js return the Entra session (or null).
+                const verified = await readPasswordCookieFromRequest(request);
+                if (verified) return Response.json(passwordSession());
+              }
+              return realHandlers.GET(request);
+            }) as typeof realHandlers.GET,
+            POST: realHandlers.POST,
+          }
+        : realHandlers;

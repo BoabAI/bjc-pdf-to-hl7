@@ -29,6 +29,9 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
   }
 
   const isPasswordMode = AUTH_MODE === "password";
+  const isBothMode = AUTH_MODE === "both";
+  const showPasswordForm = isPasswordMode || isBothMode;
+  const showOAuthForm = !isPasswordMode; // oauth or both
 
   return (
     <main className="min-h-screen flex items-center justify-center px-4 py-8">
@@ -45,66 +48,40 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
               PDF to HL7 Converter
             </h1>
             <p className="text-sm text-[var(--text-muted)] mt-1.5">
-              {isPasswordMode
-                ? "Enter the shared access password"
-                : "Sign in with your work Microsoft 365 account"}
+              {isBothMode
+                ? "Sign in with your Microsoft 365 account or shared access password"
+                : isPasswordMode
+                  ? "Enter the shared access password"
+                  : "Sign in with your work Microsoft 365 account"}
             </p>
           </div>
 
           <div className="divider-subtle" />
 
-          <div className="px-7 py-6">
-            {isPasswordMode ? (
-              <form
-                action="/api/auth/password"
-                method="POST"
-                className="space-y-5"
-              >
-                {error && (
-                  <div className="p-3 rounded-lg bg-[var(--error-bg)] border border-[var(--error-border)] animate-fade-in">
-                    <p className="text-sm text-[var(--error)]">{error}</p>
-                  </div>
-                )}
-                <label className="block">
-                  <span className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
-                    Password
-                  </span>
-                  <input
-                    type="password"
-                    name="password"
-                    required
-                    autoFocus
-                    autoComplete="current-password"
-                    className="w-full px-3 py-2 rounded-md border border-[var(--border-light)] bg-[var(--bg-inner)] focus:outline-none focus:ring-2 focus:ring-[var(--bjc-blue)]"
-                  />
-                </label>
-                <button type="submit" className="btn-primary w-full">
-                  Sign in
-                </button>
-              </form>
-            ) : (
-              <form action={handleEntraSignIn} className="space-y-5">
-                {error && (
-                  <div className="p-3 rounded-lg bg-[var(--error-bg)] border border-[var(--error-border)] animate-fade-in">
-                    <div className="flex items-start gap-2">
-                      <svg
-                        className="w-4 h-4 text-[var(--error)] shrink-0 mt-0.5"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
-                        />
-                      </svg>
-                      <p className="text-sm text-[var(--error)]">{error}</p>
-                    </div>
-                  </div>
-                )}
+          <div className="px-7 py-6 space-y-5">
+            {error && (
+              <div className="p-3 rounded-lg bg-[var(--error-bg)] border border-[var(--error-border)] animate-fade-in">
+                <div className="flex items-start gap-2">
+                  <svg
+                    className="w-4 h-4 text-[var(--error)] shrink-0 mt-0.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+                    />
+                  </svg>
+                  <p className="text-sm text-[var(--error)]">{error}</p>
+                </div>
+              </div>
+            )}
 
+            {showOAuthForm && (
+              <form action={handleEntraSignIn} className="space-y-5">
                 <button type="submit" className="btn-primary w-full">
                   <span className="flex items-center justify-center gap-2">
                     <svg
@@ -120,6 +97,44 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
                     </svg>
                     Sign in with Microsoft
                   </span>
+                </button>
+              </form>
+            )}
+
+            {isBothMode && (
+              <div className="flex items-center gap-3" aria-hidden="true">
+                <div className="h-px flex-1 bg-[var(--border-light)]" />
+                <span className="text-xs uppercase tracking-wide text-[var(--text-muted)]">
+                  or
+                </span>
+                <div className="h-px flex-1 bg-[var(--border-light)]" />
+              </div>
+            )}
+
+            {showPasswordForm && (
+              <form
+                action="/api/auth/password"
+                method="POST"
+                className="space-y-5"
+              >
+                <label className="block">
+                  <span className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
+                    {isBothMode ? "Shared access password" : "Password"}
+                  </span>
+                  <input
+                    type="password"
+                    name="password"
+                    required
+                    autoFocus={isPasswordMode}
+                    autoComplete="current-password"
+                    className="w-full px-3 py-2 rounded-md border border-[var(--border-light)] bg-[var(--bg-inner)] focus:outline-none focus:ring-2 focus:ring-[var(--bjc-blue)]"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className={isBothMode ? "btn-secondary w-full" : "btn-primary w-full"}
+                >
+                  Sign in with password
                 </button>
               </form>
             )}

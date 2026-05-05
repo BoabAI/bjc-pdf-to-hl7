@@ -32,11 +32,12 @@ function publicOrigin(request: NextRequest): string {
 
 /**
  * Issue a password-mode session cookie when the submitted password matches
- * APP_PASSWORD. Only enabled when AUTH_MODE=password — returns 404 in any
- * other mode so probing the endpoint doesn't reveal it.
+ * APP_PASSWORD. Enabled when AUTH_MODE=password or AUTH_MODE=both — returns
+ * 404 in any other mode so probing the endpoint doesn't reveal it.
  */
 export async function POST(request: NextRequest) {
-  if (getAuthMode() !== "password") {
+  const mode = getAuthMode();
+  if (mode !== "password" && mode !== "both") {
     return new NextResponse("Not found", { status: 404 });
   }
 

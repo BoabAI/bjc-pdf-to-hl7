@@ -4,6 +4,7 @@
  * `AUTH_MODE` selects how requests authenticate:
  *   - `oauth` (default): Microsoft Entra SSO via Auth.js
  *   - `password`: shared password (`APP_PASSWORD`), HMAC-signed session cookie
+ *   - `both`: either password OR Entra SSO accepted (login page shows both)
  *   - `disabled`: no auth, synthetic session for everyone
  *
  * Back-compat: `AUTH_ENABLED=false` and `TEST_MODE=true` (non-prod only)
@@ -13,7 +14,7 @@
  * handler, so we use Web Crypto (`crypto.subtle`) — never node:crypto.
  */
 
-export type AuthMode = "oauth" | "password" | "disabled";
+export type AuthMode = "oauth" | "password" | "both" | "disabled";
 
 export const PASSWORD_COOKIE_NAME = "app_pw_session";
 const COOKIE_MAX_AGE_SECONDS = 8 * 60 * 60; // 8h, mirrors Auth.js JWT lifetime
@@ -26,6 +27,9 @@ export function getAuthMode(env: Record<string, string | undefined> = process.en
   }
   const raw = (env.AUTH_MODE ?? "").trim().toLowerCase();
   if (raw === "password") return "password";
+  if (raw === "both" || raw === "any" || raw === "password+oauth" || raw === "oauth+password") {
+    return "both";
+  }
   if (raw === "disabled" || raw === "off" || raw === "none") return "disabled";
   return "oauth";
 }
