@@ -37,8 +37,6 @@ async function handleSignOut() {
   }
   await signOut({ callbackUrl: "/login" });
 }
-import { WalkthroughButton } from "./WalkthroughButton";
-
 interface NavItem {
   href: string;
   label: string;
@@ -81,7 +79,6 @@ export function AppNav() {
         })}
         {userEmail && (
           <div className="ml-auto flex items-center gap-3">
-            <WalkthroughButton />
             {/* Hide email on narrow viewports — at < 640px, the nav already
              *  wraps onto multiple rows. Keeping the email visible eats a
              *  third row for marginal value; the title attribute on the
