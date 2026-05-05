@@ -19,7 +19,7 @@ export function InstructionalVideo() {
       </div>
       <div className="aspect-video bg-black">
         <video
-          src="/walkthrough.mp4"
+          src="/login-instructional.mp4"
           poster="/login-instructional-poster.jpg"
           playsInline
           controls

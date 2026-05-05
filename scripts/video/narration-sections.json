@@ -35,7 +35,7 @@
   {
     "sceneId": "step-stats",
     "screenshotId": "12-nav-stats",
-    "text": "Stats shows the same audit data as charts. Document type, outcome, and source — web uploads versus the email pipeline. Useful for monthly reporting."
+    "text": "Stats charts the audit log three ways — by document type, by outcome, and by source. Useful for monthly reporting."
   },
   {
     "sceneId": "step-reference",

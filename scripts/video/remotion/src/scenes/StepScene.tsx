@@ -129,7 +129,7 @@ export const StepScene: React.FC<Props> = ({
                 textTransform: "uppercase",
               }}
             >
-              Step {stepNumber} / 7
+              Step {stepNumber}
             </div>
           </div>
 
