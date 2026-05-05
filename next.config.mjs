@@ -12,6 +12,17 @@ const nextConfig = {
       dynamic: 0,
       static: 0,
     },
+    // Bundle the sample test PDFs into the standalone Lambda output so
+    // /api/test-pdfs can stream them back in production. Without this,
+    // Next.js' file tracing skips docs/ and the route 500s on Amplify.
+    outputFileTracingIncludes: {
+      "/api/test-pdfs": [
+        "./docs/test-pdfs/referrals/**/*.pdf",
+        "./docs/test-pdfs/addressees/**/*.pdf",
+        "./docs/test-pdfs/results/**/*.pdf",
+        "./docs/test-pdfs/originals/referral_dummy.pdf",
+      ],
+    },
   },
   ...(isDev && {
     // Disable webpack persistent filesystem cache (.next/cache/webpack).
