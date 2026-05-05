@@ -8,7 +8,7 @@ import { readFileSync, readdirSync, statSync } from "fs";
 import { join } from "path";
 import { extractPatientData } from "../lib/pdf-parser";
 
-const PDF_DIR = join(import.meta.dir, "../docs/input PDF");
+const PDF_DIR = join(import.meta.dir, "../docs/test-pdfs");
 
 /** Recursively find all test_*.pdf files in nested directories */
 function findTestPDFs(dir: string, prefix = ""): { path: string; relPath: string }[] {

@@ -54,7 +54,7 @@ bun run scripts/generate-addressee-test-pdfs.ts  # Generate CC/addressee resolut
 bun run scripts/test-addressee-scenarios.ts      # Live Bedrock test for CC addressee scenarios
 ```
 
-Tests use generated PDFs at `docs/input PDF/` (nested subdirectories with various formats).
+Tests use generated PDFs at `docs/test-pdfs/` (nested subdirectories with various formats).
 
 ### Test Structure
 
@@ -185,9 +185,9 @@ Locally, create `.env.local`. On Amplify, env vars are set at the app level and 
 
 ### Reference Docs
 
-- `docs/functional_spec.md` - Full functional specification (developer reference)
+- `docs/functional-spec.md` - Full functional specification (developer reference)
 - `docs/research/genie-hl7-input-format.md` - Genie's HL7 input requirements
-- `docs/amplify-bedrock-credentials.md` - Amplify compute role + Bedrock auth setup
+- `docs/reference/amplify-bedrock-credentials.md` - Amplify compute role + Bedrock auth setup
 - `docs/workflow/bjc-pdf-to-hl7-operational-guide.md` - Plain-English operational guide for BJC ops staff and Medihost
 - `docs/research/sister-system-pdf-to-directory.md` - Reference for the sister consent-form-to-directory project (different repo)
 - `docs/archive/` - Historical/superseded docs (cost analysis, pricing research, refactor plans, PDF dups)

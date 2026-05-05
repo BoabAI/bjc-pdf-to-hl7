@@ -227,7 +227,7 @@ async function generatePDF() {
   console.log("Rendering HTML...");
   await page.setContent(HTML_TEMPLATE, { waitUntil: "networkidle0" });
 
-  const outputDir = path.join(__dirname, "../docs/input PDF");
+  const outputDir = path.join(__dirname, "../docs/test-pdfs");
   const outputPath = path.join(outputDir, "Referral_dummy.pdf");
 
   // Create directory if it doesn't exist

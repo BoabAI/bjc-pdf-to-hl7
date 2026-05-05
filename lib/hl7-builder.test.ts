@@ -10,7 +10,7 @@ import type { PatientData } from "./domain/types";
 
 const TEST_PDF_PATH = join(
   import.meta.dir,
-  "../docs/input PDF/originals/consent_form_real_sample.pdf"
+  "../docs/test-pdfs/originals/consent_form_real_sample.pdf"
 );
 
 // Use a tiny buffer for most tests (faster, no file I/O dependency)

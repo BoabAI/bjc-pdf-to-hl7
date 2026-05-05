@@ -6,7 +6,7 @@
  *
  * Run with: bun scripts/generate-result-test-pdfs.ts
  *
- * Output: docs/input PDF/results/
+ * Output: docs/test-pdfs/results/
  */
 
 import puppeteer from "puppeteer";
@@ -419,7 +419,7 @@ function buildRadiologyHTML(s: RadiologyScenario): string {
 }
 
 async function generatePDFs() {
-  const outputDir = path.join(__dirname, "..", "docs", "input PDF", "results");
+  const outputDir = path.join(__dirname, "..", "docs", "test-pdfs", "results");
 
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });

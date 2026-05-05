@@ -13,7 +13,7 @@
  *
  * Run with: bun scripts/generate-redacted-style-test-pdfs.ts
  *
- * Output: docs/input PDF/results/redacted-style/
+ * Output: docs/test-pdfs/results/redacted-style/
  */
 
 import puppeteer from "puppeteer";
@@ -907,7 +907,7 @@ async function generatePDFs() {
     __dirname,
     "..",
     "docs",
-    "input PDF",
+    "test-pdfs",
     "results",
     "redacted-style"
   );

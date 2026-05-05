@@ -292,7 +292,7 @@ function buildHTML(data: ScenarioData): string {
 }
 
 async function generatePDFs() {
-  const outputDir = path.join(__dirname, "../docs/input PDF/addressees");
+  const outputDir = path.join(__dirname, "../docs/test-pdfs/addressees");
 
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });

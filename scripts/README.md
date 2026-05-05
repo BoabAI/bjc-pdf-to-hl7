@@ -142,8 +142,8 @@ These are run via Bun against the project's TypeScript modules.
 |--------|---------|
 | `generate-test-pdfs.ts` | Regenerate all 20 generic test referral / consent PDFs |
 | `generate-addressee-test-pdfs.ts` | Generate addressee resolution scenario PDFs |
-| `generate-result-test-pdfs.ts` | Generate 4 synthetic pathology + radiology result PDFs (saved to `docs/input PDF/results/`) |
-| `generate-redacted-style-test-pdfs.ts` | Generate 5 synthetic result PDFs that mimic the layouts of redacted real-world samples — DHM serial trend, MMI multi-page MRI, PRP combined CT/X-ray, NSW Health multi-panel fax, I-MED DEXA letter (saved to `docs/input PDF/results/redacted-style/`) |
+| `generate-result-test-pdfs.ts` | Generate 4 synthetic pathology + radiology result PDFs (saved to `docs/test-pdfs/results/`) |
+| `generate-redacted-style-test-pdfs.ts` | Generate 5 synthetic result PDFs that mimic the layouts of redacted real-world samples — DHM serial trend, MMI multi-page MRI, PRP combined CT/X-ray, NSW Health multi-panel fax, I-MED DEXA letter (saved to `docs/test-pdfs/results/redacted-style/`) |
 
 ### Live Bedrock tests (run manually with `AWS_PROFILE` set)
 

@@ -10,7 +10,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { extractPatientDataWithVision } from "../lib/vision-extractor";
 
-const MOCK_DIR = join(import.meta.dir, "..", "docs", "input PDF", "referrals");
+const MOCK_DIR = join(import.meta.dir, "..", "docs", "test-pdfs", "referrals");
 
 const EXPECTED = [
   { file: "referral_1.pdf", firstName: "James", lastName: "MITCHELL", dob: "18/09/1978" },

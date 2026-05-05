@@ -6,7 +6,7 @@
  *
  * Usage: AWS_PROFILE=your-profile bun scripts/test-result-scenarios.ts
  *
- * Generate the input PDFs first:
+ * Generate the test-pdfss first:
  *   bun scripts/generate-result-test-pdfs.ts
  */
 
@@ -14,7 +14,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { extractPatientDataWithVision } from "../lib/vision-extractor";
 
-const RESULTS_DIR = join(import.meta.dir, "..", "docs", "input PDF", "results");
+const RESULTS_DIR = join(import.meta.dir, "..", "docs", "test-pdfs", "results");
 
 const BJC_DOCTORS = [
   "Dr Irwin Lim",

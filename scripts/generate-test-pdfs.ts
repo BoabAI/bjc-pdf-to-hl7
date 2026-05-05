@@ -4,13 +4,13 @@
  * Produces a broad set of synthetic test PDFs originally used to stress-test
  * the regex / pdf-parse extraction pipeline. With Bedrock vision in place these
  * fixtures are no longer needed for active tests; they're written into
- * docs/input PDF/archive/ to keep the top-level tidy.
+ * docs/test-pdfs/archive/ to keep the top-level tidy.
  *
  * Active focused generators are:
  *   - scripts/generate-result-test-pdfs.ts (pathology / radiology results)
  *   - scripts/generate-addressee-test-pdfs.ts (addressee resolution scenarios)
  *
- * Output (under docs/input PDF/archive/):
+ * Output (under docs/test-pdfs/archive/):
  *   ├── specialist-referrals/
  *   ├── gp-referrals/
  *   ├── consent-forms/
@@ -24,7 +24,7 @@ import puppeteer from "puppeteer";
 import { mkdirSync } from "fs";
 import { join } from "path";
 
-const BASE_DIR = join(import.meta.dir, "../docs/input PDF/archive");
+const BASE_DIR = join(import.meta.dir, "../docs/test-pdfs/archive");
 
 // Create all subdirectories
 const DIRS = {

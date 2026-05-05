@@ -786,7 +786,7 @@ bun start        # Production server
 
 ### 11.3 Test PDF Inventory
 
-Test PDFs live under `docs/input PDF/`:
+Test PDFs live under `docs/test-pdfs/`:
 
 | Subdirectory | Purpose |
 |--------------|---------|
@@ -891,15 +891,16 @@ bjc-pdf-to-hl7/
 |   +-- test-vision.ts                   Live Bedrock test (mock referrals)
 |   +-- test-addressee-scenarios.ts             Live Bedrock test (addressee resolution scenarios)
 +-- docs/
-|   +-- functional_spec.md               This document
-|   +-- amplify-bedrock-credentials.md   Compute role + Bedrock auth setup
+|   +-- functional-spec.md               This document
+|   +-- reference/
+|   |   +-- amplify-bedrock-credentials.md   Compute role + Bedrock auth setup
 |   +-- workflow/
 |   |   +-- bjc-pdf-to-hl7-operational-guide.md  Operational guide for ops staff
 |   +-- research/
 |   |   +-- genie-hl7-input-format.md            Genie HL7 input requirements
 |   |   +-- genie-desktop-results-workflow.md    Genie desktop results research
 |   |   +-- sister-system-pdf-to-directory.md    Sister system reference
-|   +-- input PDF/                       Test PDF fixtures (referrals/, addressees/, results/, originals/)
+|   +-- test-pdfs/                       Test PDF fixtures (referrals/, addressees/, results/, originals/)
 |   +-- archive/                         Historical / superseded docs
 +-- middleware.ts                        Auth + cache-control middleware
 +-- middleware.test.ts                   Middleware tests

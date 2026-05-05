@@ -6,7 +6,7 @@ import { logOperationalError } from "@/lib/server/logging";
 
 export const runtime = "nodejs";
 
-// Whitelist of directories to include. Everything else under `docs/input PDF/`
+// Whitelist of directories to include. Everything else under `docs/test-pdfs/`
 // (e.g. real consent forms in `originals/`, redacted real referrals) is
 // gitignored and may contain PHI — NEVER expose those through this endpoint.
 const SAFE_DIRS = ["referrals", "addressees", "results"] as const;
@@ -16,7 +16,7 @@ const SAFE_FILES: { dir: string; file: string }[] = [
   { dir: "originals", file: "referral_dummy.pdf" },
 ];
 
-const TEST_PDF_ROOT = join(process.cwd(), "docs", "input PDF");
+const TEST_PDF_ROOT = join(process.cwd(), "docs", "test-pdfs");
 
 interface ZipEntry {
   /** Relative path inside the zip, with directory prefix. */

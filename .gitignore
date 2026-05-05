@@ -58,11 +58,11 @@ bun.lockb
 *.test.pdf
 
 # Patient PDFs (may contain real patient data)
-docs/input PDF/**/*.pdf
-!docs/input PDF/originals/referral_dummy.pdf
-!docs/input PDF/referrals/*.pdf
-!docs/input PDF/addressees/*.pdf
-!docs/input PDF/results/*.pdf
+docs/test-pdfs/**/*.pdf
+!docs/test-pdfs/originals/referral_dummy.pdf
+!docs/test-pdfs/referrals/*.pdf
+!docs/test-pdfs/addressees/*.pdf
+!docs/test-pdfs/results/*.pdf
 
 # Real BJC HL7 / PDF samples — local reference only, NEVER commit
 /samples/

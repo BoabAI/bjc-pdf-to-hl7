@@ -107,4 +107,4 @@ If Nicole reports patient-match failures, the first thing to check is whether ou
 1. **No code change before Nicole tests.** The plan explicitly says "forward-fix on issues that surface from Nicole's UI testing post-deploy."
 2. If Nicole reports OBR-24 routing isn't working for results: revert the PR 1 OBR-24 / OBR-4 routing for `pathology_result` and `radiology_result` to match the samples' `Correspondence` + empty pattern. Make the divergent behaviour conditional on a `BJC_USE_REF_V8` env flag so it can be flipped back when Capricorn is upgraded.
 3. If patient match misses on apostrophe / hyphen / diacritic surnames: tighten `escapeHL7` and add focused regression tests.
-4. Generate synthetic equivalents of any edge case Nicole reports, save under `docs/input PDF/results/`, and add to the conformance test.
+4. Generate synthetic equivalents of any edge case Nicole reports, save under `docs/test-pdfs/results/`, and add to the conformance test.

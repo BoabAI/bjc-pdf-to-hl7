@@ -9,7 +9,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { extractPatientDataWithVision } from "../lib/vision-extractor";
 
-const ADDRESSEE_DIR = join(import.meta.dir, "..", "docs", "input PDF", "addressees");
+const ADDRESSEE_DIR = join(import.meta.dir, "..", "docs", "test-pdfs", "addressees");
 
 const BJC_DOCTORS = [
   "Dr Irwin Lim",

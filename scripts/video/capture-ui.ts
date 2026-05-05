@@ -6,7 +6,7 @@
  *
  * Prereqs:
  *   - Dev server on http://localhost:3000 with TEST_MODE=true (auth bypass)
- *   - Sample PDFs under docs/input PDF/{referrals,results}/
+ *   - Sample PDFs under docs/test-pdfs/{referrals,results}/
  *
  * Run:  bun run scripts/video/capture-ui.ts
  */
@@ -71,7 +71,7 @@ async function main() {
 
   // ---- Add 2 sample PDFs ----
   console.log("\n   Adding 2 sample PDFs to the queue...");
-  const docsRoot = join(__dirname, "..", "..", "docs", "input PDF");
+  const docsRoot = join(__dirname, "..", "..", "docs", "test-pdfs");
   const referralPdf = join(docsRoot, "referrals", "referral_1.pdf");
   const pathologyPdf = join(docsRoot, "results", "result_1_pathology_chemistry.pdf");
 
@@ -79,7 +79,7 @@ async function main() {
   let pdfB: string | null = existsSync(pathologyPdf) ? pathologyPdf : null;
 
   if (!pdfA || !pdfB) {
-    // Fallback: walk docs/input PDF for any PDFs
+    // Fallback: walk docs/test-pdfs for any PDFs
     const found: string[] = [];
     const walk = (dir: string) => {
       if (!existsSync(dir)) return;

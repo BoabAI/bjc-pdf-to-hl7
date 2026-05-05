@@ -7,7 +7,7 @@ reference. Nothing here is exercised by the active test suite, the
 All directories here are gitignored — they may contain real or partially
 real patient data and must never be committed.
 
-## Active fixtures (kept under `docs/input PDF/`, not here)
+## Active fixtures (kept under `docs/test-pdfs/`, not here)
 
 | Directory | Used by |
 |---|---|
@@ -32,7 +32,7 @@ real patient data and must never be committed.
 ## Regenerating
 
 `scripts/generate-test-pdfs.ts` writes its 20+ test PDFs into this archive
-directory rather than the top-level `docs/input PDF/`. If you regenerate, the
+directory rather than the top-level `docs/test-pdfs/`. If you regenerate, the
 fixtures land here and won't pollute the active test set.
 
 The active fixtures have their own focused generators:
