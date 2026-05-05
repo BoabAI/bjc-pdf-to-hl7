@@ -21,6 +21,16 @@ interface ChartDatum {
 
 const CHART_COLORS = ["blue", "emerald", "red", "violet", "amber"] as const;
 
+// Tremor builds chart classes dynamically (e.g. `fill-blue-500`), so Tailwind's
+// content scanner can't see them. Listing them here as literal strings keeps
+// them in the bundle without needing a tailwind.config safelist.
+const TREMOR_COLOR_SAFELIST =
+  "fill-blue-500 stroke-blue-500 bg-blue-500 text-blue-500 fill-blue-300 stroke-blue-300 bg-blue-300 text-blue-300 " +
+  "fill-emerald-500 stroke-emerald-500 bg-emerald-500 text-emerald-500 fill-emerald-300 stroke-emerald-300 bg-emerald-300 text-emerald-300 " +
+  "fill-red-500 stroke-red-500 bg-red-500 text-red-500 fill-red-300 stroke-red-300 bg-red-300 text-red-300 " +
+  "fill-violet-500 stroke-violet-500 bg-violet-500 text-violet-500 fill-violet-300 stroke-violet-300 bg-violet-300 text-violet-300 " +
+  "fill-amber-500 stroke-amber-500 bg-amber-500 text-amber-500 fill-amber-300 stroke-amber-300 bg-amber-300 text-amber-300";
+
 const LABEL_OVERRIDES: Record<string, string> = {
   gp_referral: "Referral",
   pathology_result: "Result",
@@ -74,7 +84,7 @@ function BreakdownPie({ title, data }: BreakdownPieProps): JSX.Element {
         </p>
       ) : (
         <div className="flex flex-col items-center">
-          <div className="relative">
+          <div className="relative w-44 h-44">
             <DonutChart
               data={data}
               category="value"
@@ -101,6 +111,7 @@ function BreakdownPie({ title, data }: BreakdownPieProps): JSX.Element {
           />
         </div>
       )}
+      <span className={`hidden ${TREMOR_COLOR_SAFELIST}`} aria-hidden />
     </div>
   );
 }
