@@ -185,7 +185,7 @@ describe("isPadRequestAuthenticated", () => {
 describe("middleware config", () => {
   test("exports the expected matcher", () => {
     expect(config.matcher).toEqual([
-      "/((?!_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.jpg$|.*\\.svg$).*)",
+      "/((?!_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.jpg$|.*\\.svg$|.*\\.mp4$|.*\\.webm$|.*\\.mov$).*)",
     ]);
   });
 });

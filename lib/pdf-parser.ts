@@ -13,6 +13,7 @@ import type {
   PatientData,
   ReferralInfo,
 } from "./domain/types";
+export { formatExtractedData } from "./convert/display-data";
 
 export interface ExtractionResult {
   success: boolean;
@@ -74,58 +75,4 @@ export async function extractPatientData(
       extractionMethod: "vision",
     };
   }
-}
-
-export function formatExtractedData(data: PatientData, referralInfo?: ReferralInfo): {
-  firstName: string;
-  lastName: string;
-  dob: string;
-  sex: string;
-  medicareNo: string;
-  sender?: string;
-  addressee?: string;
-  cc?: string;
-} {
-  const dob = data.dob;
-  const formattedDob =
-    dob.length === 8
-      ? `${dob.substring(6, 8)}/${dob.substring(4, 6)}/${dob.substring(0, 4)}`
-      : dob;
-
-  const result: {
-    firstName: string;
-    lastName: string;
-    dob: string;
-    sex: string;
-    medicareNo: string;
-    sender?: string;
-    addressee?: string;
-    cc?: string;
-  } = {
-    firstName: data.firstName,
-    lastName: data.lastName,
-    dob: formattedDob,
-    sex: data.sex === "M" ? "Male" : data.sex === "F" ? "Female" : "Unknown",
-    medicareNo: data.medicareNo
-      ? `${data.medicareNo}${data.medicareRef ? `-${data.medicareRef}` : ""}`
-      : "Not provided",
-  };
-
-  if (referralInfo?.senderName) {
-    result.sender = referralInfo.senderClinic
-      ? `${referralInfo.senderName} (${referralInfo.senderClinic})`
-      : referralInfo.senderName;
-  }
-
-  if (referralInfo?.addresseeName) {
-    result.addressee = referralInfo.addresseeClinic
-      ? `${referralInfo.addresseeName} (${referralInfo.addresseeClinic})`
-      : referralInfo.addresseeName;
-  }
-
-  if (referralInfo?.ccNames && referralInfo.ccNames.length > 0) {
-    result.cc = referralInfo.ccNames.join(", ");
-  }
-
-  return result;
 }

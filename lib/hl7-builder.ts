@@ -337,6 +337,48 @@ function buildPRD(
   });
 }
 
+function buildReferralProviderSegments(options: HL7Options): string[] {
+  const ref = options.referralInfo;
+  return [
+    ...(ref?.senderName
+      ? [buildPRD("sender", ref.senderName, ref.senderProviderNumber)]
+      : []),
+    ...(ref?.addresseeName ? [buildPRD("addressee", ref.addresseeName)] : []),
+  ];
+}
+
+function buildRefSegments(
+  patient: PatientData,
+  pdfBase64: string,
+  options: HL7Options,
+  context: HL7BuildContext,
+): string[] {
+  return [
+    buildMSH(options, context),
+    buildRF1(context),
+    ...buildReferralProviderSegments(options),
+    buildPID(patient),
+    buildOBR(options, context),
+    buildOBX(pdfBase64),
+    buildPV1(options),
+  ];
+}
+
+function buildOruSegments(
+  patient: PatientData,
+  pdfBase64: string,
+  options: HL7Options,
+  context: HL7BuildContext,
+): string[] {
+  return [
+    buildMSH(options, context),
+    buildPID(patient),
+    buildPV1(options),
+    buildOBR(options, context),
+    buildOBX(pdfBase64),
+  ];
+}
+
 /**
  * Build complete HL7 message with embedded PDF
  *
@@ -356,43 +398,13 @@ export function buildHL7Message(
   context: HL7BuildContext = createHL7BuildContext(),
 ): string {
   const mergedOptions = { ...DEFAULT_OPTIONS, ...options };
-  const isREF = mergedOptions.messageType === "REF^I12";
 
   // Convert PDF to Base64 (no line breaks or spaces)
   const pdfBase64 = pdfBuffer.toString("base64");
-
-  let segments: string[];
-
-  if (isREF) {
-    // REF^I12 segment order: MSH → RF1 → PRD(s) → PID → OBR → OBX → PV1
-    segments = [buildMSH(mergedOptions, context)];
-
-    // RF1: Referral Information (required for REF)
-    segments.push(buildRF1(context));
-
-    // PRD: Provider Data segments (required for REF)
-    const ref = mergedOptions.referralInfo;
-    if (ref?.senderName) {
-      segments.push(buildPRD("sender", ref.senderName, ref.senderProviderNumber));
-    }
-    if (ref?.addresseeName) {
-      segments.push(buildPRD("addressee", ref.addresseeName));
-    }
-
-    segments.push(buildPID(patient));
-    segments.push(buildOBR(mergedOptions, context));
-    segments.push(buildOBX(pdfBase64));
-    segments.push(buildPV1(mergedOptions)); // PV1 last in REF
-  } else {
-    // ORU^R01 segment order: MSH → PID → PV1 → OBR → OBX
-    segments = [
-      buildMSH(mergedOptions, context),
-      buildPID(patient),
-      buildPV1(mergedOptions),
-      buildOBR(mergedOptions, context),
-      buildOBX(pdfBase64),
-    ];
-  }
+  const segments =
+    mergedOptions.messageType === "REF^I12"
+      ? buildRefSegments(patient, pdfBase64, mergedOptions, context)
+      : buildOruSegments(patient, pdfBase64, mergedOptions, context);
 
   // Join segments with CR (carriage return) only - no LF
   return segments.join(SEGMENT_TERMINATOR) + SEGMENT_TERMINATOR;
