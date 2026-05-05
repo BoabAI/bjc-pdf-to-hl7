@@ -1,15 +1,17 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { Fragment, useCallback, useMemo, useState } from "react";
 import { AppNav } from "../components/AppNav";
 import { LogoStrip } from "../components/LogoStrip";
 import { SectionHeader } from "../components/ui/SectionHeader";
-import { DownloadIcon, HistoryIcon } from "../components/ui/icons";
+import { DownloadIcon, HistoryIcon, QuestionMarkCircleIcon } from "../components/ui/icons";
 import {
   type AuditRow,
   currentSydneyDate,
   firstOfCurrentSydneyMonth,
   formatSydneyTimestamp,
+  prettifyDocType,
+  prettifyOutcome,
   useAuditDataRange,
 } from "../components/auditShared";
 import { AuditDateRangeHeader } from "../components/audit/AuditDateRangeHeader";
@@ -59,6 +61,7 @@ function buildCsv(rows: AuditRow[]): string {
     "diagnosticServiceSection",
     "filenameHash",
     "warningCount",
+    "warnings",
   ].join(",");
 
   const lines = rows.map((row) =>
@@ -73,6 +76,7 @@ function buildCsv(rows: AuditRow[]): string {
       csvEscape(row.diagnosticServiceSection ?? ""),
       csvEscape(row.filenameHash),
       csvEscape(row.warningCount),
+      csvEscape(row.warnings?.join(" | ") ?? ""),
     ].join(",")
   );
 
@@ -88,6 +92,7 @@ export default function LogPage(): JSX.Element {
 
   const [sortKey, setSortKey] = useState<SortKey>("ts");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [expandedTs, setExpandedTs] = useState<string | null>(null);
 
   const sortedRows = useMemo(() => {
     const dir = sortDir === "asc" ? 1 : -1;
@@ -168,51 +173,106 @@ export default function LogPage(): JSX.Element {
                     <SortableHeader label="Doc Type"      sortKey="documentType"     currentKey={sortKey} dir={sortDir} onClick={toggleSort} />
                     <SortableHeader label="Source"        sortKey="source"           currentKey={sortKey} dir={sortDir} onClick={toggleSort} />
                     <SortableHeader label="Outcome"       sortKey="outcome"          currentKey={sortKey} dir={sortDir} onClick={toggleSort} />
-                    <SortableHeader label="Filename Hash" sortKey="filenameHash"     currentKey={sortKey} dir={sortDir} onClick={toggleSort} />
+                    <SortableHeader
+                      label="Filename Hash"
+                      sortKey="filenameHash"
+                      currentKey={sortKey}
+                      dir={sortDir}
+                      onClick={toggleSort}
+                      helpHref="/help/filename-hash"
+                      helpLabel="How to compute this hash"
+                    />
                     <SortableHeader label="Warnings"      sortKey="warningCount"     currentKey={sortKey} dir={sortDir} onClick={toggleSort} />
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedRows.map((row) => (
-                    <tr
-                      key={row.ts}
-                      className={
-                        "border-b border-[var(--border-light)] " +
-                        (row.outcome === "ok"
-                          ? "bg-emerald-50/60 hover:bg-emerald-100/60"
-                          : "bg-red-50/60 hover:bg-red-100/60")
-                      }
-                    >
-                      <td className="py-2 pr-4 whitespace-nowrap text-[var(--text-primary)]">
-                        {formatSydneyTimestamp(row.ts)}
-                      </td>
-                      <td className="py-2 pr-4 font-mono text-[var(--text-primary)]">
-                        {row.patientInitials ?? "—"}
-                      </td>
-                      <td className="py-2 pr-4 text-[var(--text-primary)]">
-                        {row.documentType ?? "—"}
-                      </td>
-                      <td className="py-2 pr-4 text-[var(--text-primary)]">
-                        {row.source}
-                      </td>
-                      <td
-                        className={
-                          "py-2 pr-4 font-medium " +
-                          (row.outcome === "ok"
-                            ? "text-[var(--success)]"
-                            : "text-[var(--error)]")
-                        }
-                      >
-                        {row.outcome}
-                      </td>
-                      <td className="py-2 pr-4 font-mono text-xs text-[var(--text-secondary)]">
-                        {row.filenameHash}
-                      </td>
-                      <td className="py-2 pr-4 text-[var(--text-primary)]">
-                        {row.warningCount}
-                      </td>
-                    </tr>
-                  ))}
+                  {sortedRows.map((row) => {
+                    const hasWarnings = row.warningCount > 0;
+                    const hasDetail = hasWarnings && (row.warnings?.length ?? 0) > 0;
+                    const isLegacy = hasWarnings && !hasDetail;
+                    const isExpanded = expandedTs === row.ts;
+                    return (
+                      <Fragment key={row.ts}>
+                        <tr
+                          className={
+                            "border-b border-[var(--border-light)] " +
+                            (row.outcome === "ok"
+                              ? "bg-emerald-50/60 hover:bg-emerald-100/60"
+                              : "bg-red-50/60 hover:bg-red-100/60")
+                          }
+                        >
+                          <td className="py-2 pr-4 whitespace-nowrap text-[var(--text-primary)]">
+                            {formatSydneyTimestamp(row.ts)}
+                          </td>
+                          <td className="py-2 pr-4 font-mono text-[var(--text-primary)]">
+                            {row.patientInitials ?? "—"}
+                          </td>
+                          <td className="py-2 pr-4 text-[var(--text-primary)]">
+                            {row.documentType ? prettifyDocType(row.documentType) : "—"}
+                          </td>
+                          <td className="py-2 pr-4 text-[var(--text-primary)]">
+                            {row.source}
+                          </td>
+                          <td
+                            className={
+                              "py-2 pr-4 font-medium " +
+                              (row.outcome === "ok"
+                                ? "text-[var(--success)]"
+                                : "text-[var(--error)]")
+                            }
+                          >
+                            {prettifyOutcome(row.outcome)}
+                          </td>
+                          <td className="py-2 pr-4 font-mono text-xs text-[var(--text-secondary)]">
+                            {row.filenameHash}
+                          </td>
+                          <td className="py-2 pr-4 text-[var(--text-primary)]">
+                            {hasDetail ? (
+                              <button
+                                type="button"
+                                aria-expanded={isExpanded}
+                                aria-controls={`warnings-${row.ts}`}
+                                onClick={() =>
+                                  setExpandedTs(isExpanded ? null : row.ts)
+                                }
+                                className="inline-flex items-center gap-1 underline decoration-dotted hover:text-[var(--text-primary)]"
+                              >
+                                {row.warningCount}
+                                <span aria-hidden="true" className="text-xs">
+                                  {isExpanded ? "▾" : "▸"}
+                                </span>
+                              </button>
+                            ) : isLegacy ? (
+                              <span>
+                                {row.warningCount}
+                                <span className="ml-1 text-xs text-[var(--text-faint)]">
+                                  (legacy)
+                                </span>
+                              </span>
+                            ) : (
+                              row.warningCount
+                            )}
+                          </td>
+                        </tr>
+                        {isExpanded && hasDetail ? (
+                          <tr
+                            id={`warnings-${row.ts}`}
+                            className="border-b border-[var(--border-light)] bg-amber-50/60"
+                          >
+                            <td colSpan={7} className="py-3 px-4">
+                              <ul className="list-disc pl-5 space-y-1 text-sm text-[var(--text-primary)]">
+                                {row.warnings?.map((msg, i) => (
+                                  <li key={i} className="font-mono text-xs">
+                                    {msg}
+                                  </li>
+                                ))}
+                              </ul>
+                            </td>
+                          </tr>
+                        ) : null}
+                      </Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -230,6 +290,8 @@ interface SortableHeaderProps {
   currentKey: SortKey;
   dir: SortDir;
   onClick: (key: SortKey) => void;
+  helpHref?: string;
+  helpLabel?: string;
 }
 
 function SortableHeader({
@@ -238,6 +300,8 @@ function SortableHeader({
   currentKey,
   dir,
   onClick,
+  helpHref,
+  helpLabel,
 }: SortableHeaderProps) {
   const active = currentKey === sortKey;
   const ariaSort: "ascending" | "descending" | "none" = active
@@ -248,19 +312,33 @@ function SortableHeader({
 
   return (
     <th aria-sort={ariaSort} className="py-2 pr-4 font-medium">
-      <button
-        type="button"
-        onClick={() => onClick(sortKey)}
-        className={
-          "inline-flex items-center gap-1 -mx-1 px-1 rounded hover:text-[var(--text-primary)] " +
-          (active ? "text-[var(--text-primary)]" : "")
-        }
-      >
-        {label}
-        <span aria-hidden="true" className="text-[var(--text-faint)] text-xs leading-none">
-          {active ? (dir === "asc" ? "▲" : "▼") : "↕"}
-        </span>
-      </button>
+      <span className="inline-flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => onClick(sortKey)}
+          className={
+            "inline-flex items-center gap-1 -mx-1 px-1 rounded hover:text-[var(--text-primary)] " +
+            (active ? "text-[var(--text-primary)]" : "")
+          }
+        >
+          {label}
+          <span aria-hidden="true" className="text-[var(--text-faint)] text-xs leading-none">
+            {active ? (dir === "asc" ? "▲" : "▼") : "↕"}
+          </span>
+        </button>
+        {helpHref ? (
+          <a
+            href={helpHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={helpLabel ?? "Help"}
+            aria-label={helpLabel ?? "Help"}
+            className="text-[var(--text-faint)] hover:text-[var(--text-primary)] inline-flex"
+          >
+            <QuestionMarkCircleIcon className="w-4 h-4" />
+          </a>
+        ) : null}
+      </span>
     </th>
   );
 }

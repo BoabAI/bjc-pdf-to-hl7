@@ -103,9 +103,9 @@ export const DEFAULT_BJC_DOCTORS: Doctor[] = [
  * `isDefault: true` — that value drives the initial selection in the UI.
  */
 export const DEFAULT_CARRIERS: Carrier[] = [
-  { id: "carrier-smecai", value: DEFAULT_CARRIER, label: "SMECAI",         isDefault: true },
+  { id: "carrier-smecai", value: DEFAULT_CARRIER, label: "SMECAI"         },
   { id: "carrier-email",  value: "EMAIL",         label: "Email"          },
-  { id: "carrier-fax",    value: "FAX",           label: "Fax"            },
+  { id: "carrier-fax",    value: "FAX",           label: "Fax",            isDefault: true },
   { id: "carrier-post",   value: "POST",          label: "Post"           },
   { id: "carrier-hand",   value: "HAND",          label: "Hand Delivered" },
 ];

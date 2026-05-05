@@ -9,6 +9,8 @@ import {
   type AuditRow,
   currentSydneyDate,
   firstOfCurrentSydneyMonth,
+  prettifyDocType,
+  prettifyOutcome,
   useAuditDataRange,
 } from "../components/auditShared";
 import { AuditDateRangeHeader } from "../components/audit/AuditDateRangeHeader";
@@ -31,15 +33,7 @@ const TREMOR_COLOR_SAFELIST =
   "fill-violet-500 stroke-violet-500 bg-violet-500 text-violet-500 fill-violet-300 stroke-violet-300 bg-violet-300 text-violet-300 " +
   "fill-amber-500 stroke-amber-500 bg-amber-500 text-amber-500 fill-amber-300 stroke-amber-300 bg-amber-300 text-amber-300";
 
-const LABEL_OVERRIDES: Record<string, string> = {
-  gp_referral: "Referral",
-  pathology_result: "Result",
-};
-
-function prettify(raw: string): string {
-  if (!raw) return "Unknown";
-  const key = raw.toLowerCase();
-  if (LABEL_OVERRIDES[key]) return LABEL_OVERRIDES[key];
+function titleCase(raw: string): string {
   const cleaned = raw.replace(/[_-]+/g, " ").trim();
   if (!cleaned) return "Unknown";
   return cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase();
@@ -47,15 +41,16 @@ function prettify(raw: string): string {
 
 function groupBy(
   rows: AuditRow[],
-  selector: (row: AuditRow) => string
+  selector: (row: AuditRow) => string,
+  labeller: (raw: string) => string = titleCase
 ): ChartDatum[] {
   const counts = new Map<string, number>();
   for (const row of rows) {
-    const key = selector(row);
+    const key = labeller(selector(row));
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
   return Array.from(counts.entries())
-    .map(([name, value]) => ({ name: prettify(name), value }))
+    .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value);
 }
 
@@ -124,10 +119,13 @@ export default function StatsPage(): JSX.Element {
   );
 
   const docTypeData = useMemo(
-    () => groupBy(rows, (r) => r.documentType ?? "unknown"),
+    () => groupBy(rows, (r) => r.documentType ?? "unknown", prettifyDocType),
     [rows]
   );
-  const outcomeData = useMemo(() => groupBy(rows, (r) => r.outcome), [rows]);
+  const outcomeData = useMemo(
+    () => groupBy(rows, (r) => r.outcome, prettifyOutcome),
+    [rows]
+  );
   const sourceData = useMemo(() => groupBy(rows, (r) => r.source), [rows]);
 
   const hasRows = rows.length > 0;

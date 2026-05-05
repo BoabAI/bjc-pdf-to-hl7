@@ -33,7 +33,42 @@ export interface AuditRow {
   fileSizeBytes: number;
   durationMs: number;
   warningCount: number;
+  /**
+   * Sanitised warning messages, when present. Older rows written before this
+   * field existed will only have `warningCount` — the UI shows a "(legacy)"
+   * affordance in that case.
+   */
+  warnings?: string[];
   patientInitials?: string;
+}
+
+// Display-layer label maps. The audit pipeline writes raw values
+// (`outcome: "ok" | "fail"`, doc types from the classifier) — these helpers
+// translate to the human labels BJC ops use, and collapse the classifier's
+// 6 doc types into the 5 buckets they think in (referral_letter + gp_referral
+// → "Referral letter"; generic + consent_form → "Letter").
+const OUTCOME_LABELS: Record<string, string> = {
+  ok: "Successful",
+  fail: "Failed",
+};
+
+const DOC_TYPE_LABELS: Record<string, string> = {
+  pathology_result: "Pathology result",
+  radiology_result: "Radiology result",
+  referral_letter: "Referral letter",
+  gp_referral: "Referral letter",
+  generic: "Letter",
+  consent_form: "Letter",
+  unknown: "Unknown",
+};
+
+export function prettifyOutcome(raw: string): string {
+  return OUTCOME_LABELS[raw] ?? raw;
+}
+
+export function prettifyDocType(raw: string | null | undefined): string {
+  if (!raw) return "Unknown";
+  return DOC_TYPE_LABELS[raw.toLowerCase()] ?? raw;
 }
 
 export interface LogsResponse {
