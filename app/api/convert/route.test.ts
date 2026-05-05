@@ -727,6 +727,8 @@ describe("POST /api/convert audit logging", () => {
       "fileSizeBytes",
       "durationMs",
       "warningCount",
+      // Sanitised warning messages (PHI-shaped entries dropped, capped at 10).
+      "warnings",
       // Operator identity from Auth.js session — required for compliance.
       // Not patient PHI; covered by the substring leak check below.
       "userEmail",

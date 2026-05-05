@@ -170,6 +170,62 @@ describe("buildConversionAuditRow", () => {
     expect(serialized).not.toContain("19800123");
   });
 
+  test("records warnings array on the row when ConvertResult has warnings", () => {
+    const row = buildConversionAuditRow(baseMeta, {
+      ...baseSuccess,
+      warnings: [
+        "Bedrock vision call timed out after 30s",
+        "Mailbox/content mismatch: arrived via referrals mailbox but classified as pathology_result. Verify before filing.",
+      ],
+    });
+
+    expect(row.warningCount).toBe(2);
+    expect(row.warnings).toEqual([
+      "Bedrock vision call timed out after 30s",
+      "Mailbox/content mismatch: arrived via referrals mailbox but classified as pathology_result. Verify before filing.",
+    ]);
+  });
+
+  test("omits warnings field when ConvertResult has no warnings", () => {
+    const row = buildConversionAuditRow(baseMeta, {
+      ...baseSuccess,
+      warnings: [],
+    });
+    expect(row.warningCount).toBe(0);
+    expect(row.warnings).toBeUndefined();
+  });
+
+  test("redacts warnings containing PHI-like patterns before persisting", () => {
+    const row = buildConversionAuditRow(baseMeta, {
+      ...baseSuccess,
+      warnings: [
+        "Bedrock vision call timed out after 30s",
+        "Patient Medicare 2950123456 invalid",
+        "DOB 14/07/1982 not parseable",
+      ],
+    });
+    // warningCount keeps the original count for ops visibility …
+    expect(row.warningCount).toBe(3);
+    // … but only the safe operational warning is persisted.
+    expect(row.warnings).toEqual(["Bedrock vision call timed out after 30s"]);
+  });
+
+  test("caps warnings at 10 entries and truncates each to 300 chars", () => {
+    const long = "X".repeat(500);
+    const row = buildConversionAuditRow(baseMeta, {
+      ...baseSuccess,
+      warnings: Array.from({ length: 15 }, (_, i) => `${i}:${long}`),
+    });
+
+    expect(row.warningCount).toBe(15);
+    expect(row.warnings).toBeDefined();
+    const persisted = row.warnings as string[];
+    expect(persisted.length).toBe(10);
+    for (const msg of persisted) {
+      expect(msg.length).toBeLessThanOrEqual(300);
+    }
+  });
+
   test("source 'email' propagates from meta", () => {
     const row = buildConversionAuditRow(
       { ...baseMeta, source: "email", userEmail: "service:pad-pipeline" },

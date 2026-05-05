@@ -33,6 +33,15 @@ export interface AuditRow {
   fileSizeBytes: number;
   durationMs: number;
   warningCount: number;
+  /**
+   * Sanitised warning messages from the conversion. Empty/undefined when no
+   * warnings, or when every original warning was dropped by `redactWarning`.
+   * `warningCount` always reflects the *original* count for ops visibility,
+   * so a row with `warningCount: 3` and `warnings.length: 1` means two of
+   * the three warnings looked PHI-shaped and were dropped on the way in.
+   * Cap: max 10 entries, each truncated to 300 chars.
+   */
+  warnings?: string[];
   /** Authenticated user's email (UPN). "anonymous" for email/PAD pipeline. */
   userEmail?: string;
   /**
@@ -73,6 +82,35 @@ export function buildPatientInitials(
   const l = last.charAt(0).toUpperCase();
   if (!/[A-Z]/.test(f) || !/[A-Z]/.test(l)) return undefined;
   return `${f}.${l}.`;
+}
+
+const WARNING_MAX_LENGTH = 300;
+// 8+ consecutive digits → likely Medicare or run-on ID.
+const PHI_DIGIT_RUN = /\d{8,}/;
+// Common DOB shapes: 14/07/1982, 14-07-82, 1982-07-14, 14.07.1982.
+const PHI_DOB_PATTERN =
+  /\b\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}\b|\b\d{4}[/.\-]\d{1,2}[/.\-]\d{1,2}\b/;
+
+/**
+ * Sanitise a single warning message for persistence. Returns `undefined` when
+ * the message is empty/whitespace or matches a PHI-shaped pattern (long digit
+ * runs that look like a Medicare number, or DOB-shaped dates). Otherwise
+ * returns the message truncated to `WARNING_MAX_LENGTH`.
+ *
+ * Defensive only — current warning sources (vision-extractor, convert-service)
+ * emit operational strings, not patient data — but warnings are free-form
+ * text and this is the first audit field to carry one, so the gate exists to
+ * keep that contract safe even if a future warning is sloppily worded.
+ */
+export function redactWarning(message: string): string | undefined {
+  if (typeof message !== "string") return undefined;
+  const trimmed = message.trim();
+  if (trimmed.length === 0) return undefined;
+  if (PHI_DIGIT_RUN.test(trimmed)) return undefined;
+  if (PHI_DOB_PATTERN.test(trimmed)) return undefined;
+  return trimmed.length > WARNING_MAX_LENGTH
+    ? trimmed.slice(0, WARNING_MAX_LENGTH)
+    : trimmed;
 }
 
 function getTableName(): string {
@@ -271,6 +309,9 @@ function isAuditRow(value: unknown): value is AuditRow {
     typeof v.fileSizeBytes === "number" &&
     typeof v.durationMs === "number" &&
     typeof v.warningCount === "number" &&
+    (v.warnings === undefined ||
+      (Array.isArray(v.warnings) &&
+        v.warnings.every((w) => typeof w === "string"))) &&
     (v.userEmail === undefined || typeof v.userEmail === "string") &&
     (v.patientInitials === undefined || typeof v.patientInitials === "string") &&
     (v.mailboxHint === undefined || typeof v.mailboxHint === "string") &&

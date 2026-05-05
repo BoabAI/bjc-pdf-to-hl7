@@ -16,6 +16,7 @@ import {
   extractFilenameExt,
   hashFilename,
   monthKey,
+  redactWarning,
   type AuditRow,
 } from "@/lib/audit";
 import type { ConvertResult } from "@/lib/convert-service";
@@ -28,6 +29,30 @@ import type { DocumentType, MailboxSource } from "@/lib/domain/types";
 
 /** Source of the conversion request — `web` is browser, `email` is the PAD pipeline. */
 export type AuditSource = "web" | "email";
+
+/** Hard cap on persisted warnings per row. `warningCount` keeps the original
+ * total, so an operator seeing `count=15, warnings.length=10` knows the tail
+ * was elided rather than missing. */
+const MAX_PERSISTED_WARNINGS = 10;
+
+/**
+ * Sanitise + cap warnings for persistence. Drops anything PHI-shaped (handled
+ * by `redactWarning`), truncates each entry, and keeps at most the first
+ * `MAX_PERSISTED_WARNINGS` survivors. Returns `undefined` when nothing
+ * survives so we don't write an empty array to DynamoDB.
+ */
+function persistableWarnings(raw: string[] | undefined): string[] | undefined {
+  if (!raw || raw.length === 0) return undefined;
+  const out: string[] = [];
+  for (const msg of raw) {
+    const safe = redactWarning(msg);
+    if (safe !== undefined) {
+      out.push(safe);
+      if (out.length >= MAX_PERSISTED_WARNINGS) break;
+    }
+  }
+  return out.length > 0 ? out : undefined;
+}
 
 /**
  * Per-request metadata needed to build an audit row. `now` is passed in (not
@@ -87,6 +112,10 @@ export function buildConversionAuditRow(
     fileSizeBytes: meta.fileSizeBytes,
     durationMs: meta.finishedAtMs - meta.startedAtMs,
     warningCount: result.warnings?.length ?? 0,
+    ...((): { warnings?: string[] } => {
+      const w = persistableWarnings(result.warnings);
+      return w ? { warnings: w } : {};
+    })(),
     userEmail: meta.userEmail,
     patientInitials,
     mailboxHint: meta.mailboxHint,

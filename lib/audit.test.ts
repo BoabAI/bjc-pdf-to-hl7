@@ -51,6 +51,7 @@ const {
   buildSortKey,
   randomSuffix,
   buildPatientInitials,
+  redactWarning,
 } = await import("./audit");
 import type { AuditRow } from "./audit";
 
@@ -119,6 +120,50 @@ describe("buildPatientInitials", () => {
   test("returns undefined when first character is not a letter", () => {
     expect(buildPatientInitials("123", "Smith")).toBeUndefined();
     expect(buildPatientInitials("Jane", "9Doe")).toBeUndefined();
+  });
+});
+
+describe("redactWarning", () => {
+  test("preserves operational warning strings unchanged", () => {
+    expect(redactWarning("Bedrock vision call timed out after 30s")).toBe(
+      "Bedrock vision call timed out after 30s"
+    );
+    expect(redactWarning("AWS credentials missing or invalid for Bedrock")).toBe(
+      "AWS credentials missing or invalid for Bedrock"
+    );
+    expect(redactWarning("IAM access denied for ap-southeast-4")).toBe(
+      "IAM access denied for ap-southeast-4"
+    );
+    expect(
+      redactWarning(
+        "Mailbox/content mismatch: arrived via referrals mailbox but classified as pathology_result. Verify before filing."
+      )
+    ).toBe(
+      "Mailbox/content mismatch: arrived via referrals mailbox but classified as pathology_result. Verify before filing."
+    );
+  });
+
+  test("drops messages containing a Medicare-like number (8+ consecutive digits)", () => {
+    expect(redactWarning("Medicare 2950123456 mismatch")).toBeUndefined();
+    expect(redactWarning("found id 12345678 in payload")).toBeUndefined();
+  });
+
+  test("drops messages containing a DOB-like date", () => {
+    expect(redactWarning("Patient DOB 14/07/1982 missing")).toBeUndefined();
+    expect(redactWarning("dob 1982-07-14 invalid")).toBeUndefined();
+    expect(redactWarning("born 14-07-82 not parseable")).toBeUndefined();
+  });
+
+  test("truncates long messages to a sane cap", () => {
+    const long = "A".repeat(1000);
+    const out = redactWarning(long);
+    expect(out).toBeDefined();
+    expect((out as string).length).toBeLessThanOrEqual(300);
+  });
+
+  test("returns undefined for empty / whitespace-only strings", () => {
+    expect(redactWarning("")).toBeUndefined();
+    expect(redactWarning("   ")).toBeUndefined();
   });
 });
 
@@ -304,6 +349,21 @@ describe("recordConversion", () => {
     expect(consoleErrorCalled).toBe(true);
   });
 
+  test("warnings array round-trips through PutCommand when present", async () => {
+    sendMock.mockResolvedValue({});
+    const row = makeRow({
+      warningCount: 2,
+      warnings: ["Bedrock vision call timed out after 30s", "Mailbox/content mismatch"],
+    });
+    await recordConversion(row);
+    const command = sendMock.mock.calls[0][0] as PutCommandMock;
+    const input = command.input as { Item: AuditRow };
+    expect(input.Item.warnings).toEqual([
+      "Bedrock vision call timed out after 30s",
+      "Mailbox/content mismatch",
+    ]);
+  });
+
   test("audit row contract has no patient-identifying fields", async () => {
     // This documents the contract: AuditRow's keys are a fixed set, and none
     // of them should be patient PHI. This test is a guard against future drift.
@@ -322,6 +382,7 @@ describe("recordConversion", () => {
       "fileSizeBytes",
       "durationMs",
       "warningCount",
+      "warnings",
       "userEmail",
       "patientInitials",
       "mailboxHint",
@@ -377,6 +438,27 @@ describe("listConversions", () => {
     const result = await listConversions("2026-04");
     expect(result).toEqual([]);
     expect(consoleErrorCalled).toBe(true);
+  });
+
+  test("accepts rows with a warnings string array (isAuditRow guard)", async () => {
+    const rowWithWarnings = makeRow({
+      warningCount: 1,
+      warnings: ["Bedrock vision call timed out after 30s"],
+    });
+    const rowWithBadWarnings = makeRow({
+      ts: "2026-04-29T13:00:00.000Z#bad001",
+      warningCount: 1,
+      // warnings must be string[]; numbers must be filtered out as malformed.
+      warnings: [42 as unknown as string],
+    });
+    sendMock.mockResolvedValue({
+      Items: [rowWithWarnings, rowWithBadWarnings],
+    });
+    const result = await listConversions("2026-04");
+    expect(result).toHaveLength(1);
+    expect(result[0]?.warnings).toEqual([
+      "Bedrock vision call timed out after 30s",
+    ]);
   });
 
   test("filters out malformed items", async () => {
