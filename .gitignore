@@ -68,6 +68,9 @@ docs/test-pdfs/**/*.pdf
 # Real BJC HL7 / PDF samples — local reference only, NEVER commit
 /samples/
 
+# Local artifacts (email attachments, scratch bundles)
+*.zip
+
 # Claude Code local state (settings, worktrees with vendored node_modules)
 .claude/
 

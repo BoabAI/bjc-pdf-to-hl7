@@ -49,6 +49,9 @@ docs/
 # Plans
 docs/plans/
 
+# Local artifacts
+*.zip
+
 # Misc
 .DS_Store
 Thumbs.db
