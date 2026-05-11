@@ -100,7 +100,10 @@ function BreakdownPie({ title, data }: BreakdownPieProps): JSX.Element {
             </div>
           </div>
           <Legend
-            categories={data.map((d) => `${d.name} (${d.value})`)}
+            categories={data.map(
+              (d) =>
+                `${d.name} (${d.value}, ${Math.round((d.value / total) * 100)}%)`
+            )}
             colors={[...colors]}
             className="mt-3 justify-center"
           />
