@@ -22,17 +22,16 @@ All amounts in AUD, inclusive of GST.
 
 Covers the full build, test, and deployment of the PDF-to-HL7 automation across **both referrals and results** (pathology, radiology, and other faxed results):
 
-| Deliverable                                                                                                                                                                  | Est. Effort |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| PAD automation workflow — referrals inbox (email retrieval, API integration, retry logic, email routing)                                                                     | 12 hrs      |
-| PAD automation workflow — results inboxes (3 fax-line inboxes for pathology / radiology / other results, routing into Genie's standard pathology and radiology import paths) | 8 hrs       |
-| Web dashboard (doctor list management, health status, processing metrics, cloud audit log, **manual PDF drag-and-drop upload** for documents that don't arrive by email)     | 18 hrs      |
-| API authentication for PAD to call the conversion service securely                                                                                                           | 4 hrs       |
-| Server configuration (Task Scheduler, folders, service account setup with Medihost)                                                                                          | 4 hrs       |
-| Testing with real referral and results PDFs, and Genie import verification across incoming letters / pathology / radiology                                                   | 8 hrs       |
-| Staff training                                                                                                                                                               | 2 hrs       |
-| Documentation and handover                                                                                                                                                   | 4 hrs       |
-| **Total estimated effort**                                                                                                                                                   | **~60 hrs** |
+**Deliverables**
+
+- PAD automation workflow — referrals inbox (email retrieval, API integration, retry logic, email routing)
+- PAD automation workflow — results inboxes (3 fax-line inboxes for pathology / radiology / other results, routing into Genie's standard pathology and radiology import paths)
+- Web dashboard (doctor list management, health status, processing metrics, cloud audit log, **manual PDF drag-and-drop upload** for documents that don't arrive by email)
+- API authentication for PAD to call the conversion service securely
+- Server configuration (Task Scheduler, folders, service account setup with Medihost)
+- Testing with real referral and results PDFs, and Genie import verification across incoming letters / pathology / radiology
+- Staff training
+- Documentation and handover
 
 > **Results scope note:** Initial BJC testing confirmed that the converter extracts patient data successfully from pathology and radiology PDFs. The remaining work to bring results into scope is HL7 message routing (so Genie pulls them into the pathology / radiology inboxes rather than incoming letters) and inbox configuration in PAD. This is included in the fixed price above.
 
@@ -49,6 +48,8 @@ Covers the full build, test, and deployment of the PDF-to-HL7 automation across 
 - All items listed in the workflow document
 - Processing of referrals **and** results (pathology, radiology, other faxed results)
 - Manual drag-and-drop upload via the web dashboard for documents that don't arrive by email
+- Production rollout begins with the 3 GoFax fax-email inboxes (pathology, radiology, other results); the admin@ inbox follows in stage 2 once failure-handling UX is finalised
+- Custom subdomain on smecai.au with access restricted to bjchealth.com.au email addresses (replaces the Amplify default URL)
 - Up to 3 rounds of revisions during testing/UAT
 - Remote coordination with Medihost for server access and Genie configuration
 - 30-day warranty period after go-live (see §3)
@@ -95,8 +96,6 @@ Each document processed by the automation (referrals **and** results) is charged
 | 300 documents/mo _(approx. current BJC referrals only)_         | $30/mo       | 10c          |
 | 500 documents/mo                                                | $50/mo       | 10c          |
 | 1,100 documents/mo _(approx. BJC referrals + results combined)_ | $110/mo      | 10c          |
-| 1,500 documents/mo                                              | $150/mo      | 10c          |
-| 2,000 documents/mo                                              | $200/mo      | 10c          |
 
 > **Reference volume:** BJC Health processed 882 referrals between February and April 2026 (~294/mo). Results across the 3 fax-line inboxes add an estimated ~200/week (~800/mo), bringing the combined expected volume to ~1,100 documents/mo once results are in scope.
 
@@ -131,7 +130,7 @@ Changes requested after the project scope is agreed are billed at **$192.50/hr i
 
 Examples of variations:
 
-- Adding new document types beyond those currently supported
+- Adding new document classifications beyond the agreed five (pathology result, radiology result, referral letter, correspondence letter, unknown)
 - Integration with additional practice management systems (beyond Genie)
 - Additional dashboard features beyond the agreed scope
 - Changes to email routing logic or notification rules
@@ -236,8 +235,6 @@ BJC Health agrees to indemnify SMEC AI against any claims, losses, or damages ar
 ### Force Majeure
 
 Neither party shall be liable for delays or failures in performance caused by events beyond their reasonable control, including but not limited to natural disasters, internet outages, cloud provider failures, government actions, or pandemic-related disruptions.
-
-> **Note:** These terms are provided as standard commercial conditions. SMEC AI recommends that BJC Health seek independent legal advice before entering into this agreement.
 
 ---
 
