@@ -1,12 +1,20 @@
 import { NextResponse } from "next/server";
-import { convertPdf, parseConvertFormData } from "@/lib/convert-service";
+import {
+  convertPdf,
+  parseConvertFormData,
+  type ConvertResult,
+} from "@/lib/convert-service";
 import { recordConversion, type AuditRow } from "@/lib/audit";
 import {
   buildConversionAuditRow,
   buildFailureAuditRow,
   type AuditSource,
 } from "@/lib/audit/build-row";
-import { parseMailboxSource } from "@/lib/conversion-config";
+import {
+  isObr16MissingWarning,
+  isStrictRequiredFields,
+  parseMailboxSource,
+} from "@/lib/conversion-config";
 import { auth } from "@/lib/auth";
 import { isPadAuthenticated } from "@/lib/pad-auth";
 import {
@@ -79,6 +87,31 @@ export const POST = auth(async (request) => {
 
     const result = await convertPdf({ ...parsed.data, mailboxHint });
 
+    // Strict-mode gate: when STRICT_REQUIRED_FIELDS=true, a results document
+    // that survived extraction but ended up with an empty OBR-16 ("Ordered By")
+    // is rejected with 422. The audit row records `outcome: "fail"` plus the
+    // same warning so ops can see what was missing. Default (lenient) mode is
+    // unchanged — the warning is persisted and the HL7 is returned to the
+    // caller.
+    const obr16Missing =
+      result.success === true &&
+      (result.warnings?.some(isObr16MissingWarning) ?? false);
+    const shouldStrictFail = isStrictRequiredFields() && obr16Missing;
+
+    const effectiveResult: ConvertResult = shouldStrictFail
+      ? {
+          success: false,
+          error:
+            "Required field missing: OBR-16 (Ordered By) for pathology/radiology result",
+          warnings: result.warnings,
+          extractionMethod: result.extractionMethod,
+          documentType: result.documentType,
+          ...(result.mailboxDisagreement
+            ? { mailboxDisagreement: true }
+            : {}),
+        }
+      : result;
+
     const row = buildConversionAuditRow(
       {
         source,
@@ -90,12 +123,16 @@ export const POST = auth(async (request) => {
         finishedAtMs: Date.now(),
         now,
       },
-      result
+      effectiveResult
     );
 
     await safeRecord(row);
 
-    return NextResponse.json(result);
+    if (shouldStrictFail) {
+      return NextResponse.json(effectiveResult, { status: 422 });
+    }
+
+    return NextResponse.json(effectiveResult);
   } catch (error) {
     logOperationalError("convert", error, { source });
 

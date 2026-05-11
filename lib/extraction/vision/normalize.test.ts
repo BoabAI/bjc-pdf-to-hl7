@@ -403,3 +403,304 @@ describe("normalizeVisionToolInput — bad input", () => {
     expect(result.referralInfo).toBeUndefined();
   });
 });
+
+const basePatient = {
+  firstName: "Jane",
+  lastName: "Smith",
+  dob: "08/11/1985",
+  sex: "F",
+} as const;
+
+describe("normalizeVisionToolInput — heuristic promotion from result → referral", () => {
+  test("promotes pathology_result with sender + addressee to referral_letter", () => {
+    const result = normalizeVisionToolInput({
+      documentType: "pathology_result",
+      ...basePatient,
+      senderName: "Dr Sarah Jones",
+      addresseeName: "Dr Michael Brown",
+    });
+    expect(result.documentType).toBe("referral_letter");
+    expect(
+      result.warnings.some((w) =>
+        w.startsWith("classification promoted: pathology_result → referral_letter")
+      )
+    ).toBe(true);
+  });
+
+  test("promotes radiology_result with Medicare-style sender provider number to gp_referral", () => {
+    const result = normalizeVisionToolInput({
+      documentType: "radiology_result",
+      ...basePatient,
+      senderName: "Dr Sarah Jones",
+      senderProviderNumber: "1234567X",
+      addresseeName: "Dr Michael Brown",
+    });
+    expect(result.documentType).toBe("gp_referral");
+    expect(
+      result.warnings.some((w) =>
+        w.startsWith("classification promoted: radiology_result → gp_referral")
+      )
+    ).toBe(true);
+  });
+
+  test("does not promote when only addressee is populated (no sender)", () => {
+    const result = normalizeVisionToolInput({
+      documentType: "pathology_result",
+      ...basePatient,
+      senderName: null,
+      addresseeName: "Dr Michael Brown",
+    });
+    expect(result.documentType).toBe("pathology_result");
+    expect(
+      result.warnings.some((w) => w.startsWith("classification promoted"))
+    ).toBe(false);
+  });
+
+  test("does not promote a pathology_result with empty referralInfo", () => {
+    const result = normalizeVisionToolInput({
+      documentType: "pathology_result",
+      ...basePatient,
+    });
+    expect(result.documentType).toBe("pathology_result");
+    expect(
+      result.warnings.some((w) => w.startsWith("classification promoted"))
+    ).toBe(false);
+  });
+
+  test("does not promote when sender and addressee names are identical", () => {
+    const result = normalizeVisionToolInput({
+      documentType: "pathology_result",
+      ...basePatient,
+      senderName: "Dr Sarah Jones",
+      addresseeName: "Dr Sarah Jones",
+    });
+    expect(result.documentType).toBe("pathology_result");
+    expect(
+      result.warnings.some((w) => w.startsWith("classification promoted"))
+    ).toBe(false);
+  });
+
+  test("does not promote when either name is suspiciously short", () => {
+    const result = normalizeVisionToolInput({
+      documentType: "pathology_result",
+      ...basePatient,
+      senderName: "Dr",
+      addresseeName: "Dr Michael Brown",
+    });
+    expect(result.documentType).toBe("pathology_result");
+    expect(
+      result.warnings.some((w) => w.startsWith("classification promoted"))
+    ).toBe(false);
+  });
+
+  test("promotes to referral_letter (not gp_referral) when sender provider number is not Medicare-style", () => {
+    const result = normalizeVisionToolInput({
+      documentType: "radiology_result",
+      ...basePatient,
+      senderName: "Dr Sarah Jones",
+      senderProviderNumber: "ABC123",
+      addresseeName: "Dr Michael Brown",
+    });
+    expect(result.documentType).toBe("referral_letter");
+  });
+
+  test("does not promote non-result document types (e.g. consent_form)", () => {
+    const result = normalizeVisionToolInput({
+      documentType: "consent_form",
+      ...basePatient,
+      senderName: "Dr Sarah Jones",
+      addresseeName: "Dr Michael Brown",
+    });
+    expect(result.documentType).toBe("consent_form");
+  });
+
+  test("preserves promotion when letterSubtype is undefined (back-compat)", () => {
+    // Older fixtures and earlier model outputs omit letterSubtype entirely.
+    // Promotion must still apply on the basis of sender+addressee signals.
+    const result = normalizeVisionToolInput({
+      documentType: "pathology_result",
+      ...basePatient,
+      senderName: "Dr Sarah Jones",
+      addresseeName: "Dr Michael Brown",
+    });
+    expect(result.documentType).toBe("referral_letter");
+  });
+
+  test("preserves promotion when letterSubtype is 'referral'", () => {
+    const result = normalizeVisionToolInput({
+      documentType: "pathology_result",
+      ...basePatient,
+      senderName: "Dr Sarah Jones",
+      addresseeName: "Dr Michael Brown",
+      letterSubtype: "referral",
+    });
+    expect(result.documentType).toBe("referral_letter");
+  });
+
+  test("does NOT promote when letterSubtype is 'result_commentary' (gates promotion)", () => {
+    const result = normalizeVisionToolInput({
+      documentType: "pathology_result",
+      ...basePatient,
+      senderName: "Dr Sarah Jones",
+      addresseeName: "Dr Michael Brown",
+      letterSubtype: "result_commentary",
+    });
+    expect(result.documentType).toBe("pathology_result");
+    expect(
+      result.warnings.some((w) => w.startsWith("classification promoted"))
+    ).toBe(false);
+  });
+
+  test("does NOT promote when letterSubtype is 'follow_up'", () => {
+    const result = normalizeVisionToolInput({
+      documentType: "radiology_result",
+      ...basePatient,
+      senderName: "Dr Sarah Jones",
+      addresseeName: "Dr Michael Brown",
+      letterSubtype: "follow_up",
+    });
+    expect(result.documentType).toBe("radiology_result");
+    expect(
+      result.warnings.some((w) => w.startsWith("classification promoted"))
+    ).toBe(false);
+  });
+});
+
+describe("normalizeVisionToolInput — letterSubtype demotion (referral → generic)", () => {
+  test("demotes referral_letter to generic when letterSubtype is 'follow_up'", () => {
+    const result = normalizeVisionToolInput({
+      documentType: "referral_letter",
+      ...basePatient,
+      senderName: "Dr Sarah Jones",
+      addresseeName: "Dr Michael Brown",
+      letterSubtype: "follow_up",
+    });
+    expect(result.documentType).toBe("generic");
+    expect(
+      result.warnings.some(
+        (w) => w.startsWith("classification demoted") && w.includes("follow_up")
+      )
+    ).toBe(true);
+  });
+
+  test("demotes referral_letter to generic when letterSubtype is 'discharge'", () => {
+    const result = normalizeVisionToolInput({
+      documentType: "referral_letter",
+      ...basePatient,
+      senderName: "Dr Sarah Jones",
+      addresseeName: "Dr Michael Brown",
+      letterSubtype: "discharge",
+    });
+    expect(result.documentType).toBe("generic");
+    expect(
+      result.warnings.some(
+        (w) => w.startsWith("classification demoted") && w.includes("discharge")
+      )
+    ).toBe(true);
+  });
+
+  test("demotes referral_letter to generic when letterSubtype is 'result_commentary'", () => {
+    const result = normalizeVisionToolInput({
+      documentType: "referral_letter",
+      ...basePatient,
+      senderName: "Dr Sarah Jones",
+      addresseeName: "Dr Michael Brown",
+      letterSubtype: "result_commentary",
+    });
+    expect(result.documentType).toBe("generic");
+    expect(
+      result.warnings.some(
+        (w) =>
+          w.startsWith("classification demoted") &&
+          w.includes("result_commentary")
+      )
+    ).toBe(true);
+  });
+
+  test("demotes gp_referral to generic when letterSubtype is 'other'", () => {
+    const result = normalizeVisionToolInput({
+      documentType: "gp_referral",
+      ...basePatient,
+      senderName: "Dr Sarah Jones",
+      addresseeName: "Dr Michael Brown",
+      letterSubtype: "other",
+    });
+    expect(result.documentType).toBe("generic");
+    expect(
+      result.warnings.some(
+        (w) => w.startsWith("classification demoted") && w.includes("other")
+      )
+    ).toBe(true);
+  });
+
+  test("does NOT demote when letterSubtype is 'referral' (true referral)", () => {
+    const result = normalizeVisionToolInput({
+      documentType: "referral_letter",
+      ...basePatient,
+      senderName: "Dr Sarah Jones",
+      addresseeName: "Dr Michael Brown",
+      letterSubtype: "referral",
+    });
+    expect(result.documentType).toBe("referral_letter");
+    expect(
+      result.warnings.some((w) => w.startsWith("classification demoted"))
+    ).toBe(false);
+  });
+
+  test("does NOT demote when letterSubtype is 'not_a_letter'", () => {
+    // A non-letter classified as referral is implausible, but if it happens
+    // we don't demote — let the operator see the original LLM verdict.
+    const result = normalizeVisionToolInput({
+      documentType: "referral_letter",
+      ...basePatient,
+      letterSubtype: "not_a_letter",
+    });
+    expect(result.documentType).toBe("referral_letter");
+    expect(
+      result.warnings.some((w) => w.startsWith("classification demoted"))
+    ).toBe(false);
+  });
+
+  test("does NOT demote non-referral types even when letterSubtype is non-referral", () => {
+    // pathology_result with letterSubtype: 'result_commentary' is plausible
+    // (a lab report with a commentary letter cover) — but pathology_result is
+    // not a referral type, so the demotion rule doesn't apply.
+    const result = normalizeVisionToolInput({
+      documentType: "pathology_result",
+      ...basePatient,
+      letterSubtype: "result_commentary",
+    });
+    expect(result.documentType).toBe("pathology_result");
+    expect(
+      result.warnings.some((w) => w.startsWith("classification demoted"))
+    ).toBe(false);
+  });
+});
+
+describe("normalizeVisionToolInput — letterSubtype propagation", () => {
+  test("exposes letterSubtype on the normalized result", () => {
+    const result = normalizeVisionToolInput({
+      documentType: "referral_letter",
+      ...basePatient,
+      letterSubtype: "referral",
+    });
+    expect(result.letterSubtype).toBe("referral");
+  });
+
+  test("returns undefined letterSubtype when missing", () => {
+    const result = normalizeVisionToolInput({
+      documentType: "referral_letter",
+      ...basePatient,
+    });
+    expect(result.letterSubtype).toBeUndefined();
+  });
+
+  test("drops an unknown letterSubtype value", () => {
+    const result = normalizeVisionToolInput({
+      documentType: "referral_letter",
+      ...basePatient,
+      letterSubtype: "nonsense",
+    });
+    expect(result.letterSubtype).toBeUndefined();
+  });
+});

@@ -69,6 +69,10 @@ Staff can convert PDFs at any time via the web interface — useful for document
 - The **Doctors** tab manages the BJC Health doctor list used for AI addressee resolution (e.g. "Dear Rheumatologist" → "Dr Irwin Lim"). The list lives in browser localStorage and is sent with every conversion.
 - The **Dashboard** (linked from the home page) shows live ops visibility: pie charts of document type / outcome / source, an audit table for the current month, and CSV export.
 
+### Carrier
+
+The **Carrier** field is a short label that travels with each HL7 message to tell Genie which system the document came from (specifically the HL7 MSH-3 Sending Application field). The default value `SMECAI` is correct for BJC and identifies SMEC AI as the source. BJC ops staff don't need to change this. The only reason to revisit it is if Medihost or Genie support specifically ask for a different source identifier for routing or audit purposes.
+
 ---
 
 ## What gets imported into Genie

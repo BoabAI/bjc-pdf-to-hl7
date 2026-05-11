@@ -22,6 +22,7 @@ const baseVisionResult = {
   warnings: ["Using Bedrock vision"],
   model: "au.anthropic.claude-sonnet-4-6",
   documentType: "referral_letter" as const,
+  classificationConfidence: 100,
   tokensUsed: { input: 123, output: 45 },
 };
 
@@ -44,6 +45,7 @@ describe("extractPatientData", () => {
       warnings: baseVisionResult.warnings,
       documentType: "referral_letter",
       extractionMethod: "vision",
+      classificationConfidence: 100,
     });
   });
 

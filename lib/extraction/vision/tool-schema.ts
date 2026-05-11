@@ -114,6 +114,26 @@ export const EXTRACTION_TOOL = {
             description:
               "Names of any CC/carbon copy recipient doctors (from 'CC:', 'cc:', 'Copy to:', 'c/o:' lines). Empty array if no CC line exists.",
           },
+          classificationConfidence: {
+            type: "integer",
+            minimum: 0,
+            maximum: 100,
+            description:
+              "Self-reported confidence in the document type classification, as an integer from 0 (no confidence) to 100 (certain). Lower this value when (a) the document is ambiguous, (b) multiple types could apply, or (c) image quality is poor.",
+          },
+          letterSubtype: {
+            type: "string",
+            enum: [
+              "referral",
+              "follow_up",
+              "discharge",
+              "result_commentary",
+              "other",
+              "not_a_letter",
+            ],
+            description:
+              "If the document is a letter from one doctor to another, classify its sub-type. Use 'referral' only when the letter requests assessment, management, or opinion. Use 'follow_up' for progress updates on an existing patient relationship. Use 'discharge' for hand-back letters from specialist to GP. Use 'result_commentary' when the letter primarily comments on or transmits test results. Use 'other' for letters that don't fit. Use 'not_a_letter' when the document isn't a letter (e.g., a form, a lab report, an imaging report).",
+          },
         },
         required: [
           "documentType",
@@ -128,6 +148,7 @@ export const EXTRACTION_TOOL = {
           "postcode",
           "medicareNo",
           "medicareRef",
+          "classificationConfidence",
         ],
         additionalProperties: false,
       },

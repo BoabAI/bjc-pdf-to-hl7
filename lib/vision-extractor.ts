@@ -25,6 +25,7 @@ import {
   emptyPatientData,
   isToolUseContentBlock,
   normalizeVisionToolInput,
+  type LetterSubtype,
 } from "./extraction/vision/normalize";
 import { buildVisionPrompt, SYSTEM_PROMPT } from "./extraction/vision/prompt";
 import { EXTRACTION_TOOL } from "./extraction/vision/tool-schema";
@@ -40,6 +41,13 @@ export interface VisionExtractionResult {
   warnings: string[];
   model: string;
   documentType: DocumentType;
+  /** Self-reported model confidence in the classification, 0-100. Defaults to
+   * 100 when the model omits the field (older fixtures or fallback paths). */
+  classificationConfidence: number;
+  /** Letter sub-type when the document is letter-shaped (referral / follow-up /
+   * discharge / result_commentary / other / not_a_letter). Drives promotion
+   * gating and demotion. Undefined when the model omits it. */
+  letterSubtype?: LetterSubtype;
   referralInfo?: ReferralInfo;
   tokensUsed?: { input: number; output: number };
 }
@@ -102,6 +110,7 @@ export async function extractPatientDataWithVision(
         warnings: ["Bedrock returned no tool use result"],
         model,
         documentType: documentTypeHint ?? "generic",
+        classificationConfidence: 100,
       };
     }
 
@@ -127,6 +136,8 @@ export async function extractPatientDataWithVision(
       warnings: normalized.warnings,
       model,
       documentType: normalized.documentType,
+      classificationConfidence: normalized.classificationConfidence,
+      letterSubtype: normalized.letterSubtype,
       referralInfo: normalized.referralInfo,
       tokensUsed,
     };
@@ -139,6 +150,7 @@ export async function extractPatientDataWithVision(
       warnings: [mapBedrockError(error, { timeoutMs, model })],
       model,
       documentType: documentTypeHint ?? "generic",
+      classificationConfidence: 100,
     };
   } finally {
     clearTimeout(timeoutId);

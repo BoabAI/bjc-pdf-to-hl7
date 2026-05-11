@@ -778,6 +778,95 @@ describe("Referral Info - OBR-16 (Sender)", () => {
   });
 });
 
+// =============================================================================
+// OBR-16 (Ordered By) for results documents
+//
+// On pathology / radiology PDFs the LAB is the sender and the ORDERING DOCTOR
+// appears in the addressee block ("Report sent to Dr Smith"). OBR-16 in Genie
+// is the "Ordered By" field, so for results documents it must come from the
+// addresseeName, not the senderName (which is always the lab and useless for
+// routing).
+// =============================================================================
+describe("OBR-16 (Ordered By) - results documents", () => {
+  test("pathology_result OBR-16 sources from addresseeName, not senderName", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      documentType: "pathology_result",
+      referralInfo: {
+        senderName: "Douglass Hanly Moir Pathology", // lab — should be ignored
+        addresseeName: "Dr Sarah Smith",
+      },
+    });
+    const obr = getFields(getSegment(hl7, "OBR")!);
+
+    expect(obr[16]).toBe("^Smith^Sarah^^^DR");
+  });
+
+  test("radiology_result OBR-16 sources from addresseeName, not senderName", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      documentType: "radiology_result",
+      referralInfo: {
+        senderName: "PRP Imaging",
+        addresseeName: "Dr Michael Brown",
+      },
+    });
+    const obr = getFields(getSegment(hl7, "OBR")!);
+
+    expect(obr[16]).toBe("^Brown^Michael^^^DR");
+  });
+
+  test("pathology_result OBR-16 is empty when addresseeName is missing", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      documentType: "pathology_result",
+      referralInfo: {
+        senderName: "Some Lab", // present but irrelevant for results
+        // no addresseeName
+      },
+    });
+    const obr = getFields(getSegment(hl7, "OBR")!);
+
+    expect(obr[16]).toBe("");
+  });
+
+  test("radiology_result OBR-16 is empty when addresseeName is missing", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      documentType: "radiology_result",
+      referralInfo: {
+        senderName: "Some Imaging Centre",
+      },
+    });
+    const obr = getFields(getSegment(hl7, "OBR")!);
+
+    expect(obr[16]).toBe("");
+  });
+
+  test("referral_letter OBR-16 still uses senderName (unchanged)", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      documentType: "referral_letter",
+      referralInfo: {
+        senderName: "Dr Sarah Jones",
+        senderProviderNumber: "1234567A",
+        addresseeName: "Dr Michael Brown",
+      },
+    });
+    const obr = getFields(getSegment(hl7, "OBR")!);
+
+    expect(obr[16]).toBe("1234567A^Jones^Sarah^^^DR^^^AUSHICPR");
+  });
+
+  test("gp_referral OBR-16 still uses senderName (unchanged)", () => {
+    const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
+      documentType: "gp_referral",
+      referralInfo: {
+        senderName: "Dr GP Smith",
+        addresseeName: "Dr Specialist Brown",
+      },
+    });
+    const obr = getFields(getSegment(hl7, "OBR")!);
+
+    expect(obr[16]).toBe("^Smith^GP^^^DR");
+  });
+});
+
 describe("Referral Info - PV1-9 (Addressee)", () => {
   test("populates PV1-9 with addressee name when no orderingProvider", () => {
     const hl7 = buildHL7Message(samplePatient, TINY_PDF, {

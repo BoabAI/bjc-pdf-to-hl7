@@ -6,6 +6,7 @@
 
 import type {
   DiagnosticServiceSection,
+  DocumentType,
   MessageType,
   PatientData,
   ReferralInfo,
@@ -16,6 +17,7 @@ import {
   type HL7BuildContext,
 } from "./hl7/build-context";
 import { segment } from "./hl7/segment";
+import { isResultDocumentType } from "./conversion-config";
 
 export type { HL7BuildContext } from "./hl7/build-context";
 export { createHL7BuildContext } from "./hl7/build-context";
@@ -37,6 +39,16 @@ export interface HL7Options {
   //   PHY = Physician (routes to Genie REF Incoming Letters)
   // When omitted, OBR-24 is left empty (preserves existing consent_form/generic behavior).
   diagnosticServiceSection?: DiagnosticServiceSection;
+  /**
+   * Drives OBR-16 source selection. For results documents (pathology_result,
+   * radiology_result) the LAB is the sender and the ordering doctor lives on
+   * the addressee; OBR-16 ("Ordered By") must therefore source from
+   * `referralInfo.addresseeName`. For all other types (referral_letter,
+   * gp_referral, consent_form, generic) OBR-16 keeps the legacy behaviour of
+   * sourcing from `referralInfo.senderName`. When omitted, the legacy
+   * (sender-based) behaviour applies.
+   */
+  documentType?: DocumentType;
 }
 
 const DEFAULT_OPTIONS: HL7Options = {
@@ -221,17 +233,31 @@ function buildOBR(options: HL7Options, context: HL7BuildContext): string {
   const reportId = `RPT${context.timestamp}^${escapeHL7(options.sendingApplication ?? "")}`;
   const serviceId = `PDF^${escapeHL7(options.documentTitle || "PDF Report")}^L`;
 
-  // OBR-16: Ordering Provider (sender of the referral letter, when present)
+  // OBR-16: Ordering Provider ("Ordered By" in Genie).
+  //
+  // For results documents (pathology_result, radiology_result) the LAB is the
+  // sender and the ordering doctor sits on the addressee block, so OBR-16 must
+  // source from `referralInfo.addresseeName`. For every other document type
+  // (referral_letter, gp_referral, consent_form, generic, or missing) OBR-16
+  // sources from `referralInfo.senderName` — the historical behaviour.
+  // If the chosen source is empty, OBR-16 is left empty rather than synthesised.
   let orderingProviderField = "";
   const ref = options.referralInfo;
-  if (ref?.senderName) {
-    const provNum = ref.senderProviderNumber || "";
-    const { lastName: senderLast, firstName: senderFirst } = parseDoctorName(ref.senderName);
-    orderingProviderField = provNum
+  const isResultDoc =
+    options.documentType !== undefined &&
+    isResultDocumentType(options.documentType);
+  const orderingDoctorName = isResultDoc ? ref?.addresseeName : ref?.senderName;
+  // Provider number is only meaningful for the sender path today —
+  // `ReferralInfo` has no `addresseeProviderNumber` field.
+  const orderingProviderNumber = isResultDoc ? "" : ref?.senderProviderNumber || "";
+
+  if (orderingDoctorName) {
+    const { lastName, firstName } = parseDoctorName(orderingDoctorName);
+    orderingProviderField = orderingProviderNumber
       ? // ProviderNumber^LastName^FirstName^^^DR^^^AUSHICPR
-        `${escapeHL7(provNum)}^${senderLast}^${senderFirst}^^^DR^^^AUSHICPR`
+        `${escapeHL7(orderingProviderNumber)}^${lastName}^${firstName}^^^DR^^^AUSHICPR`
       : // ^LastName^FirstName^^^DR
-        `^${senderLast}^${senderFirst}^^^DR`;
+        `^${lastName}^${firstName}^^^DR`;
   }
 
   return segment("OBR", {

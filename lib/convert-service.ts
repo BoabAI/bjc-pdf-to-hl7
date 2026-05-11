@@ -5,6 +5,8 @@ import {
   detectMailboxDisagreement,
   diagnosticServiceSectionFor,
   documentTypeLabel,
+  isResultDocumentType,
+  obr16MissingWarning,
 } from "./conversion-config";
 import { messageTypeDisplayLabel, messageTypeForDocumentType } from "./convert/policy";
 import type { MessageType } from "./domain/types";
@@ -51,6 +53,8 @@ export async function convertPdf(request: ConvertRequest): Promise<ConvertResult
     return {
       success: true,
       documentType: extraction.documentType,
+      classificationConfidence: extraction.classificationConfidence,
+      ...(extraction.letterSubtype ? { letterSubtype: extraction.letterSubtype } : {}),
       ...(mailboxDisagreement ? { mailboxDisagreement: true } : {}),
     };
   }
@@ -62,6 +66,8 @@ export async function convertPdf(request: ConvertRequest): Promise<ConvertResult
         "Could not extract patient name from this document. The name may be redacted, missing, or in an unsupported format.",
       warnings: warningsWithMailbox,
       extractionMethod: extraction.extractionMethod,
+      classificationConfidence: extraction.classificationConfidence,
+      ...(extraction.letterSubtype ? { letterSubtype: extraction.letterSubtype } : {}),
       ...(mailboxDisagreement ? { mailboxDisagreement: true } : {}),
     };
   }
@@ -76,6 +82,7 @@ export async function convertPdf(request: ConvertRequest): Promise<ConvertResult
 
   const hl7Content = buildHL7Message(extraction.data, request.pdfBuffer, {
     documentTitle: documentTypeLabel(extraction.documentType),
+    documentType: extraction.documentType,
     resultStatus: request.autoFile ? "F" : "P",
     orderingProvider: request.orderingProvider,
     ...(request.carrier ? { sendingApplication: request.carrier } : {}),
@@ -83,6 +90,16 @@ export async function convertPdf(request: ConvertRequest): Promise<ConvertResult
     referralInfo: extraction.referralInfo,
     ...(diagnosticServiceSection ? { diagnosticServiceSection } : {}),
   });
+
+  // For pathology / radiology results, OBR-16 ("Ordered By") sources from the
+  // addressee. If Bedrock couldn't resolve an addressee, OBR-16 ends up empty —
+  // surface that as an audit warning so ops can chase the gap. PHI-free.
+  const obr16Missing =
+    isResultDocumentType(extraction.documentType) &&
+    !extraction.referralInfo?.addresseeName?.trim();
+  const warnings = obr16Missing
+    ? [...warningsWithMailbox, obr16MissingWarning(extraction.documentType)]
+    : warningsWithMailbox;
 
   const baseData = formatExtractedData(extraction.data, extraction.referralInfo);
 
@@ -96,9 +113,11 @@ export async function convertPdf(request: ConvertRequest): Promise<ConvertResult
       messageType: messageTypeDisplayLabel(messageType),
       carrier: request.carrier || DEFAULT_CARRIER,
     },
-    warnings: warningsWithMailbox,
+    warnings,
     extractionMethod: extraction.extractionMethod,
     documentType: extraction.documentType,
+    classificationConfidence: extraction.classificationConfidence,
+    ...(extraction.letterSubtype ? { letterSubtype: extraction.letterSubtype } : {}),
     ...(mailboxDisagreement ? { mailboxDisagreement: true } : {}),
   };
 }

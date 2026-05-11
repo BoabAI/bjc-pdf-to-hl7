@@ -120,6 +120,7 @@ describe("extractPatientDataWithVision success path", () => {
       ],
       model: "custom-model",
       documentType: "gp_referral",
+      classificationConfidence: 100,
       referralInfo: {
         senderName: "Dr Sarah Jones",
         senderClinic: "Springfield Medical",
@@ -199,6 +200,7 @@ describe("extractPatientDataWithVision failure handling", () => {
       warnings: ["Bedrock returned no tool use result"],
       model: "au.anthropic.claude-sonnet-4-6",
       documentType: "consent_form",
+      classificationConfidence: 100,
     });
   });
 
@@ -556,6 +558,136 @@ describe("CC extraction and BJC doctor list", () => {
     const userPrompt = input.messages[0].content[0].text;
 
     expect(userPrompt).toContain("A document type hint was provided: pathology_result");
+  });
+
+  test("returns classificationConfidence from the Bedrock tool output", async () => {
+    sendMock.mockResolvedValue({
+      output: {
+        message: {
+          content: [
+            {
+              toolUse: {
+                input: {
+                  documentType: "gp_referral",
+                  firstName: "Jane",
+                  lastName: "Smith",
+                  dob: "05/06/1984",
+                  sex: "F",
+                  phone: null,
+                  address: null,
+                  suburb: null,
+                  state: null,
+                  postcode: null,
+                  medicareNo: null,
+                  medicareRef: null,
+                  classificationConfidence: 85,
+                },
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    const result = await extractPatientDataWithVision(PDF_BUFFER);
+    expect(result.classificationConfidence).toBe(85);
+  });
+
+  test("defaults classificationConfidence to 100 when the model omits it", async () => {
+    sendMock.mockResolvedValue({
+      output: {
+        message: {
+          content: [
+            {
+              toolUse: {
+                input: {
+                  documentType: "gp_referral",
+                  firstName: "Jane",
+                  lastName: "Smith",
+                  dob: "05/06/1984",
+                  sex: "F",
+                  phone: null,
+                  address: null,
+                  suburb: null,
+                  state: null,
+                  postcode: null,
+                  medicareNo: null,
+                  medicareRef: null,
+                },
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    const result = await extractPatientDataWithVision(PDF_BUFFER);
+    expect(result.classificationConfidence).toBe(100);
+  });
+
+  test("returns letterSubtype from the Bedrock tool output", async () => {
+    sendMock.mockResolvedValue({
+      output: {
+        message: {
+          content: [
+            {
+              toolUse: {
+                input: {
+                  documentType: "referral_letter",
+                  firstName: "Jane",
+                  lastName: "Smith",
+                  dob: "05/06/1984",
+                  sex: "F",
+                  phone: null,
+                  address: null,
+                  suburb: null,
+                  state: null,
+                  postcode: null,
+                  medicareNo: null,
+                  medicareRef: null,
+                  letterSubtype: "follow_up",
+                },
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    const result = await extractPatientDataWithVision(PDF_BUFFER);
+    expect(result.letterSubtype).toBe("follow_up");
+  });
+
+  test("returns undefined letterSubtype when the model omits it", async () => {
+    sendMock.mockResolvedValue({
+      output: {
+        message: {
+          content: [
+            {
+              toolUse: {
+                input: {
+                  documentType: "referral_letter",
+                  firstName: "Jane",
+                  lastName: "Smith",
+                  dob: "05/06/1984",
+                  sex: "F",
+                  phone: null,
+                  address: null,
+                  suburb: null,
+                  state: null,
+                  postcode: null,
+                  medicareNo: null,
+                  medicareRef: null,
+                },
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    const result = await extractPatientDataWithVision(PDF_BUFFER);
+    expect(result.letterSubtype).toBeUndefined();
   });
 
   test("does not inject doctor list when bjcDoctors is empty", async () => {

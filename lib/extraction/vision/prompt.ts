@@ -44,11 +44,42 @@ Document type classification guide:
 - generic: Any other medical document that does not fit the above categories.
   Use ONLY when the document is clearly not a consent form, referral, pathology, or radiology report.
 
-Classification priority: If the document is a letter from one doctor to another about a patient,
-it is almost always a referral (gp_referral or referral_letter), NOT generic.
+Distinguishing referrals from other inter-doctor letters: a true referral typically contains at
+least one of the following positive signals — an explicit referral verb ("I am referring",
+"please see", "kindly assess", "for your management", "would appreciate your opinion"), a
+request for assessment / management / opinion, OR the introduction of a *new* problem (not a
+follow-up update on an existing doctor-patient relationship). A letter that **summarises a
+completed consultation**, **reports test results back to a referrer**, **updates a referrer on
+progress**, or **discharges a patient back to GP care** is NOT a referral — classify as
+generic. When in doubt between referral_letter / gp_referral and generic, prefer generic.
 Pathology lab reports go to pathology_result; imaging / radiology reports go to radiology_result.
-Use generic only for residual cases (discharge summaries, hospital admission notes,
-miscellaneous correspondence) that don't fit any of the above categories.
+
+Letter sub-type field: for any letter-shaped document (a written letter from one doctor or
+clinician to another), also populate letterSubtype with one of:
+- referral: an explicit request for assessment, management, or opinion (maps to referral_letter
+  or gp_referral)
+- follow_up: a progress / update letter on an existing patient relationship (maps to generic)
+- discharge: a hand-back letter from specialist to GP after care is complete (maps to generic)
+- result_commentary: a letter that primarily comments on or transmits test results (maps to
+  generic)
+- other: a letter that doesn't fit the above (maps to generic)
+- not_a_letter: the document isn't a letter at all (a form, lab report, imaging report, etc.) —
+  use this for consent_form, pathology_result, radiology_result classifications.
+The documentType must agree with letterSubtype: only letterSubtype="referral" maps to a referral
+document type. follow_up / discharge / result_commentary / other all map to generic.
+
+Multipage documents: If the FIRST page is a referral letter (a cover letter from one doctor
+to another about a patient — has "Dear Dr...", sender/addressee, referral verbs like
+"I am referring" or "please assess") AND subsequent pages contain attached results, reports,
+or other documents, classify the WHOLE document as the referral type (referral_letter or
+gp_referral), NOT as the attached document type. The referral cover letter governs routing —
+it's how the patient was sent for the bundled results.
+
+Self-reported confidence: For every classification, also return classificationConfidence as
+an integer 0-100 reflecting your honest certainty about the documentType. Use 90+ when the
+document plainly matches one category, 70-89 when reasonably confident but with minor
+ambiguity, and below 70 when the document is genuinely ambiguous, could fit multiple
+categories, or has poor image quality.
 
 Patient extraction rules:
 - Look for the PATIENT's details, not the doctor's, recipient's, or clinic's

@@ -36,6 +36,12 @@ mock.module("@/lib/audit", () => ({
     }
     return `${f.charAt(0).toUpperCase()}.${l.charAt(0).toUpperCase()}.`;
   },
+  // Pass-through: build-row.test.ts covers real redaction.
+  redactWarning: (message: string) => {
+    if (typeof message !== "string") return undefined;
+    const trimmed = message.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  },
 }));
 
 // Mock Auth.js: passthrough that injects request.auth from the x-test-auth
@@ -784,6 +790,12 @@ describe("POST /api/convert audit logging", () => {
     extractPatientDataMock.mockResolvedValue({
       ...baseExtraction,
       documentType: "pathology_result",
+      // Provide an addresseeName so OBR-16 is populated and no OBR-16-missing
+      // warning is appended — this test is asserting the happy-path audit row.
+      referralInfo: {
+        senderName: "Douglass Hanly Moir Pathology",
+        addresseeName: "Dr Sarah Smith",
+      },
     });
 
     await POST(
@@ -1031,5 +1043,166 @@ describe("POST /api/convert X-Source-Mailbox header", () => {
     expect(row.messageType).toBe("ORU^R01");
     expect(row.diagnosticServiceSection).toBe("LAB");
     expect(row.mailboxDisagreement).toBe(true);
+  });
+});
+
+describe("POST /api/convert OBR-16 missing (results documents)", () => {
+  let originalStrict: string | undefined;
+
+  beforeEach(() => {
+    originalStrict = process.env.STRICT_REQUIRED_FIELDS;
+    delete process.env.STRICT_REQUIRED_FIELDS;
+  });
+
+  afterEach(() => {
+    if (originalStrict === undefined) delete process.env.STRICT_REQUIRED_FIELDS;
+    else process.env.STRICT_REQUIRED_FIELDS = originalStrict;
+  });
+
+  test("lenient default: pathology_result without addresseeName returns 200 + warning", async () => {
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "pathology_result",
+      // Lab is the sender. No addresseeName resolved → OBR-16 missing.
+      referralInfo: {
+        senderName: "Douglass Hanly Moir Pathology",
+      },
+    });
+
+    const response = await POST(
+      createConvertRequest({ filename: "labs.pdf" })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.success).toBe(true);
+    expect(data.warnings).toEqual(
+      expect.arrayContaining([
+        "OBR-16 (Ordered By) missing for pathology_result",
+      ])
+    );
+
+    // Audit row records ok + warning so ops can chase the gap.
+    const row = recordConversionMock.mock.calls[0][0];
+    expect(row.outcome).toBe("ok");
+    expect(row.warnings).toEqual(
+      expect.arrayContaining([
+        "OBR-16 (Ordered By) missing for pathology_result",
+      ])
+    );
+  });
+
+  test("lenient default: pathology_result WITH addresseeName has no OBR-16 warning", async () => {
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "pathology_result",
+      referralInfo: {
+        senderName: "Douglass Hanly Moir Pathology",
+        addresseeName: "Dr Sarah Smith",
+      },
+    });
+
+    const response = await POST(
+      createConvertRequest({ filename: "labs.pdf" })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.success).toBe(true);
+    const obr16Warning = (data.warnings as string[] | undefined)?.find(
+      (w) => w.startsWith("OBR-16")
+    );
+    expect(obr16Warning).toBeUndefined();
+  });
+
+  test("strict mode: pathology_result without addresseeName returns 422 + audit fail", async () => {
+    process.env.STRICT_REQUIRED_FIELDS = "true";
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "pathology_result",
+      referralInfo: {
+        senderName: "Douglass Hanly Moir Pathology",
+      },
+    });
+
+    const response = await POST(
+      createConvertRequest({ filename: "labs.pdf" })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(data).toEqual(
+      expect.objectContaining({
+        success: false,
+        error:
+          "Required field missing: OBR-16 (Ordered By) for pathology/radiology result",
+      })
+    );
+
+    // Audit row should record outcome=fail with the same warning.
+    const row = recordConversionMock.mock.calls[0][0];
+    expect(row.outcome).toBe("fail");
+    expect(row.warnings).toEqual(
+      expect.arrayContaining([
+        "OBR-16 (Ordered By) missing for pathology_result",
+      ])
+    );
+  });
+
+  test("strict mode: radiology_result without addresseeName returns 422", async () => {
+    process.env.STRICT_REQUIRED_FIELDS = "true";
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "radiology_result",
+      referralInfo: {
+        senderName: "PRP Imaging",
+      },
+    });
+
+    const response = await POST(
+      createConvertRequest({ filename: "scan.pdf" })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(data.success).toBe(false);
+  });
+
+  test("strict mode: pathology_result WITH addresseeName returns 200 (no OBR-16 warning)", async () => {
+    process.env.STRICT_REQUIRED_FIELDS = "true";
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "pathology_result",
+      referralInfo: {
+        senderName: "Douglass Hanly Moir Pathology",
+        addresseeName: "Dr Sarah Smith",
+      },
+    });
+
+    const response = await POST(
+      createConvertRequest({ filename: "labs.pdf" })
+    );
+
+    expect(response.status).toBe(200);
+  });
+
+  test("strict mode: referral_letter with no senderName does not 422 (only results gated)", async () => {
+    // OBR-16 missing is currently only enforced for results documents. A
+    // referral with no senderName should still go through (the existing
+    // referral failure modes are unchanged by strict mode).
+    process.env.STRICT_REQUIRED_FIELDS = "true";
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "referral_letter",
+      referralInfo: {
+        addresseeName: "Dr Michael Brown",
+      },
+    });
+
+    const response = await POST(
+      createConvertRequest({ filename: "ref.pdf" })
+    );
+
+    expect(response.status).toBe(200);
   });
 });

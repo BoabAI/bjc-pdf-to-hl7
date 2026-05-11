@@ -6,6 +6,16 @@
  */
 
 import type { DocumentType } from "../domain/types";
+import {
+  normalizeLetterSubtype,
+  type LetterSubtype,
+} from "../extraction/vision/normalize";
+
+export type { LetterSubtype };
+
+function isLetterSubtype(value: unknown): value is LetterSubtype {
+  return normalizeLetterSubtype(value) !== undefined;
+}
 
 /** Patient/referral fields rendered in the UI panel after a successful convert. */
 export interface ConvertExtractedData {
@@ -31,6 +41,18 @@ export interface ConvertResponse {
   warnings?: string[];
   extractionMethod?: "vision";
   documentType?: DocumentType;
+  /**
+   * Self-reported model confidence in the documentType classification, 0-100.
+   * Optional in the wire shape — not all callers care; audit row persists it
+   * separately. Surfaces in the UI as a low-confidence advisory banner.
+   */
+  classificationConfidence?: number;
+  /**
+   * Letter sub-type when the document is letter-shaped. Drives the
+   * promote / demote heuristics in normalize.ts and is persisted on the
+   * audit row for dashboard diagnostics.
+   */
+  letterSubtype?: LetterSubtype;
   /**
    * True when the LLM's family classification disagrees with the upstream
    * mailbox (PDF arrived in `referrals` but classified as a result, etc.).
@@ -93,6 +115,16 @@ export function isConvertResponse(value: unknown): value is ConvertResponse {
     return false;
   }
   if (v.documentType !== undefined && !isDocumentType(v.documentType)) return false;
+  if (
+    v.classificationConfidence !== undefined &&
+    (typeof v.classificationConfidence !== "number" ||
+      !Number.isFinite(v.classificationConfidence))
+  ) {
+    return false;
+  }
+  if (v.letterSubtype !== undefined && !isLetterSubtype(v.letterSubtype)) {
+    return false;
+  }
   if (v.mailboxDisagreement !== undefined && typeof v.mailboxDisagreement !== "boolean") {
     return false;
   }

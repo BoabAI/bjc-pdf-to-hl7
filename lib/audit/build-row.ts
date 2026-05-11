@@ -35,6 +35,10 @@ export type AuditSource = "web" | "email";
  * was elided rather than missing. */
 const MAX_PERSISTED_WARNINGS = 10;
 
+/** Below this self-reported confidence, append a "low classification
+ * confidence" warning so it surfaces on the audit dashboard. */
+const LOW_CONFIDENCE_THRESHOLD = 70;
+
 /**
  * Sanitise + cap warnings for persistence. Drops anything PHI-shaped (handled
  * by `redactWarning`), truncates each entry, and keeps at most the first
@@ -95,6 +99,18 @@ export function buildConversionAuditRow(
       )
     : undefined;
 
+  // Augment warnings with a low-confidence advisory when the model self-reports
+  // a value below threshold. The integer is a small non-PHI value (e.g. "60"),
+  // so it survives `redactWarning`'s digit-run filter (8+ digits required).
+  const confidence = result.classificationConfidence;
+  const augmentedWarnings =
+    typeof confidence === "number" && confidence < LOW_CONFIDENCE_THRESHOLD
+      ? [
+          ...(result.warnings ?? []),
+          `low classification confidence: ${confidence}`,
+        ]
+      : result.warnings;
+
   return {
     month: monthKey(meta.now),
     ts: buildSortKey(meta.now),
@@ -111,15 +127,19 @@ export function buildConversionAuditRow(
     filenameExt: extractFilenameExt(meta.originalFilename),
     fileSizeBytes: meta.fileSizeBytes,
     durationMs: meta.finishedAtMs - meta.startedAtMs,
-    warningCount: result.warnings?.length ?? 0,
+    warningCount: augmentedWarnings?.length ?? 0,
     ...((): { warnings?: string[] } => {
-      const w = persistableWarnings(result.warnings);
+      const w = persistableWarnings(augmentedWarnings);
       return w ? { warnings: w } : {};
     })(),
     userEmail: meta.userEmail,
     patientInitials,
     mailboxHint: meta.mailboxHint,
     ...(mailboxDisagreement ? { mailboxDisagreement: true } : {}),
+    ...(typeof confidence === "number"
+      ? { classificationConfidence: confidence }
+      : {}),
+    ...(result.letterSubtype ? { letterSubtype: result.letterSubtype } : {}),
   };
 }
 

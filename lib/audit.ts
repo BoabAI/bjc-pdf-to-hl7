@@ -61,6 +61,19 @@ export interface AuditRow {
    * signal — not a rejection. Useful for ops to filter and review.
    */
   mailboxDisagreement?: boolean;
+  /**
+   * Self-reported model confidence in the documentType classification, 0-100.
+   * Small integer — not PHI. Persisted to enable dashboard-side filtering of
+   * low-confidence classifications.
+   */
+  classificationConfidence?: number;
+  /**
+   * Letter sub-type (referral / follow_up / discharge / result_commentary /
+   * other / not_a_letter) when the document is letter-shaped. Controlled
+   * enum — not PHI. Useful for dashboard diagnostics, particularly to spot
+   * over-eager referral classification.
+   */
+  letterSubtype?: string;
 }
 
 /**
@@ -316,6 +329,9 @@ function isAuditRow(value: unknown): value is AuditRow {
     (v.patientInitials === undefined || typeof v.patientInitials === "string") &&
     (v.mailboxHint === undefined || typeof v.mailboxHint === "string") &&
     (v.mailboxDisagreement === undefined ||
-      typeof v.mailboxDisagreement === "boolean")
+      typeof v.mailboxDisagreement === "boolean") &&
+    (v.classificationConfidence === undefined ||
+      typeof v.classificationConfidence === "number") &&
+    (v.letterSubtype === undefined || typeof v.letterSubtype === "string")
   );
 }

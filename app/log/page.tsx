@@ -99,6 +99,17 @@ export default function LogPage(): JSX.Element {
     return [...rows].sort((a, b) => compareRows(a, b, sortKey) * dir);
   }, [rows, sortKey, sortDir]);
 
+  const outcomeStats = useMemo(() => {
+    const total = rows.length;
+    const ok = rows.reduce((n, r) => n + (r.outcome === "ok" ? 1 : 0), 0);
+    const fail = total - ok;
+    // Round ok up-or-down, then derive fail so the two always sum to 100%
+    // within rounding. Guard against div-by-zero on the empty state.
+    const okPct = total === 0 ? 0 : Math.round((ok / total) * 100);
+    const failPct = total === 0 ? 0 : 100 - okPct;
+    return { total, ok, fail, okPct, failPct };
+  }, [rows]);
+
   const toggleSort = useCallback(
     (key: SortKey) => {
       if (sortKey === key) {
@@ -151,6 +162,11 @@ export default function LogPage(): JSX.Element {
                 icon={<HistoryIcon />}
                 title="Audit log"
                 count={rows.length}
+                description={
+                  outcomeStats.total === 0
+                    ? "No conversions in the selected range."
+                    : `${outcomeStats.total} total · ${outcomeStats.ok} ok (${outcomeStats.okPct}%) · ${outcomeStats.fail} fail (${outcomeStats.failPct}%)`
+                }
                 action={
                   <button
                     type="button"

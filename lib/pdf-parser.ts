@@ -7,6 +7,7 @@
  */
 
 import { extractPatientDataWithVision } from "./vision-extractor";
+import type { LetterSubtype } from "./extraction/vision/normalize";
 import type {
   DocumentType,
   MailboxSource,
@@ -21,6 +22,8 @@ export interface ExtractionResult {
   warnings: string[];
   documentType: DocumentType;
   extractionMethod: "vision";
+  classificationConfidence: number;
+  letterSubtype?: LetterSubtype;
   referralInfo?: ReferralInfo;
 }
 
@@ -60,6 +63,8 @@ export async function extractPatientData(
       // pathology PDF). `documentType` is non-optional in VisionExtractionResult.
       documentType: visionResult.documentType,
       extractionMethod: "vision",
+      classificationConfidence: visionResult.classificationConfidence,
+      letterSubtype: visionResult.letterSubtype,
       referralInfo: visionResult.referralInfo,
     };
   } catch (error) {
@@ -73,6 +78,7 @@ export async function extractPatientData(
       ],
       documentType: documentTypeHint ?? "generic",
       extractionMethod: "vision",
+      classificationConfidence: 100,
     };
   }
 }

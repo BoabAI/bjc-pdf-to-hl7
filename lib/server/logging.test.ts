@@ -129,6 +129,77 @@ describe("buildLogPayload", () => {
     });
   });
 
+  test("extended PHI keys: medicareNumber / medicare_number redacted (camelCase + snake_case)", () => {
+    const payload = buildLogPayload("info", "test", "x", {
+      medicareNumber: "1234567890",
+      medicare_number: "0987654321",
+    });
+    expect(payload.context).toEqual({
+      medicareNumber: "[redacted]",
+      medicare_number: "[redacted]",
+    });
+  });
+
+  test("extended PHI keys: providerNumber / provider_number redacted", () => {
+    const payload = buildLogPayload("info", "test", "x", {
+      providerNumber: "9876543X",
+      provider_number: "9876543X",
+    });
+    expect(payload.context).toEqual({
+      providerNumber: "[redacted]",
+      provider_number: "[redacted]",
+    });
+  });
+
+  test("extended PHI keys: addressLine1/2, streetAddress (camelCase + snake_case)", () => {
+    const payload = buildLogPayload("info", "test", "x", {
+      addressLine1: "1 Main St",
+      address_line_1: "1 Main St",
+      addressLine2: "Apt 4",
+      address_line_2: "Apt 4",
+      streetAddress: "1 Main St",
+      street_address: "1 Main St",
+    });
+    expect(payload.context).toEqual({
+      addressLine1: "[redacted]",
+      address_line_1: "[redacted]",
+      addressLine2: "[redacted]",
+      address_line_2: "[redacted]",
+      streetAddress: "[redacted]",
+      street_address: "[redacted]",
+    });
+  });
+
+  test("extended PHI keys: suburb, postcode, state redacted in nested patient object", () => {
+    const payload = buildLogPayload("info", "test", "x", {
+      patient: {
+        suburb: "Bondi",
+        postcode: "2026",
+        state: "NSW",
+      },
+    });
+    expect(payload.context).toEqual({
+      patient: {
+        suburb: "[redacted]",
+        postcode: "[redacted]",
+        state: "[redacted]",
+      },
+    });
+  });
+
+  test("non-PHI fields pass through unchanged after extension", () => {
+    const payload = buildLogPayload("info", "test", "x", {
+      otherField: "kept",
+      operation: "convert",
+      durationMs: 250,
+    });
+    expect(payload.context).toEqual({
+      otherField: "kept",
+      operation: "convert",
+      durationMs: 250,
+    });
+  });
+
   test("circular references do not crash; replaced with [circular]", () => {
     const a: Record<string, unknown> = { id: "a" };
     const b: Record<string, unknown> = { id: "b", a };

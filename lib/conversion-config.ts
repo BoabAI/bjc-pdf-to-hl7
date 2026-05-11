@@ -149,6 +149,36 @@ export function documentTypeLabel(documentType: DocumentType): string {
   }
 }
 
+/**
+ * When true, the API rejects results documents that are missing required HL7
+ * fields (currently OBR-16 / "Ordered By") with HTTP 422 instead of passing
+ * them through with a warning. Defaults to false to preserve the pilot's
+ * pass-through behaviour — operators see the warning in the audit log without
+ * losing the conversion.
+ *
+ * Single env var so we can flip behaviour per environment without code changes.
+ */
+export function isStrictRequiredFields(): boolean {
+  return process.env.STRICT_REQUIRED_FIELDS === "true";
+}
+
+/**
+ * Warning string emitted (and persisted to audit) when a results document
+ * lands with no value to populate OBR-16. Contains no PHI — just the missing
+ * field name and the document type — so it survives `redactWarning()`.
+ */
+export function obr16MissingWarning(documentType: DocumentType): string {
+  return `OBR-16 (Ordered By) missing for ${documentType}`;
+}
+
+/**
+ * True when the warning string indicates a missing OBR-16 on a results
+ * document. Used by the route to decide whether to fail in strict mode.
+ */
+export function isObr16MissingWarning(warning: string): boolean {
+  return warning.startsWith("OBR-16 (Ordered By) missing for ");
+}
+
 export function diagnosticServiceSectionFor(
   documentType: DocumentType
 ): DiagnosticServiceSection | undefined {

@@ -234,6 +234,164 @@ describe("buildConversionAuditRow", () => {
     expect(row.source).toBe("email");
     expect(row.userEmail).toBe("service:pad-pipeline");
   });
+
+  test("persists OBR-16 missing warning for pathology_result", () => {
+    const row = buildConversionAuditRow(baseMeta, {
+      ...baseSuccess,
+      documentType: "pathology_result",
+      warnings: ["OBR-16 (Ordered By) missing for pathology_result"],
+    });
+    expect(row.warnings).toEqual([
+      "OBR-16 (Ordered By) missing for pathology_result",
+    ]);
+    expect(row.warningCount).toBe(1);
+  });
+
+  test("persists OBR-16 missing warning for radiology_result", () => {
+    const row = buildConversionAuditRow(baseMeta, {
+      ...baseSuccess,
+      documentType: "radiology_result",
+      warnings: ["OBR-16 (Ordered By) missing for radiology_result"],
+    });
+    expect(row.warnings).toEqual([
+      "OBR-16 (Ordered By) missing for radiology_result",
+    ]);
+  });
+
+  test("persists classificationConfidence on the row", () => {
+    const row = buildConversionAuditRow(baseMeta, {
+      ...baseSuccess,
+      classificationConfidence: 85,
+    });
+    expect(row.classificationConfidence).toBe(85);
+  });
+
+  test("does not append low-confidence warning when confidence ≥ 70", () => {
+    const row = buildConversionAuditRow(baseMeta, {
+      ...baseSuccess,
+      warnings: [],
+      classificationConfidence: 85,
+    });
+    expect(
+      (row.warnings ?? []).some((w) =>
+        w.startsWith("low classification confidence")
+      )
+    ).toBe(false);
+  });
+
+  test("appends low-confidence warning when confidence < 70", () => {
+    const row = buildConversionAuditRow(baseMeta, {
+      ...baseSuccess,
+      warnings: [],
+      classificationConfidence: 60,
+    });
+    expect(row.warnings).toBeDefined();
+    expect(
+      (row.warnings as string[]).some((w) =>
+        w === "low classification confidence: 60"
+      )
+    ).toBe(true);
+    // warningCount reflects the augmented total
+    expect(row.warningCount).toBeGreaterThanOrEqual(1);
+  });
+
+  test("persists letterSubtype on the row when present", () => {
+    const row = buildConversionAuditRow(baseMeta, {
+      ...baseSuccess,
+      letterSubtype: "follow_up",
+    });
+    expect(row.letterSubtype).toBe("follow_up");
+  });
+
+  test("omits letterSubtype from the row when absent", () => {
+    const row = buildConversionAuditRow(baseMeta, baseSuccess);
+    expect(row.letterSubtype).toBeUndefined();
+  });
+});
+
+describe("redactWarning + persistableWarnings — PHI compliance proof", () => {
+  // Warnings that look like PHI (Medicare numbers, DOBs, long phone-shaped
+  // digit runs) MUST be dropped before persisting to the audit row, and
+  // legitimate operational warnings MUST pass through unchanged. See
+  // lib/audit.ts `redactWarning` and lib/audit/build-row.ts `persistableWarnings`.
+
+  test("drops warning containing a Medicare-shaped string", () => {
+    const row = buildConversionAuditRow(baseMeta, {
+      ...baseSuccess,
+      warnings: ["Patient Medicare: 1234567890"],
+    });
+    // warningCount keeps the original (PHI-shaped) count for ops visibility
+    expect(row.warningCount).toBe(1);
+    // … but nothing survives to the persisted warnings array
+    expect(row.warnings).toBeUndefined();
+  });
+
+  test("drops warning containing a DOB-shaped string", () => {
+    const row = buildConversionAuditRow(baseMeta, {
+      ...baseSuccess,
+      warnings: ["DOB 15/03/1985"],
+    });
+    expect(row.warningCount).toBe(1);
+    expect(row.warnings).toBeUndefined();
+  });
+
+  test("drops warning containing a phone-shaped run of digits", () => {
+    const row = buildConversionAuditRow(baseMeta, {
+      ...baseSuccess,
+      warnings: ["phone 0412345678"],
+    });
+    expect(row.warningCount).toBe(1);
+    expect(row.warnings).toBeUndefined();
+  });
+
+  test("keeps OBR-16 missing warning (legitimate, no PHI)", () => {
+    const row = buildConversionAuditRow(baseMeta, {
+      ...baseSuccess,
+      warnings: ["OBR-16 (Ordered By) missing for pathology_result"],
+    });
+    expect(row.warnings).toEqual([
+      "OBR-16 (Ordered By) missing for pathology_result",
+    ]);
+  });
+
+  test("keeps classification promotion warning (legitimate, no PHI)", () => {
+    const row = buildConversionAuditRow(baseMeta, {
+      ...baseSuccess,
+      warnings: [
+        "classification promoted: pathology_result → referral_letter (referral signals present)",
+      ],
+    });
+    expect(row.warnings).toEqual([
+      "classification promoted: pathology_result → referral_letter (referral signals present)",
+    ]);
+  });
+
+  test("keeps low-confidence advisory (legitimate, small integer is not PHI)", () => {
+    const row = buildConversionAuditRow(baseMeta, {
+      ...baseSuccess,
+      warnings: ["low classification confidence: 60"],
+    });
+    expect(row.warnings).toEqual(["low classification confidence: 60"]);
+  });
+
+  test("mixed warnings: drops PHI-shaped, keeps operational", () => {
+    const row = buildConversionAuditRow(baseMeta, {
+      ...baseSuccess,
+      warnings: [
+        "Patient Medicare: 1234567890",
+        "OBR-16 (Ordered By) missing for pathology_result",
+        "DOB 15/03/1985",
+        "low classification confidence: 60",
+      ],
+    });
+    // All four warnings count against ops visibility
+    expect(row.warningCount).toBe(4);
+    // Only the two operational warnings survive
+    expect(row.warnings).toEqual([
+      "OBR-16 (Ordered By) missing for pathology_result",
+      "low classification confidence: 60",
+    ]);
+  });
 });
 
 describe("buildFailureAuditRow", () => {
