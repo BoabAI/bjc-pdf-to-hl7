@@ -45,6 +45,7 @@ docs/
 # Local UI test screenshots
 /login-mobile.png
 /login-with-video.png
+/conversion-options-after.png
 
 # Plans
 docs/plans/

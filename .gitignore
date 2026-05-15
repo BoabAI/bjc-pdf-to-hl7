@@ -105,6 +105,7 @@ scripts/video/remotion/public/narration-segments/_archive2/
 # Local UI test screenshots
 /login-mobile.png
 /login-with-video.png
+/conversion-options-after.png
 
 # BJC test PDFs from Nicole (real PHI — never commit)
 docs/latest/
