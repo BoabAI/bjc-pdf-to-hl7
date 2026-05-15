@@ -40,7 +40,70 @@ export interface AuditRow {
    */
   warnings?: string[];
   patientInitials?: string;
+  userEmail?: string;
+  /** Legacy MailboxSource enum ("referrals" / "results") from x-source-mailbox. */
+  mailboxHint?: "referrals" | "results";
+  /** Mailbox category derived from the new email-address mailbox header
+   *  ("results" / "letters"). Absent for `none` (web upload, no header). */
+  mailboxCategory?: "results" | "letters";
+  mailboxDisagreement?: boolean;
+  /** Routing decision — "auto_routed" produced HL7, "manual_review" diverted. */
+  routingDecision?: "auto_routed" | "manual_review";
+  /** When routingDecision === "manual_review", the failure reason. */
+  routingReason?:
+    | "low_confidence"
+    | "missing_fields"
+    | "mailbox_mismatch"
+    | "unknown_doc_type"
+    | "extraction_failed";
+  /** Suggested Outlook category label PAD would apply to the source email. */
+  suggestedCategory?: string;
+  /** Classifier self-reported confidence (0-100). */
+  classificationConfidence?: number;
 }
+
+/** Label + colour palette for routing decision badges (auto / manual). */
+export const ROUTING_DECISION_LABELS = {
+  auto_routed: "Auto-routed",
+  manual_review: "Manual review",
+} as const;
+
+/** Reason label + Tailwind colours, mirrored across donuts and table badges. */
+export const ROUTING_REASON_STYLE: Record<
+  NonNullable<AuditRow["routingReason"]>,
+  { label: string; badge: string; donut: string }
+> = {
+  low_confidence: {
+    label: "Low confidence",
+    badge:
+      "bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-200 dark:border-yellow-700",
+    donut: "amber",
+  },
+  missing_fields: {
+    label: "Missing fields",
+    badge:
+      "bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900/30 dark:text-orange-200 dark:border-orange-700",
+    donut: "orange",
+  },
+  mailbox_mismatch: {
+    label: "Wrong inbox",
+    badge:
+      "bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-200 dark:border-red-700",
+    donut: "rose",
+  },
+  unknown_doc_type: {
+    label: "Unknown type",
+    badge:
+      "bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900/30 dark:text-purple-200 dark:border-purple-700",
+    donut: "violet",
+  },
+  extraction_failed: {
+    label: "Extraction failed",
+    badge:
+      "bg-zinc-200 text-zinc-900 border-zinc-400 dark:bg-zinc-700 dark:text-zinc-100 dark:border-zinc-600",
+    donut: "slate",
+  },
+};
 
 // Display-layer label maps. The audit pipeline writes raw values
 // (`outcome: "ok" | "fail"`, doc types from the classifier) — these helpers
@@ -52,11 +115,20 @@ const OUTCOME_LABELS: Record<string, string> = {
   fail: "Failed",
 };
 
+// Display-layer labels for the dashboard. Nicole's mental model is five
+// buckets; we collapse the classifier's internal 7 doc types into them:
+//   - referral_letter + gp_referral → "Referral letter"
+//   - consult_letter                → "Consult letter"
+//   - generic + consent_form        → "Letter"
+//   - pathology_result              → "Pathology result"
+//   - radiology_result              → "Radiology result"
+//   - anything else                 → "Unknown"
 const DOC_TYPE_LABELS: Record<string, string> = {
   pathology_result: "Pathology result",
   radiology_result: "Radiology result",
   referral_letter: "Referral letter",
   gp_referral: "Referral letter",
+  consult_letter: "Consult letter",
   generic: "Letter",
   consent_form: "Letter",
   unknown: "Unknown",

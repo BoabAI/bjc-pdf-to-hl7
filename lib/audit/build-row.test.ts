@@ -12,6 +12,7 @@ const baseMeta: AuditRowMeta = {
   source: "web",
   userEmail: "alice@bjchealth.com.au",
   mailboxHint: undefined,
+  mailboxCategory: "none",
   originalFilename: "Smith_John_DOB19800123.pdf",
   fileSizeBytes: 4096,
   startedAtMs: 1_000,
@@ -295,17 +296,28 @@ describe("buildConversionAuditRow", () => {
     expect(row.warningCount).toBeGreaterThanOrEqual(1);
   });
 
-  test("persists letterSubtype on the row when present", () => {
-    const row = buildConversionAuditRow(baseMeta, {
-      ...baseSuccess,
-      letterSubtype: "follow_up",
-    });
-    expect(row.letterSubtype).toBe("follow_up");
+  test("persists mailboxCategory on the row when not 'none'", () => {
+    const row = buildConversionAuditRow(
+      { ...baseMeta, mailboxCategory: "letters" },
+      baseSuccess
+    );
+    expect(row.mailboxCategory).toBe("letters");
   });
 
-  test("omits letterSubtype from the row when absent", () => {
-    const row = buildConversionAuditRow(baseMeta, baseSuccess);
-    expect(row.letterSubtype).toBeUndefined();
+  test("omits mailboxCategory from the row when 'none' (web upload)", () => {
+    const row = buildConversionAuditRow(
+      { ...baseMeta, mailboxCategory: "none" },
+      baseSuccess
+    );
+    expect(row.mailboxCategory).toBeUndefined();
+  });
+
+  test("omits mailboxCategory from the row when undefined", () => {
+    const row = buildConversionAuditRow(
+      { ...baseMeta, mailboxCategory: undefined },
+      baseSuccess
+    );
+    expect(row.mailboxCategory).toBeUndefined();
   });
 });
 

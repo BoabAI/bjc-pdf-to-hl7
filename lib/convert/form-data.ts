@@ -2,6 +2,7 @@ import {
   MAX_PDF_SIZE_BYTES,
   parseDocumentTypeOption,
   type DocumentTypeOption,
+  type MailboxCategory,
 } from "../conversion-config";
 import type { MailboxSource } from "../domain/types";
 
@@ -13,8 +14,12 @@ export interface ConvertRequest {
   orderingProvider?: string;
   carrier?: string;
   bjcDoctors?: string[];
-  /** Upstream mailbox the PDF arrived in. Soft prior, not a hard override. */
+  /** Legacy upstream mailbox label. Soft prior — preserved for back-compat. */
   mailboxHint?: MailboxSource;
+  /** New: mailbox category derived from `x-source-mailbox`. The eligibility
+   *  gate uses this to decide whether the AI's pick is in-scope for the
+   *  source mailbox. */
+  mailboxCategory?: MailboxCategory;
 }
 
 export type ParseConvertFormDataResult =

@@ -1,10 +1,16 @@
 /**
  * Pure normalization helpers — turn raw Bedrock tool input into domain types.
  *
- * No AWS SDK, no transport. Given an `unknown` (the model may return
- * anything), produce a fully-typed `PatientData` + `ReferralInfo`, plus
- * warnings for missing fields and invalid document types. The orchestrator
- * decides what to do with the result (success flag, response shape).
+ * No AWS SDK, no transport. Given an `unknown` (the model may return anything),
+ * produce a fully-typed `PatientData` + `ReferralInfo`, plus warnings for
+ * missing fields and invalid document types. The orchestrator decides what to
+ * do with the result (success flag, response shape).
+ *
+ * As of the mailbox-classification refactor (May 2026), the previous
+ * `letterSubtype` promote/demote logic is retired. The mailbox category prior
+ * does the heavy lifting; out-of-category classifications are surfaced by the
+ * eligibility gate (see `lib/extraction/eligibility.ts`) rather than silently
+ * coerced here.
  */
 
 import { DOCUMENT_TYPES } from "../../conversion-config";
@@ -114,41 +120,6 @@ export function emptyPatientData(): PatientData {
   };
 }
 
-/**
- * Letter sub-type emitted by the vision model for letter-shaped documents.
- * Snake_case values are stable — they get persisted to DynamoDB and may end
- * up on a diagnostics dashboard. Do not rename without a migration.
- */
-export type LetterSubtype =
-  | "referral"
-  | "follow_up"
-  | "discharge"
-  | "result_commentary"
-  | "other"
-  | "not_a_letter";
-
-const LETTER_SUBTYPES: ReadonlySet<LetterSubtype> = new Set<LetterSubtype>([
-  "referral",
-  "follow_up",
-  "discharge",
-  "result_commentary",
-  "other",
-  "not_a_letter",
-]);
-
-/** Subtypes that disqualify a referral_letter / gp_referral classification.
- * `not_a_letter` is intentionally excluded — pairing it with a referral type
- * is implausible; we leave the LLM verdict alone rather than guessing. */
-const NON_REFERRAL_LETTER_SUBTYPES: ReadonlySet<LetterSubtype> = new Set<
-  LetterSubtype
->(["follow_up", "discharge", "result_commentary", "other"]);
-
-export function normalizeLetterSubtype(value: unknown): LetterSubtype | undefined {
-  return typeof value === "string" && LETTER_SUBTYPES.has(value as LetterSubtype)
-    ? (value as LetterSubtype)
-    : undefined;
-}
-
 export interface NormalizedVisionInput {
   documentType: DocumentType;
   data: PatientData;
@@ -157,20 +128,7 @@ export interface NormalizedVisionInput {
   /** Self-reported model confidence in the classification, 0-100. Defaults to
    * 100 when the model omits the field (older fixtures). */
   classificationConfidence: number;
-  /** Sub-type for letter-shaped documents, used to gate promotion and to
-   * demote a misclassified referral. Undefined when the model omits the
-   * field or returns an unknown value. */
-  letterSubtype?: LetterSubtype;
 }
-
-/** Names shorter than this are considered placeholder/noise and disqualify
- * heuristic promotion. */
-const MIN_NAME_LENGTH = 3;
-
-/** Medicare-style GP provider number pattern: 7 digits + a single check
- * character. Used as the GP signal when promoting a *_result classification to
- * gp_referral vs referral_letter. */
-const GP_PROVIDER_NUMBER_RE = /^\d{7}[A-Z0-9]$/i;
 
 /** Clamp the model's self-reported confidence to a 0-100 integer. Returns 100
  * (full confidence) when the value is missing, non-numeric, or out of range —
@@ -178,47 +136,25 @@ const GP_PROVIDER_NUMBER_RE = /^\d{7}[A-Z0-9]$/i;
  * triggering false-positive low-confidence warnings. */
 function normalizeClassificationConfidence(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return 100;
-  const clamped = Math.max(0, Math.min(100, Math.trunc(value)));
-  return clamped;
-}
-
-/**
- * Decide whether a `*_result` classification with referral signals should be
- * promoted to a referral type. Defensive: requires both sender and addressee
- * names to be present, non-trivially long, and distinct.
- *
- * @returns promoted DocumentType, or `undefined` if no promotion applies.
- */
-function promoteResultToReferral(
-  original: DocumentType,
-  referralInfo: ReferralInfo
-): DocumentType | undefined {
-  if (original !== "pathology_result" && original !== "radiology_result") {
-    return undefined;
-  }
-  const sender = referralInfo.senderName?.trim();
-  const addressee = referralInfo.addresseeName?.trim();
-  if (!sender || !addressee) return undefined;
-  if (sender.length < MIN_NAME_LENGTH || addressee.length < MIN_NAME_LENGTH) {
-    return undefined;
-  }
-  if (sender === addressee) return undefined;
-
-  const providerNo = referralInfo.senderProviderNumber;
-  const looksLikeGp =
-    typeof providerNo === "string" && GP_PROVIDER_NUMBER_RE.test(providerNo);
-  return looksLikeGp ? "gp_referral" : "referral_letter";
+  return Math.max(0, Math.min(100, Math.trunc(value)));
 }
 
 /**
  * Normalize a raw Bedrock tool-use input object into domain types.
  *
- * - Validates `documentType` against the known set, falling back to `fallbackDocumentType` (default `generic`).
+ * - Validates `documentType` against the known set, falling back to
+ *   `fallbackDocumentType` (default `generic`).
  * - Coerces nullable string fields into trimmed strings or `undefined`.
  * - Cleans phone (digits + spaces) and Medicare (digits only) values.
  * - Infers state from postcode when state is missing.
- * - Emits warnings for invalid documentType, missing patient name, or missing DOB.
+ * - Emits warnings for invalid documentType, missing patient name, or
+ *   missing DOB.
  * - Returns `referralInfo` only when at least one referral field is present.
+ *
+ * The mailbox category is NOT applied here — see `evaluateAutoRouteEligibility`.
+ * Normalization stays narrow on purpose: any policy decision (coercing,
+ * promoting, demoting) is made downstream where the full context (eligibility,
+ * routing) is available.
  */
 export function normalizeVisionToolInput(
   rawInput: unknown,
@@ -235,13 +171,9 @@ export function normalizeVisionToolInput(
     };
   }
 
-  const letterSubtype = normalizeLetterSubtype(
-    (rawInput as Record<string, unknown>).letterSubtype
-  );
-
   const raw = rawInput;
 
-  let documentType = normalizeDocumentType(
+  const documentType = normalizeDocumentType(
     raw.documentType,
     fallbackDocumentType
   );
@@ -291,46 +223,7 @@ export function normalizeVisionToolInput(
   if (ccNames) referralInfo.ccNames = ccNames;
   const hasReferralInfo = Object.keys(referralInfo).length > 0;
 
-  // Heuristic: a "result" classification that nonetheless carries a complete
-  // referral block (sender + addressee names) is almost certainly a multipage
-  // referral where the cover letter was outweighed by attached results.
-  // Promote it to the appropriate referral type and emit a warning so ops can
-  // monitor. Gate on letterSubtype: if the model explicitly marks the letter
-  // as a non-referral subtype, the sender/addressee block alone is not enough.
-  // Missing letterSubtype preserves the unconditional promotion behaviour
-  // (back-compat with fixtures and any genuine omission by the model).
-  const subtypeBlocksPromotion =
-    letterSubtype !== undefined &&
-    NON_REFERRAL_LETTER_SUBTYPES.has(letterSubtype);
-  const promotedType =
-    hasReferralInfo && !subtypeBlocksPromotion
-      ? promoteResultToReferral(documentType, referralInfo)
-      : undefined;
-  if (promotedType) {
-    warnings.push(
-      `classification promoted: ${documentType} → ${promotedType} (referral signals present)`
-    );
-    documentType = promotedType;
-  }
-
-  // Demote a referral classification to generic when the model marks the
-  // letter as a non-referral subtype (clinic follow-up, discharge summary,
-  // results commentary, etc.) — the inverse of the bias in the prompt: a
-  // letter that *looks* like a referral but the model says is e.g. a discharge
-  // summary should not be routed as a referral.
-  if (
-    (documentType === "referral_letter" || documentType === "gp_referral") &&
-    subtypeBlocksPromotion
-  ) {
-    const original = documentType;
-    documentType = "generic";
-    warnings.push(
-      `classification demoted: ${original} → generic (letterSubtype=${letterSubtype})`
-    );
-  }
-
-  const hasName =
-    data.firstName !== "UNKNOWN" && data.lastName !== "PATIENT";
+  const hasName = data.firstName !== "UNKNOWN" && data.lastName !== "PATIENT";
 
   if (!hasName) {
     warnings.push("Vision extraction could not determine patient name");
@@ -345,6 +238,5 @@ export function normalizeVisionToolInput(
     referralInfo: hasReferralInfo ? referralInfo : undefined,
     warnings,
     classificationConfidence,
-    letterSubtype,
   };
 }

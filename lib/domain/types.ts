@@ -8,13 +8,18 @@
  */
 
 /**
- * The six document classes recognized by the pipeline. Source of truth for
+ * The seven document classes recognized by the pipeline. Source of truth for
  * routing, prompts, audit policy, and UI labels.
+ *
+ * `consult_letter` is specialist-to-GP correspondence ("Thanks for referring
+ * X, I saw her today…"). Routed to Genie Incoming Letters the same way as a
+ * referral (OBR-24=PHY, MSH-9=REF^I12).
  */
 export type DocumentType =
   | "consent_form"
   | "referral_letter"
   | "gp_referral"
+  | "consult_letter"
   | "pathology_result"
   | "radiology_result"
   | "generic";

@@ -6,7 +6,9 @@ import {
   diagnosticServiceSectionFor,
   documentTypeLabel,
   isResultDocumentType,
+  isStrictRequiredFields,
   obr16MissingWarning,
+  type MailboxCategory,
 } from "./conversion-config";
 import { messageTypeDisplayLabel, messageTypeForDocumentType } from "./convert/policy";
 import type { MessageType } from "./domain/types";
@@ -17,6 +19,11 @@ import {
   type ConvertRequest,
   type ParseConvertFormDataResult,
 } from "./convert/form-data";
+import {
+  evaluateAutoRouteEligibility,
+  type EligibilityResult,
+} from "./extraction/eligibility";
+import { getSettings, type RuntimeSettings } from "./settings";
 
 /**
  * Alias retained for callers inside the server bundle. The wire shape is
@@ -30,7 +37,18 @@ function formatDisplayDate(date: Date): string {
   return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}`;
 }
 
-export async function convertPdf(request: ConvertRequest): Promise<ConvertResult> {
+export interface ConvertPdfOptions {
+  /** Override the runtime settings (test seam). Production callers omit this
+   *  and let the function fetch from DynamoDB once. */
+  settings?: RuntimeSettings;
+}
+
+export async function convertPdf(
+  request: ConvertRequest,
+  options?: ConvertPdfOptions
+): Promise<ConvertResult> {
+  const mailboxCategory: MailboxCategory = request.mailboxCategory ?? "none";
+
   const extraction = await extractPatientData(
     request.pdfBuffer,
     request.documentType,
@@ -38,10 +56,16 @@ export async function convertPdf(request: ConvertRequest): Promise<ConvertResult
     request.mailboxHint
   );
 
+  // Legacy mailboxDisagreement signal — retained for back-compat dashboards.
+  // The new pipeline expresses the same condition via routing decision
+  // mailbox_mismatch when a known mailbox category is supplied.
   const mailboxDisagreement = detectMailboxDisagreement(
     request.mailboxHint,
     extraction.documentType
   );
+
+  // Append a routing-mismatch warning so the audit log + UI surface the
+  // disagreement even when the new routing path doesn't divert the doc.
   const warningsWithMailbox = mailboxDisagreement
     ? [
         ...extraction.warnings,
@@ -54,7 +78,6 @@ export async function convertPdf(request: ConvertRequest): Promise<ConvertResult
       success: true,
       documentType: extraction.documentType,
       classificationConfidence: extraction.classificationConfidence,
-      ...(extraction.letterSubtype ? { letterSubtype: extraction.letterSubtype } : {}),
       ...(mailboxDisagreement ? { mailboxDisagreement: true } : {}),
     };
   }
@@ -62,20 +85,58 @@ export async function convertPdf(request: ConvertRequest): Promise<ConvertResult
   if (!extraction.success) {
     return {
       success: false,
+      action: "manual_review",
+      reason: "extraction_failed",
+      suggestedCategory: "Needs review — Extraction failed",
       error:
         "Could not extract patient name from this document. The name may be redacted, missing, or in an unsupported format.",
       warnings: warningsWithMailbox,
       extractionMethod: extraction.extractionMethod,
       classificationConfidence: extraction.classificationConfidence,
-      ...(extraction.letterSubtype ? { letterSubtype: extraction.letterSubtype } : {}),
       ...(mailboxDisagreement ? { mailboxDisagreement: true } : {}),
     };
   }
 
+  const settings = options?.settings ?? (await getSettings());
+  const strictRequiredFields = isStrictRequiredFields();
+  const eligibility: EligibilityResult = evaluateAutoRouteEligibility({
+    extraction,
+    mailboxCategory,
+    settings,
+    strictRequiredFields,
+  });
+
+  if (!eligibility.eligible) {
+    // Manual-review branch: no HL7, no filename, action=manual_review.
+    // PAD reads `action` and leaves the source email in the inbox tagged with
+    // `suggestedCategory`. The strict-mode missing-fields branch is handled
+    // here too — the API route translates it to HTTP 422.
+    const baseData = formatExtractedData(
+      extraction.data,
+      extraction.referralInfo
+    );
+    return {
+      success: true,
+      action: "manual_review",
+      reason: eligibility.reason,
+      suggestedCategory: eligibility.suggestedCategory,
+      documentType: extraction.documentType,
+      classificationConfidence: extraction.classificationConfidence,
+      extractedData: {
+        ...baseData,
+        date: formatDisplayDate(new Date()),
+        carrier: request.carrier || DEFAULT_CARRIER,
+      },
+      warnings: warningsWithMailbox,
+      extractionMethod: extraction.extractionMethod,
+      ...(mailboxDisagreement ? { mailboxDisagreement: true } : {}),
+    };
+  }
+
+  // Auto-route branch: build HL7 and return the full envelope.
   const messageType: MessageType = messageTypeForDocumentType(
     extraction.documentType
   );
-
   const diagnosticServiceSection = diagnosticServiceSectionFor(
     extraction.documentType
   );
@@ -91,9 +152,9 @@ export async function convertPdf(request: ConvertRequest): Promise<ConvertResult
     ...(diagnosticServiceSection ? { diagnosticServiceSection } : {}),
   });
 
-  // For pathology / radiology results, OBR-16 ("Ordered By") sources from the
-  // addressee. If Bedrock couldn't resolve an addressee, OBR-16 ends up empty —
-  // surface that as an audit warning so ops can chase the gap. PHI-free.
+  // Lenient-mode OBR-16 advisory: when a result doc went through eligibility
+  // without strict mode and is missing the addressee that feeds OBR-16, append
+  // a warning so ops can chase the gap without losing the conversion.
   const obr16Missing =
     isResultDocumentType(extraction.documentType) &&
     !extraction.referralInfo?.addresseeName?.trim();
@@ -105,6 +166,7 @@ export async function convertPdf(request: ConvertRequest): Promise<ConvertResult
 
   return {
     success: true,
+    action: "auto_routed",
     filename: generateHL7Filename(extraction.data),
     hl7Content,
     extractedData: {
@@ -117,7 +179,6 @@ export async function convertPdf(request: ConvertRequest): Promise<ConvertResult
     extractionMethod: extraction.extractionMethod,
     documentType: extraction.documentType,
     classificationConfidence: extraction.classificationConfidence,
-    ...(extraction.letterSubtype ? { letterSubtype: extraction.letterSubtype } : {}),
     ...(mailboxDisagreement ? { mailboxDisagreement: true } : {}),
   };
 }

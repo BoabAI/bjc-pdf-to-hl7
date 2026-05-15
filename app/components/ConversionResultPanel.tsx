@@ -1,12 +1,56 @@
 "use client";
 
-import type { ConvertResponse } from "@/lib/contracts/convert";
+import type {
+  ConvertResponse,
+  ManualReviewReason,
+} from "@/lib/contracts/convert";
 
 interface ConversionResultPanelProps {
   result: ConvertResponse;
   missingPatientData: boolean;
   onDownload: () => void;
 }
+
+/**
+ * Tailwind colour palette for the manual-review reasons. Mirrors the dashboard
+ * donut and Outlook category colours so a reviewer sees the same hue at every
+ * surface.
+ */
+const REVIEW_REASON_STYLES: Record<
+  ManualReviewReason,
+  { label: string; rowBg: string; rowBorder: string; text: string }
+> = {
+  low_confidence: {
+    label: "Low confidence",
+    rowBg: "bg-yellow-50 dark:bg-yellow-900/20",
+    rowBorder: "border-yellow-300 dark:border-yellow-700",
+    text: "text-yellow-800 dark:text-yellow-200",
+  },
+  missing_fields: {
+    label: "Missing fields",
+    rowBg: "bg-orange-50 dark:bg-orange-900/20",
+    rowBorder: "border-orange-300 dark:border-orange-700",
+    text: "text-orange-800 dark:text-orange-200",
+  },
+  mailbox_mismatch: {
+    label: "Wrong inbox",
+    rowBg: "bg-red-50 dark:bg-red-900/20",
+    rowBorder: "border-red-300 dark:border-red-700",
+    text: "text-red-800 dark:text-red-200",
+  },
+  unknown_doc_type: {
+    label: "Unknown type",
+    rowBg: "bg-purple-50 dark:bg-purple-900/20",
+    rowBorder: "border-purple-300 dark:border-purple-700",
+    text: "text-purple-800 dark:text-purple-200",
+  },
+  extraction_failed: {
+    label: "Extraction failed",
+    rowBg: "bg-zinc-100 dark:bg-zinc-800",
+    rowBorder: "border-zinc-400 dark:border-zinc-600",
+    text: "text-zinc-900 dark:text-zinc-100",
+  },
+};
 
 export function ConversionResultPanel({
   result,
@@ -20,6 +64,17 @@ export function ConversionResultPanel({
   const visibleWarnings = (result.warnings ?? []).filter(
     (w) => !(result.mailboxDisagreement && w.startsWith("Mailbox/content mismatch"))
   );
+
+  if (result.success && result.action === "manual_review" && result.reason) {
+    return (
+      <ManualReviewBlock
+        reason={result.reason}
+        suggestedCategory={result.suggestedCategory}
+        warnings={visibleWarnings}
+        mailboxDisagreement={result.mailboxDisagreement}
+      />
+    );
+  }
 
   if (!result.success) {
     return (
@@ -104,6 +159,41 @@ export function ConversionResultPanel({
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+function ManualReviewBlock({
+  reason,
+  suggestedCategory,
+  warnings,
+  mailboxDisagreement,
+}: {
+  reason: ManualReviewReason;
+  suggestedCategory?: string;
+  warnings: string[];
+  mailboxDisagreement?: boolean;
+}) {
+  const style = REVIEW_REASON_STYLES[reason];
+
+  return (
+    <div className="space-y-5 animate-fade-in-up">
+      <div className={`p-5 rounded-xl border ${style.rowBg} ${style.rowBorder}`}>
+        <div className="flex items-center gap-2.5 mb-2">
+          <svg className={`w-5 h-5 ${style.text}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
+          </svg>
+          <h3 className={`font-semibold text-sm ${style.text}`}>
+            Manual review — {style.label}
+          </h3>
+        </div>
+        <p className={`text-sm leading-relaxed ${style.text}`}>
+          No HL7 file produced. {suggestedCategory ?? "This document needs human triage."}
+        </p>
+      </div>
+
+      {mailboxDisagreement && <MailboxDisagreementCallout />}
+      {warnings.length > 0 && <WarningList warnings={warnings} />}
     </div>
   );
 }

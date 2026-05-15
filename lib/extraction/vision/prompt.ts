@@ -1,25 +1,39 @@
 /**
  * Vision extraction prompt assembly.
  *
- * Pure helpers — no transport, no AWS SDK. Two exports:
+ * The prompt is mailbox-category-conditioned: when the document arrives via a
+ * known mailbox we narrow the candidate doc types and tell the model what
+ * kind of content to expect. This pushes the load-bearing classification
+ * signal *out* of the model's free-form judgement (which was misrouting
+ * referrals with date-prefixed problem lists into pathology_result) and into
+ * the deterministic mailbox prior.
+ *
+ * Two exports:
  * - `SYSTEM_PROMPT`: the static system message used on every Bedrock call.
  * - `buildVisionPrompt`: assembles the per-request user prompt from optional
- *   document-type, mailbox, and BJC-doctor-list context.
+ *   document-type hint, mailbox category, and BJC-doctor list context.
  */
 
-import type { DocumentType, MailboxSource } from "../../domain/types";
+import type {
+  DocumentType,
+  MailboxSource,
+} from "../../domain/types";
+import {
+  mailboxCategoryFor,
+  type MailboxCategory,
+} from "../../conversion-config";
 
 export const SYSTEM_PROMPT = `You are a medical document data extraction assistant specializing in Australian healthcare documents.
 
-Classify the document and extract the patient's details, plus sender/addressee info for referral letters.
+Classify the document and extract the patient's details, plus sender/addressee info for letter-shaped documents.
 
-Document type classification guide:
+Document type taxonomy (the eligible categories at any given time are constrained by the upstream mailbox — see the user prompt):
 
 - consent_form: Patient registration, intake, information, or consent forms.
   Visual cues: checkboxes, signature lines, "I consent to...", patient declaration sections,
   "Patient Information" in the title, BJC Health branding, intake questionnaires.
 
-- gp_referral: Referral letters written by a GP, typically from Best Practice or Medical Director software.
+- gp_referral: Referral letters written by a GP (Best Practice / Medical Director software).
   Visual cues: "re." or "RE:" line with patient name, "Dear Dr..." addressing a specialist,
   GP clinic letterhead, Medicare provider number, reason for referral, medication lists,
   "Yours sincerely" sign-off from a GP. The sender is a general practitioner.
@@ -28,6 +42,12 @@ Document type classification guide:
   Visual cues: specialist clinic letterhead (e.g. cardiology, rheumatology, orthopaedics),
   "RE:" line with patient name, clinical findings, investigation results, management plan,
   letter addressed to the referring GP or another specialist. The sender is a specialist.
+
+- consult_letter: Specialist-to-GP correspondence that reports back on a consultation.
+  Visual cues: specialist clinic letterhead, opening like "Thanks for referring [patient],
+  I saw her today…" or "It was a pleasure to see [patient] in clinic today", clinical
+  history / examination / plan paragraphs, signed by the specialist. The reverse direction
+  of a referral — the specialist is updating the GP after seeing the patient.
 
 - pathology_result: Pathology / laboratory test results.
   Visual cues: pathology lab letterhead (e.g. Douglass Hanly Moir, Laverty, Sonic Healthcare,
@@ -41,32 +61,24 @@ Document type classification guide:
   "Findings", "Impression", and "Conclusion" sections, a "Referrer:" / "Referring Doctor:" line
   near the top of the report. The sender is a radiologist.
 
-- generic: Any other medical document that does not fit the above categories.
-  Use ONLY when the document is clearly not a consent form, referral, pathology, or radiology report.
+- generic: Any medical document that does not fit the above categories.
+  Use ONLY when the document is clearly not one of the above.
 
-Distinguishing referrals from other inter-doctor letters: a true referral typically contains at
-least one of the following positive signals — an explicit referral verb ("I am referring",
-"please see", "kindly assess", "for your management", "would appreciate your opinion"), a
-request for assessment / management / opinion, OR the introduction of a *new* problem (not a
-follow-up update on an existing doctor-patient relationship). A letter that **summarises a
-completed consultation**, **reports test results back to a referrer**, **updates a referrer on
-progress**, or **discharges a patient back to GP care** is NOT a referral — classify as
-generic. When in doubt between referral_letter / gp_referral and generic, prefer generic.
-Pathology lab reports go to pathology_result; imaging / radiology reports go to radiology_result.
+Crucial discrimination between letter shapes (Australian GP convention):
 
-Letter sub-type field: for any letter-shaped document (a written letter from one doctor or
-clinician to another), also populate letterSubtype with one of:
-- referral: an explicit request for assessment, management, or opinion (maps to referral_letter
-  or gp_referral)
-- follow_up: a progress / update letter on an existing patient relationship (maps to generic)
-- discharge: a hand-back letter from specialist to GP after care is complete (maps to generic)
-- result_commentary: a letter that primarily comments on or transmits test results (maps to
-  generic)
-- other: a letter that doesn't fit the above (maps to generic)
-- not_a_letter: the document isn't a letter at all (a form, lab report, imaging report, etc.) —
-  use this for consent_form, pathology_result, radiology_result classifications.
-The documentType must agree with letterSubtype: only letterSubtype="referral" maps to a referral
-document type. follow_up / discharge / result_commentary / other all map to generic.
+  * A letter that opens with "Thank you for seeing [patient] for [follow-up / ongoing
+    review / chronic disease management]" is a **referral_letter** (GP→specialist). It
+    is NOT a thank-you note: the GP is asking the specialist to see the patient again
+    on the GP's behalf, which is the Medicare definition of a review referral.
+  * A letter that opens with "Thanks for referring [patient], I saw her today…" or
+    "It was a pleasure to see [patient] in clinic today" is a **consult_letter**
+    (specialist→GP) — the consultation already happened and the specialist is writing
+    back to the referrer.
+  * Date-prefixed problem-history lists ("2016 D-Dimer Elevation", "09/09/2013
+    Osteoarthritis"), tabular medication grids, and elaborate past-history blocks
+    appear in BOTH referral letters and consult letters. They are NOT a signal of a
+    lab result — only choose pathology_result / radiology_result when the document
+    has lab letterhead, reference ranges, or modality keywords.
 
 Multipage documents: If the FIRST page is a referral letter (a cover letter from one doctor
 to another about a patient — has "Dear Dr...", sender/addressee, referral verbs like
@@ -109,22 +121,25 @@ Sender/Addressee rules:
 
 - Always call the extract_patient_data tool`;
 
+/** Build the per-request user prompt. The mailbox category controls which
+ *  doc types are candidates; the doctor list seeds addressee resolution. */
 export function buildVisionPrompt(
   documentTypeHint?: DocumentType,
   bjcDoctors?: string[],
-  mailboxHint?: MailboxSource
+  mailboxCategory: MailboxCategory = "none"
 ): string {
   let prompt: string;
   if (!documentTypeHint) {
-    prompt = "Classify this Australian medical PDF and extract the patient information using the extract_patient_data tool.";
+    prompt =
+      "Classify this Australian medical PDF and extract the patient information using the extract_patient_data tool.";
   } else {
     prompt = `A document type hint was provided: ${documentTypeHint}. Use that classification unless the PDF clearly contradicts it, then extract the patient information using the extract_patient_data tool.`;
   }
 
-  if (mailboxHint === "referrals") {
-    prompt += `\n\nUpstream mailbox: referrals. The expected document types from this mailbox are referral_letter or gp_referral. Treat this as a soft prior — if the PDF clearly shows a different document type (e.g. a pathology lab report or a consent form), classify based on the PDF content, not the mailbox.`;
-  } else if (mailboxHint === "results") {
-    prompt += `\n\nUpstream mailbox: results. The expected document types from this mailbox are pathology_result or radiology_result. Treat this as a soft prior — if the PDF clearly shows a different document type (e.g. a referral letter or a consent form), classify based on the PDF content, not the mailbox.`;
+  if (mailboxCategory === "results") {
+    prompt += `\n\nUpstream mailbox: results. This document came from a fax-to-email inbox used exclusively for pathology / radiology / clinical results (~99% lab/imaging results in practice). Choose the documentType from this set only: pathology_result, radiology_result, or generic (when the document is clearly neither a lab nor an imaging report — for example, a misrouted referral or correspondence). Do not pick referral_letter, gp_referral, consult_letter, or consent_form for this mailbox — if you genuinely believe the document is one of those, return generic with a lower classificationConfidence so the document can be reviewed by a human.`;
+  } else if (mailboxCategory === "letters") {
+    prompt += `\n\nUpstream mailbox: letters. This document came from an inbound correspondence mailbox that carries referrals, consult letters, and general doctor-to-doctor mail. Choose the documentType from this set only: referral_letter, gp_referral, consult_letter, or generic (when the document is clearly something else, e.g. a misrouted lab report). Do not pick pathology_result or radiology_result for this mailbox — if you genuinely believe the document is a lab/imaging report, return generic with a lower classificationConfidence so a human can review it.\n\nReaffirm the Australian convention: an opening like "Thank you for seeing [patient] for [follow-up / ongoing review]" is a **referral_letter** (GP→specialist), not a consult letter. An opening like "Thanks for referring [patient], I saw her today…" is a **consult_letter** (specialist→GP). Date-prefixed problem-history lists and tabular medication grids appear in both — they are not lab data.`;
   }
 
   if (bjcDoctors && bjcDoctors.length > 0) {
@@ -132,4 +147,27 @@ export function buildVisionPrompt(
   }
 
   return prompt;
+}
+
+/**
+ * Back-compat shim — the old call site passed a `MailboxSource` directly. The
+ * new pipeline derives a `MailboxCategory` upstream and passes it in. This
+ * helper lets us keep one mapping for callers that still hold a raw header
+ * string (tests, scripts).
+ */
+export function mailboxCategoryFromHeader(
+  hint: string | null | undefined
+): MailboxCategory {
+  return mailboxCategoryFor(hint);
+}
+
+/** Translate the legacy `MailboxSource` enum to the new category bucket. The
+ *  legacy "referrals" mailbox maps to "letters" (it carried referrals); the
+ *  legacy "results" mailbox keeps its category. */
+export function mailboxCategoryFromSource(
+  source: MailboxSource | undefined
+): MailboxCategory {
+  if (source === "referrals") return "letters";
+  if (source === "results") return "results";
+  return "none";
 }

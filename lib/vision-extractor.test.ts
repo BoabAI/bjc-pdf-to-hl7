@@ -625,7 +625,7 @@ describe("CC extraction and BJC doctor list", () => {
     expect(result.classificationConfidence).toBe(100);
   });
 
-  test("returns letterSubtype from the Bedrock tool output", async () => {
+  test("forwards mailboxHint=referrals (category letters) into the prompt", async () => {
     sendMock.mockResolvedValue({
       output: {
         message: {
@@ -645,7 +645,6 @@ describe("CC extraction and BJC doctor list", () => {
                   postcode: null,
                   medicareNo: null,
                   medicareRef: null,
-                  letterSubtype: "follow_up",
                 },
               },
             },
@@ -654,11 +653,17 @@ describe("CC extraction and BJC doctor list", () => {
       },
     });
 
-    const result = await extractPatientDataWithVision(PDF_BUFFER);
-    expect(result.letterSubtype).toBe("follow_up");
+    await extractPatientDataWithVision(PDF_BUFFER, {
+      mailboxHint: "referrals",
+    });
+
+    const [command] = sendMock.mock.calls[0]!;
+    const input = (command as ConverseCommandMock).input as any;
+    const userPrompt = input.messages[0].content[0].text;
+    expect(userPrompt).toContain("Upstream mailbox: letters");
   });
 
-  test("returns undefined letterSubtype when the model omits it", async () => {
+  test("forwards mailboxHint=results (category results) into the prompt", async () => {
     sendMock.mockResolvedValue({
       output: {
         message: {
@@ -666,7 +671,7 @@ describe("CC extraction and BJC doctor list", () => {
             {
               toolUse: {
                 input: {
-                  documentType: "referral_letter",
+                  documentType: "pathology_result",
                   firstName: "Jane",
                   lastName: "Smith",
                   dob: "05/06/1984",
@@ -686,8 +691,14 @@ describe("CC extraction and BJC doctor list", () => {
       },
     });
 
-    const result = await extractPatientDataWithVision(PDF_BUFFER);
-    expect(result.letterSubtype).toBeUndefined();
+    await extractPatientDataWithVision(PDF_BUFFER, {
+      mailboxHint: "results",
+    });
+
+    const [command] = sendMock.mock.calls[0]!;
+    const input = (command as ConverseCommandMock).input as any;
+    const userPrompt = input.messages[0].content[0].text;
+    expect(userPrompt).toContain("Upstream mailbox: results");
   });
 
   test("does not inject doctor list when bjcDoctors is empty", async () => {

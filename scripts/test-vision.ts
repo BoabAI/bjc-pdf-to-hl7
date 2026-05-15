@@ -79,4 +79,114 @@ console.log("\n" + "=".repeat(70));
 console.log(`Results: ${passed} passed, ${failed} failed out of ${EXPECTED.length}`);
 console.log("=".repeat(70));
 
+// ---------------------------------------------------------------------------
+// Review-referral regression suite (Nicole, 4 May 2026).
+//
+// Both fictional PDFs are GP review-referrals dressed up to look like results
+// — date-prefixed problem lists + tabular medication grids. Under the
+// `letters` mailbox prior they MUST classify as referral_letter / gp_referral
+// (not pathology_result / radiology_result). The eligibility gate must accept
+// them, so OBR-24 ends up `PHY` and the message type `REF^I12`.
+// ---------------------------------------------------------------------------
+
+interface ReviewReferralExpectation {
+  file: string;
+  firstName: string;
+  lastName: string;
+  dob: string;
+}
+
+const REVIEW_REFERRAL_DIR = join(
+  import.meta.dir,
+  "..",
+  "docs",
+  "test-pdfs",
+  "review-referrals"
+);
+
+const REVIEW_REFERRALS: ReviewReferralExpectation[] = [
+  {
+    file: "review_referral_osteoarthritis.pdf",
+    firstName: "Patricia",
+    lastName: "Chen",
+    dob: "04/03/1958",
+  },
+  {
+    file: "review_referral_chronic_urticaria.pdf",
+    firstName: "Benjamin",
+    lastName: "Whitfield",
+    dob: "17/09/1972",
+  },
+];
+
+const REFERRAL_DOC_TYPES = new Set(["referral_letter", "gp_referral"]);
+
+console.log("\n" + "=".repeat(70));
+console.log("Review-referral regression (Nicole)");
+console.log("Mailbox prior: letters");
+console.log("=".repeat(70));
+
+let rrPassed = 0;
+let rrFailed = 0;
+
+for (const exp of REVIEW_REFERRALS) {
+  const pdfPath = join(REVIEW_REFERRAL_DIR, exp.file);
+  const pdfBuffer = readFileSync(pdfPath);
+
+  console.log(`\n--- ${exp.file} (mailbox: letters) ---`);
+  const start = Date.now();
+  const result = await extractPatientDataWithVision(Buffer.from(pdfBuffer), {
+    // The simulated-admin sentinel maps to MailboxCategory: "letters" — the
+    // production mailbox we expect these PDFs to arrive in.
+    mailboxHint: "referrals",
+  });
+  const elapsed = Date.now() - start;
+
+  console.log(`  Model: ${result.model} (${elapsed}ms)`);
+  console.log(`  documentType: ${result.documentType} (confidence ${result.classificationConfidence})`);
+  console.log(`  Name: ${result.data.firstName} ${result.data.lastName}`);
+  console.log(`  DOB: ${result.data.dob}`);
+  console.log(`  Sender: ${result.referralInfo?.senderName ?? "N/A"}`);
+  console.log(`  Addressee: ${result.referralInfo?.addresseeName ?? "N/A"}`);
+
+  const checks: string[] = [];
+  if (!REFERRAL_DOC_TYPES.has(result.documentType)) {
+    checks.push(
+      `documentType expected referral_letter or gp_referral, got "${result.documentType}"`
+    );
+  }
+  if (
+    !result.data.firstName.toLowerCase().includes(exp.firstName.toLowerCase())
+  ) {
+    checks.push(`firstName expected "${exp.firstName}", got "${result.data.firstName}"`);
+  }
+  if (
+    !result.data.lastName.toLowerCase().includes(exp.lastName.toLowerCase())
+  ) {
+    checks.push(`lastName expected "${exp.lastName}", got "${result.data.lastName}"`);
+  }
+  const [d, m, y] = exp.dob.split("/");
+  const expectedHL7 = `${y}${m.padStart(2, "0")}${d.padStart(2, "0")}`;
+  if (result.data.dob !== expectedHL7) {
+    checks.push(`dob expected "${expectedHL7}", got "${result.data.dob}"`);
+  }
+  if (!result.referralInfo?.addresseeName?.trim()) {
+    checks.push("addresseeName missing — eligibility gate would divert");
+  }
+
+  if (checks.length === 0) {
+    console.log("  ✅ PASS");
+    rrPassed++;
+  } else {
+    console.log(`  ❌ FAIL: ${checks.join("; ")}`);
+    rrFailed++;
+  }
+}
+
+console.log("\n" + "=".repeat(70));
+console.log(
+  `Review-referral results: ${rrPassed} passed, ${rrFailed} failed out of ${REVIEW_REFERRALS.length}`
+);
+console.log("=".repeat(70));
+
 process.exit(failed > 0 ? 1 : 0);

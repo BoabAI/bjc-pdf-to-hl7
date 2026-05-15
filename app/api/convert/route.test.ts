@@ -589,7 +589,10 @@ describe("POST /api/convert Bedrock flow", () => {
     expect(obrFields[4]).toContain("Referral");
   });
 
-  test("uses ORU^R01 message type for generic documents", async () => {
+  test("generic documents divert to manual_review (no HL7)", async () => {
+    // The new eligibility gate never auto-routes `generic` — it's the model's
+    // bail-out value. The route returns 200 + action: "manual_review" so PAD
+    // (or the web UI queue) can surface the doc for human triage.
     extractPatientDataMock.mockResolvedValue({
       ...baseExtraction,
       documentType: "generic",
@@ -597,10 +600,12 @@ describe("POST /api/convert Bedrock flow", () => {
 
     const response = await POST(createConvertRequest());
     const data = await response.json();
-    const mshSegment = data.hl7Content.split("\r").find((s: string) => s.startsWith("MSH|"));
-    const mshFields = mshSegment.split("|");
 
-    expect(mshFields[8]).toBe("ORU^R01");
+    expect(response.status).toBe(200);
+    expect(data.success).toBe(true);
+    expect(data.action).toBe("manual_review");
+    expect(data.reason).toBe("unknown_doc_type");
+    expect(data.hl7Content).toBeUndefined();
   });
 
   test("carrier flows to MSH-3 and extractedData", async () => {
@@ -747,6 +752,14 @@ describe("POST /api/convert audit logging", () => {
       // Routing metadata, not PHI.
       "mailboxHint",
       "mailboxDisagreement",
+      // Nicole refactor: mailbox category derived from x-source-mailbox,
+      // routing decision (auto/manual), and reason for manual review. All
+      // operational metadata — no PHI.
+      "mailboxCategory",
+      "routingDecision",
+      "routingReason",
+      "suggestedCategory",
+      "classificationConfidence",
     ].sort();
     expect(Object.keys(row).sort().filter((k) => row[k] !== undefined))
       .toEqual(

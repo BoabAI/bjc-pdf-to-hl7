@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AppFooter } from "./components/AppFooter";
 import { AppNav } from "./components/AppNav";
 import { ConversionOptions } from "./components/ConversionOptions";
@@ -9,6 +9,12 @@ import { LogoStrip } from "./components/LogoStrip";
 import { UploadZone } from "./components/UploadZone";
 import { useReferenceData } from "./components/useReferenceData";
 import { ConvertActions } from "./components/converter/ConvertActions";
+import {
+  loadPersistedSimulatedMailbox,
+  persistSimulatedMailbox,
+  SimulateInboxSelect,
+  type SimulatedMailbox,
+} from "./components/converter/SimulateInboxSelect";
 import { SupportedFormatBadges } from "./components/converter/SupportedFormatBadges";
 import { useConverterQueue } from "./components/converter/useConverterQueue";
 import { SectionHeader } from "./components/ui/SectionHeader";
@@ -21,6 +27,7 @@ export default function Home() {
   const [autoFile, setAutoFile] = useState(true);
   const [sendToDoctor, setSendToDoctor] = useState(false);
   const [selectedDoctorId, setSelectedDoctorId] = useState("");
+  const [simulatedMailbox, setSimulatedMailbox] = useState<SimulatedMailbox>("");
   const {
     doctors,
     carriers,
@@ -28,6 +35,17 @@ export default function Home() {
     setCarrier,
     loaded: referenceLoaded,
   } = useReferenceData();
+
+  // Hydrate the simulated-inbox selection from localStorage after mount —
+  // doing it lazily in useState would cause a server/client hydration mismatch.
+  useEffect(() => {
+    setSimulatedMailbox(loadPersistedSimulatedMailbox());
+  }, []);
+
+  const handleSimulatedMailboxChange = useCallback((value: SimulatedMailbox) => {
+    setSimulatedMailbox(value);
+    persistSimulatedMailbox(value);
+  }, []);
 
   const queue = useConverterQueue({
     resolveOptions: () => {
@@ -41,6 +59,7 @@ export default function Home() {
         carrier,
         orderingProvider: selected?.providerNumber,
         bjcDoctors: doctors.length > 0 ? doctors.map((d) => d.name) : undefined,
+        simulatedMailbox,
       };
     },
     // A multi-file batch should fall back to per-file auto-classification.
@@ -124,6 +143,12 @@ export default function Home() {
 
             <div className="px-7 py-6 space-y-5">
               <SupportedFormatBadges />
+
+              <SimulateInboxSelect
+                value={simulatedMailbox}
+                onChange={handleSimulatedMailboxChange}
+                disabled={isConverting}
+              />
 
               <UploadZone
                 isDragging={isDragging}

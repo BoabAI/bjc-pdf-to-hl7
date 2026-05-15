@@ -12,6 +12,8 @@ import {
   formatSydneyTimestamp,
   prettifyDocType,
   prettifyOutcome,
+  ROUTING_DECISION_LABELS,
+  ROUTING_REASON_STYLE,
   useAuditDataRange,
 } from "../components/auditShared";
 import { AuditDateRangeHeader } from "../components/audit/AuditDateRangeHeader";
@@ -26,6 +28,14 @@ type SortKey =
   | "filenameHash"
   | "warningCount";
 type SortDir = "asc" | "desc";
+
+/** Compact label combining new mailbox category (when present) with the
+ *  legacy source field for backward compat. */
+function mailboxDisplay(row: AuditRow): string {
+  if (row.mailboxCategory === "results") return "Fax (results)";
+  if (row.mailboxCategory === "letters") return "Admin (letters)";
+  return row.source === "email" ? "Email" : "Web";
+}
 
 function compareRows(a: AuditRow, b: AuditRow, key: SortKey): number {
   const av = a[key];
@@ -59,6 +69,10 @@ function buildCsv(rows: AuditRow[]): string {
     "durationMs",
     "messageType",
     "diagnosticServiceSection",
+    "mailboxCategory",
+    "routingDecision",
+    "routingReason",
+    "suggestedCategory",
     "filenameHash",
     "warningCount",
     "warnings",
@@ -74,6 +88,10 @@ function buildCsv(rows: AuditRow[]): string {
       csvEscape(row.durationMs),
       csvEscape(row.messageType ?? ""),
       csvEscape(row.diagnosticServiceSection ?? ""),
+      csvEscape(row.mailboxCategory ?? ""),
+      csvEscape(row.routingDecision ?? ""),
+      csvEscape(row.routingReason ?? ""),
+      csvEscape(row.suggestedCategory ?? ""),
       csvEscape(row.filenameHash),
       csvEscape(row.warningCount),
       csvEscape(row.warnings?.join(" | ") ?? ""),
@@ -93,11 +111,30 @@ export default function LogPage(): JSX.Element {
   const [sortKey, setSortKey] = useState<SortKey>("ts");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [expandedTs, setExpandedTs] = useState<string | null>(null);
+  const [routingFilter, setRoutingFilter] = useState<"all" | "auto_routed" | "manual_review">("all");
+  const [reasonFilter, setReasonFilter] = useState<"all" | NonNullable<AuditRow["routingReason"]>>("all");
+
+  const filteredRows = useMemo(() => {
+    return rows.filter((row) => {
+      if (routingFilter !== "all") {
+        // Treat missing routingDecision (pre-Nicole rows) as auto_routed if
+        // outcome is ok, otherwise manual_review. Keeps legacy rows visible
+        // under whichever filter the operator picks.
+        const effective =
+          row.routingDecision ?? (row.outcome === "ok" ? "auto_routed" : "manual_review");
+        if (effective !== routingFilter) return false;
+      }
+      if (reasonFilter !== "all") {
+        if (row.routingReason !== reasonFilter) return false;
+      }
+      return true;
+    });
+  }, [rows, routingFilter, reasonFilter]);
 
   const sortedRows = useMemo(() => {
     const dir = sortDir === "asc" ? 1 : -1;
-    return [...rows].sort((a, b) => compareRows(a, b, sortKey) * dir);
-  }, [rows, sortKey, sortDir]);
+    return [...filteredRows].sort((a, b) => compareRows(a, b, sortKey) * dir);
+  }, [filteredRows, sortKey, sortDir]);
 
   const outcomeStats = useMemo(() => {
     const total = rows.length;
@@ -165,7 +202,7 @@ export default function LogPage(): JSX.Element {
                 description={
                   outcomeStats.total === 0
                     ? "No conversions in the selected range."
-                    : `${outcomeStats.total} total · ${outcomeStats.ok} ok (${outcomeStats.okPct}%) · ${outcomeStats.fail} fail (${outcomeStats.failPct}%)`
+                    : `${outcomeStats.total} total · ${outcomeStats.ok} successful (${outcomeStats.okPct}%) · ${outcomeStats.fail} failed (${outcomeStats.failPct}%)`
                 }
                 action={
                   <button
@@ -180,6 +217,44 @@ export default function LogPage(): JSX.Element {
               />
             </div>
             <div className="divider-subtle mb-4" />
+
+            <div className="flex flex-wrap gap-3 mb-4 items-center text-xs">
+              <label className="flex items-center gap-1.5">
+                <span className="text-[var(--text-muted)]">Routing:</span>
+                <select
+                  className="input text-xs py-1"
+                  value={routingFilter}
+                  onChange={(e) =>
+                    setRoutingFilter(e.target.value as typeof routingFilter)
+                  }
+                  aria-label="Filter by routing decision"
+                >
+                  <option value="all">All</option>
+                  <option value="auto_routed">Auto-routed</option>
+                  <option value="manual_review">Manual review</option>
+                </select>
+              </label>
+              <label className="flex items-center gap-1.5">
+                <span className="text-[var(--text-muted)]">Review reason:</span>
+                <select
+                  className="input text-xs py-1"
+                  value={reasonFilter}
+                  onChange={(e) =>
+                    setReasonFilter(e.target.value as typeof reasonFilter)
+                  }
+                  aria-label="Filter by manual review reason"
+                  disabled={routingFilter === "auto_routed"}
+                >
+                  <option value="all">All</option>
+                  <option value="low_confidence">Low confidence</option>
+                  <option value="missing_fields">Missing fields</option>
+                  <option value="mailbox_mismatch">Wrong inbox</option>
+                  <option value="unknown_doc_type">Unknown type</option>
+                  <option value="extraction_failed">Extraction failed</option>
+                </select>
+              </label>
+            </div>
+
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -187,8 +262,9 @@ export default function LogPage(): JSX.Element {
                     <SortableHeader label="Time"          sortKey="ts"               currentKey={sortKey} dir={sortDir} onClick={toggleSort} />
                     <SortableHeader label="Patient"       sortKey="patientInitials"  currentKey={sortKey} dir={sortDir} onClick={toggleSort} />
                     <SortableHeader label="Doc Type"      sortKey="documentType"     currentKey={sortKey} dir={sortDir} onClick={toggleSort} />
-                    <SortableHeader label="Source"        sortKey="source"           currentKey={sortKey} dir={sortDir} onClick={toggleSort} />
-                    <SortableHeader label="Outcome"       sortKey="outcome"          currentKey={sortKey} dir={sortDir} onClick={toggleSort} />
+                    <SortableHeader label="Mailbox"       sortKey="source"           currentKey={sortKey} dir={sortDir} onClick={toggleSort} />
+                    <SortableHeader label="Routing"       sortKey="outcome"          currentKey={sortKey} dir={sortDir} onClick={toggleSort} />
+                    <th className="py-2 pr-4 font-medium">Review reason</th>
                     <SortableHeader
                       label="Filename Hash"
                       sortKey="filenameHash"
@@ -207,14 +283,19 @@ export default function LogPage(): JSX.Element {
                     const hasDetail = hasWarnings && (row.warnings?.length ?? 0) > 0;
                     const isLegacy = hasWarnings && !hasDetail;
                     const isExpanded = expandedTs === row.ts;
+                    const mailboxLabel = mailboxDisplay(row);
+                    const effectiveRouting =
+                      row.routingDecision ??
+                      (row.outcome === "ok" ? "auto_routed" : "manual_review");
+                    const isManual = effectiveRouting === "manual_review";
                     return (
                       <Fragment key={row.ts}>
                         <tr
                           className={
                             "border-b border-[var(--border-light)] " +
-                            (row.outcome === "ok"
-                              ? "bg-emerald-50/60 hover:bg-emerald-100/60"
-                              : "bg-red-50/60 hover:bg-red-100/60")
+                            (isManual
+                              ? "bg-amber-50/60 hover:bg-amber-100/60"
+                              : "bg-emerald-50/60 hover:bg-emerald-100/60")
                           }
                         >
                           <td className="py-2 pr-4 whitespace-nowrap text-[var(--text-primary)]">
@@ -227,17 +308,33 @@ export default function LogPage(): JSX.Element {
                             {row.documentType ? prettifyDocType(row.documentType) : "—"}
                           </td>
                           <td className="py-2 pr-4 text-[var(--text-primary)]">
-                            {row.source}
+                            {mailboxLabel}
                           </td>
-                          <td
-                            className={
-                              "py-2 pr-4 font-medium " +
-                              (row.outcome === "ok"
-                                ? "text-[var(--success)]"
-                                : "text-[var(--error)]")
-                            }
-                          >
-                            {prettifyOutcome(row.outcome)}
+                          <td className="py-2 pr-4">
+                            <span
+                              className={
+                                "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border " +
+                                (isManual
+                                  ? "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-700"
+                                  : "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-200 dark:border-emerald-700")
+                              }
+                            >
+                              {ROUTING_DECISION_LABELS[effectiveRouting]}
+                            </span>
+                          </td>
+                          <td className="py-2 pr-4">
+                            {row.routingReason ? (
+                              <span
+                                className={
+                                  "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border " +
+                                  ROUTING_REASON_STYLE[row.routingReason].badge
+                                }
+                              >
+                                {ROUTING_REASON_STYLE[row.routingReason].label}
+                              </span>
+                            ) : (
+                              <span className="text-[var(--text-faint)]">—</span>
+                            )}
                           </td>
                           <td className="py-2 pr-4 font-mono text-xs text-[var(--text-secondary)]">
                             {row.filenameHash}
@@ -275,7 +372,7 @@ export default function LogPage(): JSX.Element {
                             id={`warnings-${row.ts}`}
                             className="border-b border-[var(--border-light)] bg-amber-50/60"
                           >
-                            <td colSpan={7} className="py-3 px-4">
+                            <td colSpan={8} className="py-3 px-4">
                               <ul className="list-disc pl-5 space-y-1 text-sm text-[var(--text-primary)]">
                                 {row.warnings?.map((msg, i) => (
                                   <li key={i} className="font-mono text-xs">

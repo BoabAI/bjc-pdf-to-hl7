@@ -43,6 +43,10 @@ mock.module("@aws-sdk/client-dynamodb", () => ({
   DynamoDBClient: DynamoDBClientMock,
 }));
 
+class GetCommandStub {
+  constructor(public readonly input: unknown) {}
+}
+
 mock.module("@aws-sdk/lib-dynamodb", () => ({
   DynamoDBDocumentClient: {
     from: (...args: unknown[]) => {
@@ -54,6 +58,9 @@ mock.module("@aws-sdk/lib-dynamodb", () => ({
   DeleteCommand: DeleteCommandMock,
   QueryCommand: QueryCommandMock,
   BatchWriteCommand: BatchWriteCommandMock,
+  // Stub for lib/settings.ts which imports GetCommand. Not used by
+  // reference-data-store; included so cross-imports don't fail.
+  GetCommand: GetCommandStub,
 }));
 
 const {

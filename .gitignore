@@ -60,10 +60,12 @@ bun.lockb
 # Patient PDFs (may contain real patient data)
 docs/test-pdfs/**/*.pdf
 !docs/test-pdfs/originals/referral_dummy.pdf
+!docs/test-pdfs/originals/consent_form_real_sample.pdf
 !docs/test-pdfs/referrals/*.pdf
 !docs/test-pdfs/addressees/*.pdf
 !docs/test-pdfs/results/*.pdf
 !docs/test-pdfs/letter-subtypes/*.pdf
+!docs/test-pdfs/review-referrals/*.pdf
 
 # Real BJC HL7 / PDF samples — local reference only, NEVER commit
 /samples/

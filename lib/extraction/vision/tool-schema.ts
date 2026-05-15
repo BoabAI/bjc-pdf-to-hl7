@@ -28,7 +28,7 @@ export const EXTRACTION_TOOL = {
             type: "string",
             enum: DOCUMENT_TYPES,
             description:
-              "Best-fit document type: consent_form, referral_letter, gp_referral, pathology_result, radiology_result, or generic",
+              "Best-fit document type: consent_form, referral_letter, gp_referral, consult_letter, pathology_result, radiology_result, or generic",
           },
           firstName: {
             type: ["string", "null"],
@@ -120,19 +120,6 @@ export const EXTRACTION_TOOL = {
             maximum: 100,
             description:
               "Self-reported confidence in the document type classification, as an integer from 0 (no confidence) to 100 (certain). Lower this value when (a) the document is ambiguous, (b) multiple types could apply, or (c) image quality is poor.",
-          },
-          letterSubtype: {
-            type: "string",
-            enum: [
-              "referral",
-              "follow_up",
-              "discharge",
-              "result_commentary",
-              "other",
-              "not_a_letter",
-            ],
-            description:
-              "If the document is a letter from one doctor to another, classify its sub-type. Use 'referral' only when the letter requests assessment, management, or opinion. Use 'follow_up' for progress updates on an existing patient relationship. Use 'discharge' for hand-back letters from specialist to GP. Use 'result_commentary' when the letter primarily comments on or transmits test results. Use 'other' for letters that don't fit. Use 'not_a_letter' when the document isn't a letter (e.g., a form, a lab report, an imaging report).",
           },
         },
         required: [

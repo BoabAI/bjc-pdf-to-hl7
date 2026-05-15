@@ -101,4 +101,37 @@ describe("isConvertResponse", () => {
       isConvertResponse({ success: true, mailboxDisagreement: "yes" })
     ).toBe(false);
   });
+
+  test("accepts auto_routed action", () => {
+    expect(
+      isConvertResponse({ success: true, action: "auto_routed" })
+    ).toBe(true);
+  });
+
+  test("accepts manual_review envelope with reason + suggestedCategory", () => {
+    expect(
+      isConvertResponse({
+        success: true,
+        action: "manual_review",
+        reason: "low_confidence",
+        suggestedCategory: "Needs review — Low confidence",
+      })
+    ).toBe(true);
+  });
+
+  test("rejects unknown action", () => {
+    expect(
+      isConvertResponse({ success: true, action: "weird" })
+    ).toBe(false);
+  });
+
+  test("rejects unknown manual review reason", () => {
+    expect(
+      isConvertResponse({
+        success: true,
+        action: "manual_review",
+        reason: "not-a-real-reason",
+      })
+    ).toBe(false);
+  });
 });

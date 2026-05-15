@@ -11,10 +11,12 @@ import {
   firstOfCurrentSydneyMonth,
   prettifyDocType,
   prettifyOutcome,
+  ROUTING_REASON_STYLE,
   useAuditDataRange,
 } from "../components/auditShared";
 import { AuditDateRangeHeader } from "../components/audit/AuditDateRangeHeader";
 import { AuditPageState } from "../components/audit/AuditPageState";
+import { SettingsPanel } from "../components/dashboard/SettingsPanel";
 
 type TremorColor =
   | "blue"
@@ -23,11 +25,14 @@ type TremorColor =
   | "amber"
   | "rose"
   | "emerald"
-  | "slate";
+  | "slate"
+  | "orange";
 
 const DOC_TYPE_COLORS: TremorColor[] = ["blue", "teal", "violet", "amber", "slate"];
 const OUTCOME_COLORS: TremorColor[] = ["emerald", "rose"];
 const SOURCE_COLORS: TremorColor[] = ["blue", "teal"];
+const ROUTING_COLORS: TremorColor[] = ["emerald", "amber"];
+const MAILBOX_COLORS: TremorColor[] = ["teal", "violet", "slate"];
 
 // Tremor builds chart classes dynamically (e.g. `fill-blue-500`), so Tailwind's
 // content scanner can't see them. Listing them as literal strings keeps them
@@ -39,7 +44,8 @@ const TREMOR_COLOR_SAFELIST =
   "fill-amber-500 stroke-amber-500 bg-amber-500 text-amber-500 " +
   "fill-rose-500 stroke-rose-500 bg-rose-500 text-rose-500 " +
   "fill-emerald-500 stroke-emerald-500 bg-emerald-500 text-emerald-500 " +
-  "fill-slate-500 stroke-slate-500 bg-slate-500 text-slate-500";
+  "fill-slate-500 stroke-slate-500 bg-slate-500 text-slate-500 " +
+  "fill-orange-500 stroke-orange-500 bg-orange-500 text-orange-500";
 
 const COLOR_SWATCH: Record<TremorColor, string> = {
   blue: "bg-blue-500",
@@ -49,6 +55,7 @@ const COLOR_SWATCH: Record<TremorColor, string> = {
   rose: "bg-rose-500",
   emerald: "bg-emerald-500",
   slate: "bg-slate-500",
+  orange: "bg-orange-500",
 };
 
 interface ChartDatum {
@@ -189,6 +196,58 @@ export default function StatsPage(): JSX.Element {
     [rows]
   );
 
+  // Drop settings-row sentinels from the routing donuts — they live in the
+  // same audit table but carry no routing decision.
+  const conversionRows = useMemo(
+    () => rows.filter((r) => r.documentType !== undefined || r.routingDecision),
+    [rows]
+  );
+
+  const routingData = useMemo(
+    () =>
+      groupBy(conversionRows, (r) => {
+        if (r.routingDecision === "auto_routed") return "Auto-routed";
+        if (r.routingDecision === "manual_review") return "Manual review";
+        // Pre-Nicole-refactor rows lack the field — treat them as auto-routed
+        // since the legacy pipeline only produced HL7 outcomes.
+        return r.outcome === "ok" ? "Auto-routed" : "Manual review";
+      }),
+    [conversionRows]
+  );
+
+  const mailboxData = useMemo(
+    () =>
+      groupBy(conversionRows, (r) => {
+        if (r.mailboxCategory === "results") return "Fax (results)";
+        if (r.mailboxCategory === "letters") return "Admin (letters)";
+        return "Web upload";
+      }),
+    [conversionRows]
+  );
+
+  const reasonData = useMemo(() => {
+    const filtered = conversionRows.filter(
+      (r) => r.routingDecision === "manual_review" && r.routingReason
+    );
+    return groupBy(
+      filtered,
+      (r) => ROUTING_REASON_STYLE[r.routingReason!].label
+    );
+  }, [conversionRows]);
+
+  // Build a stable colour palette for the reason donut so each segment keeps
+  // its colour even when ordering changes.
+  const reasonColors = useMemo<TremorColor[]>(() => {
+    const map: Record<string, TremorColor> = {
+      "Low confidence": "amber",
+      "Missing fields": "orange",
+      "Wrong inbox": "rose",
+      "Unknown type": "violet",
+      "Extraction failed": "slate",
+    };
+    return reasonData.map((d) => map[d.name] ?? "slate");
+  }, [reasonData]);
+
   const total = rows.length;
   const hasRows = total > 0;
 
@@ -213,6 +272,8 @@ export default function StatsPage(): JSX.Element {
             onToChange={setTo}
           />
 
+          <SettingsPanel />
+
           <AuditPageState loading={loading} error={error} hasRows={hasRows}>
             <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <BreakdownPie
@@ -231,6 +292,24 @@ export default function StatsPage(): JSX.Element {
                 data={sourceData}
                 colors={SOURCE_COLORS}
                 lowercaseDominant
+              />
+            </section>
+
+            <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <BreakdownPie
+                title="Routing decision"
+                data={routingData}
+                colors={ROUTING_COLORS}
+              />
+              <BreakdownPie
+                title="By mailbox category"
+                data={mailboxData}
+                colors={MAILBOX_COLORS}
+              />
+              <BreakdownPie
+                title="Manual review reasons"
+                data={reasonData}
+                colors={reasonColors.length > 0 ? reasonColors : ["slate"]}
               />
             </section>
           </AuditPageState>

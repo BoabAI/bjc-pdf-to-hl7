@@ -7,7 +7,6 @@
  */
 
 import { extractPatientDataWithVision } from "./vision-extractor";
-import type { LetterSubtype } from "./extraction/vision/normalize";
 import type {
   DocumentType,
   MailboxSource,
@@ -23,7 +22,6 @@ export interface ExtractionResult {
   documentType: DocumentType;
   extractionMethod: "vision";
   classificationConfidence: number;
-  letterSubtype?: LetterSubtype;
   referralInfo?: ReferralInfo;
 }
 
@@ -64,7 +62,6 @@ export async function extractPatientData(
       documentType: visionResult.documentType,
       extractionMethod: "vision",
       classificationConfidence: visionResult.classificationConfidence,
-      letterSubtype: visionResult.letterSubtype,
       referralInfo: visionResult.referralInfo,
     };
   } catch (error) {

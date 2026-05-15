@@ -1,6 +1,7 @@
 "use client";
 
 import { ConversionResultPanel } from "./ConversionResultPanel";
+import { simulatedMailboxBadgeLabel } from "./converter/SimulateInboxSelect";
 import type { ConvertResponse } from "@/lib/contracts/convert";
 import type { DocumentType } from "@/lib/domain/types";
 
@@ -17,6 +18,12 @@ export interface FileEntry {
   detectedType: DocumentType | null;
   status: FileEntryStatus;
   result?: ConvertResponse;
+  /**
+   * The mailbox sentinel the file was submitted with (snapshot at submit
+   * time). Used to render the resolved-category badge per row so the operator
+   * can see which prior shaped the classification.
+   */
+  simulatedMailbox?: string;
 }
 
 interface FileQueueItemProps {
@@ -72,6 +79,11 @@ export function FileQueueItem({
               </span>
             )}
           </p>
+          {simulatedMailboxBadgeLabel(entry.simulatedMailbox ?? "") && (
+            <span className="inline-block mt-1.5 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[var(--bg-inner)] text-[var(--text-secondary)] border border-[var(--border-light)]">
+              {simulatedMailboxBadgeLabel(entry.simulatedMailbox ?? "")}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <span

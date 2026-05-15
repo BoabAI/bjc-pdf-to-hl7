@@ -14,9 +14,11 @@ const SYDNEY_ZONE = "Australia/Sydney";
 const SYDNEY_MONTH_PATTERN = /^\d{4}-\d{2}$/;
 
 export interface AuditRow {
-  /** Partition key: "YYYY-MM" */
+  /** Partition key: "YYYY-MM" for conversion rows; "settings" for settings
+   *  rows (sentinel — see /api/settings PUT). */
   month: string;
-  /** Sort key: ISO timestamp + "#" + base36 random suffix, e.g. "2026-04-29T12:34:56.789Z#a3f9k1" */
+  /** Sort key: ISO timestamp + "#" + base36 random suffix (e.g. "2026-04-29T12:34:56.789Z#a3f9k1")
+   *  for conversion rows; "runtime" sentinel for the singleton settings row. */
   ts: string;
   /** Document type, e.g. "pathology_result". Never patient-identifying. */
   documentType?: string;
@@ -52,7 +54,9 @@ export interface AuditRow {
   patientInitials?: string;
   /**
    * Upstream mailbox the PDF arrived in, when source==='email' and the PAD
-   * pipeline forwarded the X-Source-Mailbox header. "referrals" | "results".
+   * pipeline forwarded the X-Source-Mailbox header. "referrals" | "results"
+   * for legacy rows; the new pipeline persists the raw mailbox category
+   * (see `mailboxCategory`) and leaves this field undefined.
    */
   mailboxHint?: string;
   /**
@@ -68,12 +72,30 @@ export interface AuditRow {
    */
   classificationConfidence?: number;
   /**
-   * Letter sub-type (referral / follow_up / discharge / result_commentary /
-   * other / not_a_letter) when the document is letter-shaped. Controlled
-   * enum — not PHI. Useful for dashboard diagnostics, particularly to spot
-   * over-eager referral classification.
+   * Mailbox category derived from the `x-source-mailbox` header. The new
+   * pipeline's load-bearing routing signal. "results" | "letters" | "none".
    */
-  letterSubtype?: string;
+  mailboxCategory?: string;
+  /**
+   * Routing decision — `auto_routed` when the eligibility gate passed and
+   * HL7 was emitted; `manual_review` when the doc was diverted to a human.
+   */
+  routingDecision?: string;
+  /**
+   * Manual-review reason (one of the values in `MANUAL_REVIEW_CATEGORIES`).
+   * Only populated when `routingDecision === "manual_review"`.
+   */
+  routingReason?: string;
+  /**
+   * Outlook category PAD should apply to the source email. Mirrors
+   * `routingReason` for ops-side filtering convenience.
+   */
+  suggestedCategory?: string;
+  /**
+   * Optional structured action discriminator for non-conversion rows.
+   * Currently `settings_updated` is the only known value.
+   */
+  action?: string;
 }
 
 /**
@@ -332,6 +354,13 @@ function isAuditRow(value: unknown): value is AuditRow {
       typeof v.mailboxDisagreement === "boolean") &&
     (v.classificationConfidence === undefined ||
       typeof v.classificationConfidence === "number") &&
-    (v.letterSubtype === undefined || typeof v.letterSubtype === "string")
+    (v.mailboxCategory === undefined ||
+      typeof v.mailboxCategory === "string") &&
+    (v.routingDecision === undefined ||
+      typeof v.routingDecision === "string") &&
+    (v.routingReason === undefined || typeof v.routingReason === "string") &&
+    (v.suggestedCategory === undefined ||
+      typeof v.suggestedCategory === "string") &&
+    (v.action === undefined || typeof v.action === "string")
   );
 }

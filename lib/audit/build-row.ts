@@ -23,6 +23,7 @@ import type { ConvertResult } from "@/lib/convert-service";
 import {
   detectMailboxDisagreement,
   diagnosticServiceSectionFor,
+  type MailboxCategory,
 } from "@/lib/conversion-config";
 import { messageTypeForDocumentType } from "@/lib/convert/policy";
 import type { DocumentType, MailboxSource } from "@/lib/domain/types";
@@ -66,6 +67,13 @@ export interface AuditRowMeta {
   source: AuditSource;
   userEmail: string;
   mailboxHint: MailboxSource | undefined;
+  /**
+   * Resolved mailbox category derived from `x-source-mailbox` header
+   * (results / letters / none). Used by the audit log + dashboard for
+   * mailbox-vs-doc-type routing analytics. Pass `"none"` (not undefined)
+   * for web uploads with no mailbox hint.
+   */
+  mailboxCategory: MailboxCategory | undefined;
   originalFilename: string;
   fileSizeBytes: number;
   startedAtMs: number;
@@ -135,11 +143,23 @@ export function buildConversionAuditRow(
     userEmail: meta.userEmail,
     patientInitials,
     mailboxHint: meta.mailboxHint,
+    ...(meta.mailboxCategory !== undefined && meta.mailboxCategory !== "none"
+      ? { mailboxCategory: meta.mailboxCategory }
+      : {}),
     ...(mailboxDisagreement ? { mailboxDisagreement: true } : {}),
     ...(typeof confidence === "number"
       ? { classificationConfidence: confidence }
       : {}),
-    ...(result.letterSubtype ? { letterSubtype: result.letterSubtype } : {}),
+    // Routing decision metadata. Only persist when we actually have a value
+    // (skip on the controlled-failure path so the dashboard doesn't have to
+    // distinguish "absent because no policy ran" from "absent because legacy").
+    ...(result.action ? { routingDecision: result.action } : {}),
+    ...(result.action === "manual_review" && result.reason
+      ? { routingReason: result.reason }
+      : {}),
+    ...(result.action === "manual_review" && result.suggestedCategory
+      ? { suggestedCategory: result.suggestedCategory }
+      : {}),
   };
 }
 
@@ -162,5 +182,8 @@ export function buildFailureAuditRow(meta: AuditRowMeta): AuditRow {
     warningCount: 0,
     userEmail: meta.userEmail,
     mailboxHint: meta.mailboxHint,
+    ...(meta.mailboxCategory !== undefined && meta.mailboxCategory !== "none"
+      ? { mailboxCategory: meta.mailboxCategory }
+      : {}),
   };
 }

@@ -11,8 +11,8 @@ import {
   type AuditSource,
 } from "@/lib/audit/build-row";
 import {
-  isObr16MissingWarning,
   isStrictRequiredFields,
+  mailboxCategoryFor,
   parseMailboxSource,
 } from "@/lib/conversion-config";
 import { auth } from "@/lib/auth";
@@ -41,9 +41,19 @@ async function safeRecord(row: AuditRow): Promise<void> {
 export const POST = auth(async (request) => {
   const startedAtMs = Date.now();
   const source = parseSource(request.headers.get("x-source"));
-  const mailboxHint = parseMailboxSource(
-    request.headers.get("x-source-mailbox")
-  );
+  // `x-source-mailbox` carries one of two value shapes:
+  //   1. Legacy MailboxSource enum: "referrals" | "results" — used by the pilot
+  //      and continues to drive the `mailboxHint` audit field + the legacy
+  //      `mailboxDisagreement` flag.
+  //   2. New: a full mailbox address (or `simulated:fax` / `simulated:admin`)
+  //      that maps to a MailboxCategory via `mailboxCategoryFor`. This drives
+  //      the eligibility-gate `mailbox_mismatch` check.
+  // Parsing both keeps the legacy contract intact while the new pipeline rolls
+  // out. Whichever value is supplied, only one parse will yield a non-default
+  // result.
+  const mailboxHeader = request.headers.get("x-source-mailbox");
+  const mailboxHint = parseMailboxSource(mailboxHeader);
+  const mailboxCategory = mailboxCategoryFor(mailboxHeader);
   const now = new Date();
 
   // Authenticate per source. Web = Auth.js cookie session.
@@ -85,25 +95,34 @@ export const POST = auth(async (request) => {
     originalFilename = parsed.originalFilename;
     fileSizeBytes = parsed.data.pdfBuffer.length;
 
-    const result = await convertPdf({ ...parsed.data, mailboxHint });
+    const result = await convertPdf({
+      ...parsed.data,
+      mailboxHint,
+      mailboxCategory,
+    });
 
-    // Strict-mode gate: when STRICT_REQUIRED_FIELDS=true, a results document
-    // that survived extraction but ended up with an empty OBR-16 ("Ordered By")
-    // is rejected with 422. The audit row records `outcome: "fail"` plus the
-    // same warning so ops can see what was missing. Default (lenient) mode is
-    // unchanged — the warning is persisted and the HL7 is returned to the
-    // caller.
-    const obr16Missing =
-      result.success === true &&
-      (result.warnings?.some(isObr16MissingWarning) ?? false);
-    const shouldStrictFail = isStrictRequiredFields() && obr16Missing;
+    // Strict-mode bridge to the legacy 422 contract: when STRICT_REQUIRED_FIELDS
+    // is on and the eligibility gate diverted a result document because OBR-16
+    // was missing, return 422 + the legacy error message so existing callers
+    // (and the audit-table strict-mode test) continue to see a hard failure.
+    const shouldStrictFail =
+      isStrictRequiredFields() &&
+      result.action === "manual_review" &&
+      result.reason === "missing_fields";
 
     const effectiveResult: ConvertResult = shouldStrictFail
       ? {
           success: false,
           error:
             "Required field missing: OBR-16 (Ordered By) for pathology/radiology result",
-          warnings: result.warnings,
+          warnings: [
+            ...(result.warnings ?? []),
+            // Legacy callers + tests expect the OBR-16-missing warning to
+            // surface in the audit row even when we return 422 instead of HL7.
+            ...(result.documentType
+              ? [`OBR-16 (Ordered By) missing for ${result.documentType}`]
+              : []),
+          ],
           extractionMethod: result.extractionMethod,
           documentType: result.documentType,
           ...(result.mailboxDisagreement
@@ -117,6 +136,7 @@ export const POST = auth(async (request) => {
         source,
         userEmail,
         mailboxHint,
+        mailboxCategory,
         originalFilename,
         fileSizeBytes,
         startedAtMs,
@@ -140,6 +160,7 @@ export const POST = auth(async (request) => {
       source,
       userEmail,
       mailboxHint,
+      mailboxCategory,
       originalFilename,
       fileSizeBytes,
       startedAtMs,

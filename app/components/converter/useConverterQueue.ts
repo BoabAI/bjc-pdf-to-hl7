@@ -112,9 +112,16 @@ export function useConverterQueue(
 
   const convertEntry = useCallback(
     async (entry: FileEntry) => {
-      updateEntry(entry.id, { status: "converting", result: undefined });
+      const opts = options.resolveOptions();
+      // Snapshot the simulated mailbox on the row so the badge keeps its value
+      // even if the operator changes the dropdown mid-batch.
+      updateEntry(entry.id, {
+        status: "converting",
+        result: undefined,
+        simulatedMailbox: opts.simulatedMailbox,
+      });
       try {
-        const data = await convertPdf(entry.file, options.resolveOptions());
+        const data = await convertPdf(entry.file, opts);
         if (data.success) {
           const detected = isDocumentType(data.documentType)
             ? data.documentType

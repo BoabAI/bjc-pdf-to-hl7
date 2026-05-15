@@ -13,6 +13,10 @@ describe("messageTypeForDocumentType", () => {
     expect(messageTypeForDocumentType("gp_referral")).toBe("REF^I12");
   });
 
+  test("consult_letter → REF^I12 (routes to Incoming Letters)", () => {
+    expect(messageTypeForDocumentType("consult_letter")).toBe("REF^I12");
+  });
+
   test("pathology_result → ORU^R01", () => {
     expect(messageTypeForDocumentType("pathology_result")).toBe("ORU^R01");
   });

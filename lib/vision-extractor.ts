@@ -16,7 +16,6 @@ import {
 } from "@aws-sdk/client-bedrock-runtime";
 import type {
   DocumentType,
-  MailboxSource,
   PatientData,
   ReferralInfo,
 } from "./domain/types";
@@ -25,10 +24,14 @@ import {
   emptyPatientData,
   isToolUseContentBlock,
   normalizeVisionToolInput,
-  type LetterSubtype,
 } from "./extraction/vision/normalize";
-import { buildVisionPrompt, SYSTEM_PROMPT } from "./extraction/vision/prompt";
+import {
+  buildVisionPrompt,
+  mailboxCategoryFromSource,
+  SYSTEM_PROMPT,
+} from "./extraction/vision/prompt";
 import { EXTRACTION_TOOL } from "./extraction/vision/tool-schema";
+import type { MailboxSource } from "./domain/types";
 import { logOperationalError } from "./server/logging";
 
 const REGION = "ap-southeast-2";
@@ -44,10 +47,6 @@ export interface VisionExtractionResult {
   /** Self-reported model confidence in the classification, 0-100. Defaults to
    * 100 when the model omits the field (older fixtures or fallback paths). */
   classificationConfidence: number;
-  /** Letter sub-type when the document is letter-shaped (referral / follow-up /
-   * discharge / result_commentary / other / not_a_letter). Drives promotion
-   * gating and demotion. Undefined when the model omits it. */
-  letterSubtype?: LetterSubtype;
   referralInfo?: ReferralInfo;
   tokensUsed?: { input: number; output: number };
 }
@@ -59,6 +58,11 @@ export async function extractPatientDataWithVision(
     timeoutMs?: number;
     documentTypeHint?: DocumentType;
     bjcDoctors?: string[];
+    /**
+     * Upstream mailbox hint (legacy MailboxSource enum). Internally we derive
+     * the new MailboxCategory which controls how aggressively the prompt
+     * narrows the doc-type candidate set.
+     */
     mailboxHint?: MailboxSource;
   }
 ): Promise<VisionExtractionResult> {
@@ -66,7 +70,7 @@ export async function extractPatientDataWithVision(
   const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const documentTypeHint = options?.documentTypeHint;
   const bjcDoctors = options?.bjcDoctors;
-  const mailboxHint = options?.mailboxHint;
+  const mailboxCategory = mailboxCategoryFromSource(options?.mailboxHint);
 
   const client = new BedrockRuntimeClient({ region: REGION });
   const controller = new AbortController();
@@ -81,7 +85,13 @@ export async function extractPatientDataWithVision(
           {
             role: "user",
             content: [
-              { text: buildVisionPrompt(documentTypeHint, bjcDoctors, mailboxHint) },
+              {
+                text: buildVisionPrompt(
+                  documentTypeHint,
+                  bjcDoctors,
+                  mailboxCategory
+                ),
+              },
               {
                 document: {
                   name: "medical-document",
@@ -137,7 +147,6 @@ export async function extractPatientDataWithVision(
       model,
       documentType: normalized.documentType,
       classificationConfidence: normalized.classificationConfidence,
-      letterSubtype: normalized.letterSubtype,
       referralInfo: normalized.referralInfo,
       tokensUsed,
     };

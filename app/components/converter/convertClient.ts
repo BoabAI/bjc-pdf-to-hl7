@@ -11,6 +11,11 @@ export interface ConvertOptions {
   orderingProvider?: string;
   /** Names from the BJC Health doctor list, used for AI addressee resolution. */
   bjcDoctors?: string[];
+  /**
+   * Optional `x-source-mailbox` sentinel from the inbox simulation dropdown.
+   * Empty string = no header sent (default web-upload behaviour).
+   */
+  simulatedMailbox?: string;
 }
 
 /**
@@ -35,9 +40,15 @@ export async function convertPdf(
     formData.append("bjcDoctors", JSON.stringify(options.bjcDoctors));
   }
 
+  const headers: HeadersInit = {};
+  if (options.simulatedMailbox && options.simulatedMailbox !== "") {
+    headers["x-source-mailbox"] = options.simulatedMailbox;
+  }
+
   const response = await fetch("/api/convert", {
     method: "POST",
     body: formData,
+    headers,
   });
 
   let json: unknown;

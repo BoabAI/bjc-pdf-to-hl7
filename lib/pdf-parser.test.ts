@@ -38,6 +38,8 @@ describe("extractPatientData", () => {
 
     expect(extractPatientDataWithVisionMock).toHaveBeenCalledWith(pdfBuffer, {
       documentTypeHint: undefined,
+      bjcDoctors: undefined,
+      mailboxCategory: undefined,
     });
     expect(result).toEqual({
       success: true,
@@ -63,6 +65,8 @@ describe("extractPatientData", () => {
 
     expect(extractPatientDataWithVisionMock).toHaveBeenCalledWith(pdfBuffer, {
       documentTypeHint: "gp_referral",
+      bjcDoctors: undefined,
+      mailboxCategory: undefined,
     });
     expect(result.documentType).toBe("gp_referral");
   });
@@ -83,6 +87,8 @@ describe("extractPatientData", () => {
 
     expect(extractPatientDataWithVisionMock).toHaveBeenCalledWith(pdfBuffer, {
       documentTypeHint: "referral_letter",
+      bjcDoctors: undefined,
+      mailboxHint: undefined,
     });
     expect(result.documentType).toBe("pathology_result");
   });
@@ -98,8 +104,20 @@ describe("extractPatientData", () => {
 
     expect(extractPatientDataWithVisionMock).toHaveBeenCalledWith(pdfBuffer, {
       documentTypeHint: undefined,
+      bjcDoctors: undefined,
+      mailboxHint: undefined,
     });
     expect(result.documentType).toBe("gp_referral");
+  });
+
+  test("forwards bjcDoctors and mailboxHint to the vision extractor", async () => {
+    const pdfBuffer = Buffer.from("%PDF-1.4 letters");
+    await extractPatientData(pdfBuffer, "auto", ["Dr A", "Dr B"], "referrals");
+    expect(extractPatientDataWithVisionMock).toHaveBeenCalledWith(pdfBuffer, {
+      documentTypeHint: undefined,
+      bjcDoctors: ["Dr A", "Dr B"],
+      mailboxHint: "referrals",
+    });
   });
 
   test("falls back to the hint when extraction throws", async () => {

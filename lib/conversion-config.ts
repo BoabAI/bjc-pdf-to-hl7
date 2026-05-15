@@ -11,6 +11,7 @@ export const DOCUMENT_TYPES: DocumentType[] = [
   "consent_form",
   "referral_letter",
   "gp_referral",
+  "consult_letter",
   "pathology_result",
   "radiology_result",
   "generic",
@@ -22,6 +23,69 @@ export const MAILBOX_SOURCES: MailboxSource[] = ["referrals", "results"];
 
 export function isMailboxSource(value: unknown): value is MailboxSource {
   return value === "referrals" || value === "results";
+}
+
+/**
+ * Mailbox category drives how aggressively we constrain the AI's classification
+ * and which doc types are eligible for auto-routing. A doc landing in a
+ * `results` mailbox is overwhelmingly likely to be pathology/radiology — the
+ * AI is asked to sub-classify within that set only. `letters` mailboxes carry
+ * referrals + consult letters. `none` (web upload, no header) keeps the
+ * existing free-classification behaviour.
+ */
+export type MailboxCategory = "results" | "letters" | "none";
+
+/**
+ * Production mailbox → category mapping. Lives here (not env / DB) so adding a
+ * new GoFax inbox is a one-line code change with code review. The simulated
+ * sentinels are what the web UI sends when the user picks "Fax inbox" /
+ * "Admin inbox" from the simulation dropdown.
+ */
+export const MAILBOX_CATEGORIES: Record<string, "results" | "letters"> = {
+  "fax-pathology@bjchealth.com.au": "results",
+  "fax-radiology@bjchealth.com.au": "results",
+  "fax-vascular@bjchealth.com.au": "results",
+  "admin@bjchealth.com.au": "letters",
+  // Sentinels used by the web UI "Simulate inbox" dropdown so devs and Nicole
+  // can rehearse a fax / admin arrival without spinning up PAD.
+  "simulated:fax": "results",
+  "simulated:admin": "letters",
+};
+
+/**
+ * Map an `x-source-mailbox` header value to a mailbox category. Returns
+ * `"none"` when the header is missing or the address isn't in the mapping
+ * (defensive — an unknown mailbox falls back to free classification rather
+ * than guessing).
+ */
+export function mailboxCategoryFor(
+  hint: string | null | undefined
+): MailboxCategory {
+  if (!hint) return "none";
+  const normalized = hint.trim().toLowerCase();
+  return MAILBOX_CATEGORIES[normalized] ?? "none";
+}
+
+/**
+ * The allowed document types for a given mailbox category. Used by:
+ *
+ * 1. The Bedrock prompt — narrows the candidate set the model is asked to
+ *    choose from when a mailbox category is supplied.
+ * 2. The eligibility gate — fails `docTypeInMailboxCategory` when the AI's
+ *    pick falls outside this set.
+ *
+ * For `none`, every supported doc type is allowed (no constraint).
+ */
+export function allowedDocTypesForCategory(
+  category: MailboxCategory
+): DocumentType[] {
+  if (category === "results") {
+    return ["pathology_result", "radiology_result"];
+  }
+  if (category === "letters") {
+    return ["referral_letter", "gp_referral", "consult_letter"];
+  }
+  return [...DOCUMENT_TYPES];
 }
 
 /** Lower-cases and trims; returns undefined when the header is missing or junk. */
@@ -123,8 +187,17 @@ export function parseDocumentTypeOption(value: FormDataEntryValue | null): Docum
   return isDocumentType(value) ? value : "auto";
 }
 
+/**
+ * True for doc types that route as REF^I12 with OBR-24=PHY (Genie Incoming
+ * Letters). Includes the new `consult_letter` (specialist→GP correspondence)
+ * which Nicole confirmed should land in the same inbox as referrals.
+ */
 export function isReferralDocumentType(documentType: DocumentType): boolean {
-  return documentType === "referral_letter" || documentType === "gp_referral";
+  return (
+    documentType === "referral_letter" ||
+    documentType === "gp_referral" ||
+    documentType === "consult_letter"
+  );
 }
 
 export function isResultDocumentType(documentType: DocumentType): boolean {
@@ -133,6 +206,16 @@ export function isResultDocumentType(documentType: DocumentType): boolean {
   );
 }
 
+/**
+ * Display label for OBR-4 (and friendly UI text). The collapsed taxonomy is:
+ *
+ *   Pathology Result · Radiology Result · Referral · Consult Letter ·
+ *   Correspondence (catch-all for consent_form / generic).
+ *
+ * Nicole's UI labels are slightly different (sentence case, see
+ * `prettifyDocType` in app/components/auditShared.ts) — that file owns the
+ * dashboard labels; this one owns the HL7 OBR-4 label.
+ */
 export function documentTypeLabel(documentType: DocumentType): string {
   switch (documentType) {
     case "pathology_result":
@@ -142,6 +225,8 @@ export function documentTypeLabel(documentType: DocumentType): string {
     case "referral_letter":
     case "gp_referral":
       return "Referral";
+    case "consult_letter":
+      return "Consult Letter";
     case "consent_form":
     case "generic":
     default:
@@ -189,6 +274,7 @@ export function diagnosticServiceSectionFor(
       return "RAD";
     case "referral_letter":
     case "gp_referral":
+    case "consult_letter":
       return "PHY";
     default:
       return undefined;

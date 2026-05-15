@@ -1,0 +1,225 @@
+<!--
+  Fictional analog of "testing example 2.pdf" (kept out of git in docs/latest/).
+
+  Same structural shape as the osteoarthritis template but with a different
+  chronic condition (urticaria + asthma) and a different fictional patient /
+  GP. Addressee is a different BJC doctor from DEFAULT_BJC_DOCTORS.
+
+  All names, dates, addresses, provider numbers are invented.
+-->
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8" />
+<style>
+  body {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 11pt;
+    color: #111;
+    padding: 24px 32px;
+    line-height: 1.45;
+    margin: 0;
+  }
+  .letterhead {
+    border-bottom: 1px solid #999;
+    padding-bottom: 12px;
+    margin-bottom: 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .practice-name {
+    font-size: 16pt;
+    font-weight: 700;
+    color: #1f3a64;
+    margin: 0;
+  }
+  .practice-details {
+    font-size: 9.5pt;
+    color: #444;
+    line-height: 1.4;
+  }
+  .right-col {
+    font-size: 9.5pt;
+    color: #444;
+    text-align: right;
+  }
+  .meta {
+    font-size: 9pt;
+    color: #555;
+    margin-bottom: 18px;
+  }
+  .addressee { margin-bottom: 18px; }
+  .salutation { margin-bottom: 12px; }
+  .opening { margin-bottom: 14px; }
+  .section-heading {
+    font-weight: 700;
+    color: #1f3a64;
+    margin-top: 16px;
+    margin-bottom: 6px;
+    font-size: 10.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 6px;
+    font-size: 10pt;
+  }
+  th, td {
+    padding: 4px 8px;
+    border: 1px solid #bbb;
+    text-align: left;
+  }
+  th {
+    background: #f2f2f2;
+    font-weight: 600;
+  }
+  ul.problem-list { list-style: none; padding-left: 0; }
+  ul.problem-list li {
+    padding: 3px 0;
+    border-bottom: 1px solid #eee;
+    font-size: 10.5pt;
+  }
+  ul.problem-list li .date {
+    display: inline-block;
+    width: 88px;
+    color: #555;
+    font-weight: 600;
+  }
+  .signature { margin-top: 28px; }
+  .signature-line {
+    border-top: 1px solid #888;
+    width: 220px;
+    margin-top: 28px;
+    padding-top: 4px;
+    font-size: 10pt;
+  }
+  .footer {
+    margin-top: 30px;
+    padding-top: 8px;
+    border-top: 1px dotted #aaa;
+    font-size: 8pt;
+    color: #777;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<div class="letterhead">
+  <div>
+    <h1 class="practice-name">Hawksbury Family Medical</h1>
+    <div class="practice-details">
+      Shop 6, 142 Macquarie Road · Windsor NSW 2756<br/>
+      Phone (02) 4577 6688 · Fax (02) 4577 6612<br/>
+      ABN 47 305 882 119
+    </div>
+  </div>
+  <div class="right-col">
+    HPI-O 8003 6280 9215 7104<br/>
+    admin@hawksburyfamily.com.au
+  </div>
+</div>
+
+<div class="meta">24 March 2026</div>
+
+<div class="addressee">
+  Dr Herman Lau<br/>
+  BJC Health<br/>
+  Level 1, 142 Marsden Street<br/>
+  Parramatta NSW 2150
+</div>
+
+<div class="salutation"><strong>Dear Dr Lau,</strong></div>
+
+<div class="opening">
+  <strong>Re: Mr Benjamin Whitfield — DOB 17/09/1972</strong><br/>
+  31 Glenmore Place, Pitt Town NSW 2756 · Phone 0421 668 933<br/>
+  Medicare 4422 11907 8 · Reference 2
+</div>
+
+<p>
+Thank you for seeing Mr Whitfield, who is 53 years of age, for ongoing review
+and management of his chronic spontaneous urticaria and concurrent moderate
+persistent asthma. He has had a difficult three months with daily wheal
+breakthrough on his current omalizumab and we would value your re-assessment.
+</p>
+
+<p>
+He continues to work full time as a wholesale produce manager — frequent early
+starts, cold loading docks, and recent shifts to refrigerated handling roles
+seem to coincide with worse symptom days. I have asked him to keep a simple
+flare diary which he can bring to his appointment.
+</p>
+
+<div class="section-heading">Past Medical History</div>
+<ul class="problem-list">
+  <li><span class="date">2020</span>Chronic spontaneous urticaria — daily wheals on rest days, worse with cold air</li>
+  <li><span class="date">17/05/2018</span>Moderate persistent asthma — well controlled on combination ICS/LABA until recent flare</li>
+  <li><span class="date">2015</span>Allergic rhinitis (perennial)</li>
+  <li><span class="date">09/11/2012</span>Atopic dermatitis (childhood onset, mostly quiescent)</li>
+  <li><span class="date">2009</span>GORD — on PPI as needed</li>
+  <li><span class="date">2003</span>Right shoulder rotator cuff repair (work-related)</li>
+</ul>
+
+<div class="section-heading">Current Medications</div>
+<table>
+  <thead>
+    <tr>
+      <th>Medication</th>
+      <th>Dose</th>
+      <th>Frequency</th>
+      <th>Started</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>Omalizumab (Xolair)</td><td>300 mg SC</td><td>monthly</td><td>2023</td></tr>
+    <tr><td>Fexofenadine</td><td>180 mg</td><td>BD (up-dosed)</td><td>2020</td></tr>
+    <tr><td>Cetirizine</td><td>10 mg</td><td>nocte (added recently)</td><td>Jan 2026</td></tr>
+    <tr><td>Salmeterol/Fluticasone (Seretide)</td><td>250 mcg</td><td>1 puff BD</td><td>2018</td></tr>
+    <tr><td>Salbutamol</td><td>100 mcg</td><td>PRN</td><td>2018</td></tr>
+    <tr><td>Mometasone nasal spray</td><td>50 mcg</td><td>1 spray each nostril daily</td><td>2015</td></tr>
+    <tr><td>Pantoprazole</td><td>40 mg</td><td>daily PRN</td><td>2009</td></tr>
+  </tbody>
+</table>
+
+<div class="section-heading">Allergies</div>
+<p>NSAIDs (urticaria flare). No food allergies confirmed; mild oral allergy to stone fruit.</p>
+
+<div class="section-heading">Social History</div>
+<p>
+Lives with his wife Sarah and one teenage daughter. Non-smoker (gave up
+in 2014). Occasional alcohol on weekends. Active outdoor lifestyle —
+bushwalks most weekends — which has been curtailed by the recent flare.
+</p>
+
+<p>
+He would benefit greatly from your input on whether the omalizumab dose
+warrants escalation, whether a trial of cyclosporine is appropriate, and
+whether the recent asthma deterioration is contributing to his urticaria
+burden. He is happy to travel to Parramatta and any appointment slot will
+work for him.
+</p>
+
+<p>
+Many thanks for your ongoing care of Mr Whitfield, who is a lovely and
+very compliant patient.
+</p>
+
+<div class="signature">
+  <p>Yours sincerely,</p>
+  <div class="signature-line">
+    <strong>Dr Catherine Whittaker</strong><br/>
+    MBBS DRACOG FRACGP<br/>
+    Provider No. 1738294F
+  </div>
+</div>
+
+<div class="footer">
+  Sent via Medical Objects · MSG ID MO-HFM-2026-03-24-2108 · This document is intended only for the addressee
+</div>
+
+</body>
+</html>
