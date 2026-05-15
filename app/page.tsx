@@ -12,7 +12,6 @@ import { ConvertActions } from "./components/converter/ConvertActions";
 import {
   loadPersistedSimulatedMailbox,
   persistSimulatedMailbox,
-  SimulateInboxSelect,
   type SimulatedMailbox,
 } from "./components/converter/SimulateInboxSelect";
 import { SupportedFormatBadges } from "./components/converter/SupportedFormatBadges";
@@ -144,12 +143,6 @@ export default function Home() {
             <div className="px-7 py-6 space-y-5">
               <SupportedFormatBadges />
 
-              <SimulateInboxSelect
-                value={simulatedMailbox}
-                onChange={handleSimulatedMailboxChange}
-                disabled={isConverting}
-              />
-
               <UploadZone
                 isDragging={isDragging}
                 onDragOver={handleDragOver}
@@ -210,11 +203,14 @@ export default function Home() {
                   autoFile={autoFile}
                   sendToDoctor={sendToDoctor}
                   selectedDoctorId={selectedDoctorId}
+                  simulatedMailbox={simulatedMailbox}
+                  isConverting={isConverting}
                   onDocumentTypeChange={setDocumentType}
                   onCarrierChange={setCarrier}
                   onAutoFileChange={setAutoFile}
                   onSendToDoctorChange={setSendToDoctor}
                   onSelectedDoctorIdChange={setSelectedDoctorId}
+                  onSimulatedMailboxChange={handleSimulatedMailboxChange}
                 />
               )}
 

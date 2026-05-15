@@ -50,16 +50,17 @@ export function SimulateInboxSelect({
     <div className="space-y-1.5">
       <label
         htmlFor="simulate-inbox"
-        className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]"
+        className="text-sm text-[var(--text-secondary)]"
       >
-        Simulate inbox
+        Inbox
       </label>
       <select
         id="simulate-inbox"
         value={value}
         onChange={(e) => onChange(e.target.value as SimulatedMailbox)}
         disabled={disabled}
-        className="w-full input"
+        aria-label="Inbox"
+        className="select-field w-full"
       >
         {OPTIONS.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -68,7 +69,7 @@ export function SimulateInboxSelect({
         ))}
       </select>
       {hint && (
-        <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+        <p className="text-xs text-[var(--text-muted)] leading-relaxed">
           {hint}
         </p>
       )}

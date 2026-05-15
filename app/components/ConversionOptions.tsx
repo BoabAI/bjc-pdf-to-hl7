@@ -7,6 +7,10 @@ import type {
 } from "@/lib/conversion-config";
 import { SectionHeader } from "./ui/SectionHeader";
 import { CogIcon } from "./ui/icons";
+import {
+  SimulateInboxSelect,
+  type SimulatedMailbox,
+} from "./converter/SimulateInboxSelect";
 
 interface ConversionOptionsProps {
   documentType: DocumentTypeOption;
@@ -19,11 +23,16 @@ interface ConversionOptionsProps {
   autoFile: boolean;
   sendToDoctor: boolean;
   selectedDoctorId: string;
+  /** Simulated inbox selection (drives the `x-source-mailbox` header on POST). */
+  simulatedMailbox: SimulatedMailbox;
+  /** Whether the converter is busy — disables the inbox dropdown mid-run. */
+  isConverting?: boolean;
   onDocumentTypeChange: (value: DocumentTypeOption) => void;
   onCarrierChange: (value: string) => void;
   onAutoFileChange: (value: boolean) => void;
   onSendToDoctorChange: (value: boolean) => void;
   onSelectedDoctorIdChange: (value: string) => void;
+  onSimulatedMailboxChange: (value: SimulatedMailbox) => void;
 }
 
 export function ConversionOptions({
@@ -36,15 +45,24 @@ export function ConversionOptions({
   autoFile,
   sendToDoctor,
   selectedDoctorId,
+  simulatedMailbox,
+  isConverting = false,
   onDocumentTypeChange,
   onCarrierChange,
   onAutoFileChange,
   onSendToDoctorChange,
   onSelectedDoctorIdChange,
+  onSimulatedMailboxChange,
 }: ConversionOptionsProps) {
   return (
-    <div className="card-inner p-5 space-y-4 animate-fade-in">
+    <div className="card-inner p-5 space-y-5 animate-fade-in">
       <SectionHeader icon={<CogIcon />} title="Conversion options" />
+
+      <SimulateInboxSelect
+        value={simulatedMailbox}
+        onChange={onSimulatedMailboxChange}
+        disabled={isConverting}
+      />
 
       {showDocumentType ? (
         <div className="space-y-1.5">
@@ -58,7 +76,7 @@ export function ConversionOptions({
             id="documentType"
             value={documentType}
             onChange={(e) => onDocumentTypeChange(e.target.value as DocumentTypeOption)}
-            className="select-field w-full max-w-xs"
+            className="select-field w-full"
           >
             <option value="auto">Auto-detect</option>
             <option value="consent_form">Consent Form</option>
@@ -83,7 +101,7 @@ export function ConversionOptions({
           id="carrier"
           value={carrier}
           onChange={(e) => onCarrierChange(e.target.value)}
-          className="select-field w-full max-w-xs"
+          className="select-field w-full"
           disabled={carriers.length === 0}
         >
           {carriers.length === 0 && <option value="">Loading…</option>}
@@ -129,7 +147,7 @@ export function ConversionOptions({
             <select
               value={selectedDoctorId}
               onChange={(e) => onSelectedDoctorIdChange(e.target.value)}
-              className="select-field w-full max-w-xs text-sm"
+              className="select-field w-full text-sm"
               disabled={doctors.length === 0}
             >
               <option value="">Select a doctor…</option>
