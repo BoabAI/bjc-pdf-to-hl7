@@ -16,7 +16,6 @@ import {
 } from "../components/auditShared";
 import { AuditDateRangeHeader } from "../components/audit/AuditDateRangeHeader";
 import { AuditPageState } from "../components/audit/AuditPageState";
-import { SettingsPanel } from "../components/dashboard/SettingsPanel";
 
 type TremorColor =
   | "blue"
@@ -271,8 +270,6 @@ export default function StatsPage(): JSX.Element {
             onFromChange={setFrom}
             onToChange={setTo}
           />
-
-          <SettingsPanel />
 
           <AuditPageState loading={loading} error={error} hasRows={hasRows}>
             <section className="grid grid-cols-1 md:grid-cols-3 gap-4">

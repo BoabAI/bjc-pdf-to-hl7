@@ -47,6 +47,7 @@ const ITEMS: NavItem[] = [
   { href: "/log", label: "Log" },
   { href: "/stats", label: "Stats" },
   { href: "/reference", label: "Reference Data" },
+  { href: "/settings", label: "Settings" },
   { href: "/compliance", label: "Data Handling" },
   { href: "/privacy", label: "Privacy" },
 ];
