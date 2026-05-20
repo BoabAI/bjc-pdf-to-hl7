@@ -9,6 +9,7 @@ import {
   type Doctor,
 } from "@/lib/conversion-config";
 import {
+  AuthExpiredError,
   deleteCarrier as apiDeleteCarrier,
   deleteDoctor as apiDeleteDoctor,
   getReferenceData,
@@ -26,6 +27,16 @@ function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === "string") return error;
   return "Unknown error";
+}
+
+/**
+ * Redirect to /login with a return path so the user lands back here after
+ * signing in. Server-rendered fallback: do nothing (we're not in a browser).
+ */
+function redirectToLogin(): void {
+  if (typeof window === "undefined") return;
+  const returnTo = encodeURIComponent(window.location.pathname);
+  window.location.assign(`/login?returnTo=${returnTo}`);
 }
 
 export interface UseReferenceDataResult {
@@ -72,8 +83,12 @@ export function useReferenceData(): UseReferenceDataResult {
         setCarriers(cs);
         const def = cs.find((c) => c.isDefault);
         if (def) setCarrier(def.value);
-      } catch {
+      } catch (err) {
         if (cancelled) return;
+        if (err instanceof AuthExpiredError) {
+          redirectToLogin();
+          return;
+        }
         // Bundled defaults are intentional fallback when the API is unreachable.
         setDoctors(DEFAULT_BJC_DOCTORS);
         setCarriers(DEFAULT_CARRIERS);
@@ -104,6 +119,12 @@ export function useReferenceData(): UseReferenceDataResult {
         setError(null);
       } catch (err) {
         rollback();
+        if (err instanceof AuthExpiredError) {
+          // Don't surface a banner — the redirect will land them on /login
+          // where they'll see the sign-in screen instead.
+          redirectToLogin();
+          return;
+        }
         setError(errorMessage(err));
       } finally {
         setSaving(false);

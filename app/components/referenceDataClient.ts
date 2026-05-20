@@ -5,6 +5,18 @@ import { isReferenceDataResponse } from "@/lib/contracts/reference-data";
 
 const ENDPOINT = "/api/reference-data";
 
+/**
+ * Thrown when the API returns 401 (session expired / not signed in). Callers
+ * should catch this specifically and trigger a `/login` redirect rather than
+ * showing a generic "Unauthorized" string in the save-failed banner.
+ */
+export class AuthExpiredError extends Error {
+  constructor(message = "Your session has expired. Please sign in again.") {
+    super(message);
+    this.name = "AuthExpiredError";
+  }
+}
+
 async function readErrorMessage(response: Response): Promise<string> {
   try {
     const data = (await response.json()) as { error?: unknown };
@@ -17,9 +29,16 @@ async function readErrorMessage(response: Response): Promise<string> {
   return response.statusText || `Request failed (${response.status})`;
 }
 
+async function throwForResponse(response: Response): Promise<never> {
+  if (response.status === 401) {
+    throw new AuthExpiredError();
+  }
+  throw new Error(await readErrorMessage(response));
+}
+
 /**
- * Fetch the full reference-data set. Throws on network errors, non-2xx
- * responses, or malformed JSON.
+ * Fetch the full reference-data set. Throws `AuthExpiredError` on 401, or a
+ * generic Error on other non-2xx responses / network errors / malformed JSON.
  */
 export async function getReferenceData(): Promise<{
   doctors: Doctor[];
@@ -27,7 +46,7 @@ export async function getReferenceData(): Promise<{
 }> {
   const response = await fetch(ENDPOINT, { cache: "no-store" });
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwForResponse(response);
   }
   const json: unknown = await response.json();
   if (!isReferenceDataResponse(json) || !json.success) {
@@ -50,7 +69,7 @@ async function putRow(kind: "DOCTOR" | "CARRIER", item: Doctor | Carrier): Promi
     body: JSON.stringify({ kind, item }),
   });
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwForResponse(response);
   }
 }
 
@@ -68,7 +87,7 @@ async function deleteRow(kind: "DOCTOR" | "CARRIER", id: string): Promise<void> 
     method: "DELETE",
   });
   if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+    await throwForResponse(response);
   }
 }
 

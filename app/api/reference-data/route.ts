@@ -23,20 +23,11 @@ function containsHL7SeparatorOrControl(value: string): boolean {
   return HL7_SEPARATOR_OR_CONTROL.test(value);
 }
 
-// Provider numbers are intentionally permissive: real Medicare provider numbers
-// are 8 chars (6 digits + check digit + location char), but seed/in-progress
-// configurations may not yet match that strict shape. We only require that
-// the value cannot corrupt HL7 segments.
-const PROVIDER_NUMBER_RE = /^[A-Z0-9]{1,12}$/i;
-
-function isValidProviderNumber(value: string): boolean {
-  return PROVIDER_NUMBER_RE.test(value);
-}
-
 // Sanity caps to prevent absurd payloads (a 297-char doctor name was accepted
 // before this was added). The HL7 spec limits some of these fields, but we
 // pick generous human-friendly bounds rather than tight HL7 lengths.
 const MAX_DOCTOR_NAME_LEN = 100;
+const MAX_PROVIDER_NUMBER_LEN = 20;
 const MAX_CARRIER_VALUE_LEN = 20;
 const MAX_CARRIER_LABEL_LEN = 60;
 
@@ -67,24 +58,30 @@ function validateDoctor(value: unknown): ValidatedDoctor {
   if (!isDoctorShape(value)) {
     return { ok: false, error: "Invalid doctor payload" };
   }
-  if (!isValidProviderNumber(value.providerNumber)) {
+  if (containsHL7SeparatorOrControl(value.providerNumber)) {
     return {
       ok: false,
       error:
-        "Invalid doctor payload: providerNumber must be 1-12 alphanumeric characters (no HL7 separators)",
+        "Provider number must not contain HL7 separators (|, ^, ~, &, \\) or control characters.",
+    };
+  }
+  if (value.providerNumber.length > MAX_PROVIDER_NUMBER_LEN) {
+    return {
+      ok: false,
+      error: `Provider number must be ${MAX_PROVIDER_NUMBER_LEN} characters or fewer.`,
     };
   }
   if (containsHL7SeparatorOrControl(value.name)) {
     return {
       ok: false,
       error:
-        "Invalid doctor payload: name must not contain HL7 separators or control characters",
+        "Doctor name must not contain HL7 separators (|, ^, ~, &, \\) or control characters.",
     };
   }
   if (value.name.length > MAX_DOCTOR_NAME_LEN) {
     return {
       ok: false,
-      error: `Invalid doctor payload: name must be ${MAX_DOCTOR_NAME_LEN} characters or fewer`,
+      error: `Doctor name must be ${MAX_DOCTOR_NAME_LEN} characters or fewer.`,
     };
   }
   return { ok: true, value };

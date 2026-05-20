@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   cleanMedicareNumber,
   cleanPhone,
+  cleanProviderNumber,
   cleanStringArray,
   convertDateToHL7,
   emptyPatientData,
@@ -67,6 +68,51 @@ describe("nullableString", () => {
     expect(nullableString("   ")).toBeUndefined();
     expect(nullableString(null)).toBeUndefined();
     expect(nullableString(42)).toBeUndefined();
+  });
+});
+
+describe("cleanProviderNumber", () => {
+  test("accepts the canonical Medicare format with a space", () => {
+    // Real Medicare provider numbers are usually displayed as "123456 7Y"
+    // (6 digits + space + check digit + 1-char location). PDFs often carry
+    // them in that shape and must survive extraction unchanged.
+    expect(cleanProviderNumber("123456 7Y")).toBe("123456 7Y");
+  });
+
+  test("accepts seed-style 8-char alphanumeric", () => {
+    expect(cleanProviderNumber("9000001Z")).toBe("9000001Z");
+  });
+
+  test("accepts hyphenated variants seen in some sender footers", () => {
+    expect(cleanProviderNumber("9876-543T")).toBe("9876-543T");
+  });
+
+  test("trims surrounding whitespace but preserves interior spaces", () => {
+    expect(cleanProviderNumber("  123456 7Y  ")).toBe("123456 7Y");
+  });
+
+  test("returns undefined when the value contains an HL7 separator", () => {
+    expect(cleanProviderNumber("1234567|EVIL")).toBeUndefined();
+    expect(cleanProviderNumber("ABC^DEF")).toBeUndefined();
+    expect(cleanProviderNumber("XX&YY")).toBeUndefined();
+    expect(cleanProviderNumber("A~B")).toBeUndefined();
+    expect(cleanProviderNumber("PATH\\BAD")).toBeUndefined();
+  });
+
+  test("returns undefined when the value contains an ASCII control char", () => {
+    expect(cleanProviderNumber("123456")).toBeUndefined();
+  });
+
+  test("returns undefined for empty / whitespace-only / non-string inputs", () => {
+    expect(cleanProviderNumber("")).toBeUndefined();
+    expect(cleanProviderNumber("   ")).toBeUndefined();
+    expect(cleanProviderNumber(null)).toBeUndefined();
+    expect(cleanProviderNumber(undefined)).toBeUndefined();
+    expect(cleanProviderNumber(123)).toBeUndefined();
+  });
+
+  test("rejects absurdly long values", () => {
+    expect(cleanProviderNumber("X".repeat(50))).toBeUndefined();
   });
 });
 
