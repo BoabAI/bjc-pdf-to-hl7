@@ -29,9 +29,17 @@ describe("convertDateToHL7", () => {
 
 describe("normalizeDocumentType", () => {
   test("returns the value when it is a known document type", () => {
-    expect(normalizeDocumentType("referral_letter")).toBe("referral_letter");
+    expect(normalizeDocumentType("referral")).toBe("referral");
     expect(normalizeDocumentType("pathology_result")).toBe("pathology_result");
     expect(normalizeDocumentType("consult_letter")).toBe("consult_letter");
+  });
+
+  test("maps legacy gp_referral and referral_letter to the canonical referral", () => {
+    // Pre-collapse model outputs (or older fixtures) used `gp_referral` and
+    // `referral_letter`. They must alias forward to `referral` rather than
+    // falling through to the `generic` fallback.
+    expect(normalizeDocumentType("gp_referral")).toBe("referral");
+    expect(normalizeDocumentType("referral_letter")).toBe("referral");
   });
 
   test("falls back to generic by default for unknown values", () => {
@@ -191,7 +199,7 @@ describe("emptyPatientData", () => {
 });
 
 describe("normalizeVisionToolInput — happy path", () => {
-  test("returns a fully populated PatientData and ReferralInfo", () => {
+  test("returns a fully populated PatientData and ReferralInfo (legacy gp_referral aliases to referral)", () => {
     const result = normalizeVisionToolInput({
       documentType: "gp_referral",
       firstName: "  Jane  ",
@@ -213,7 +221,8 @@ describe("normalizeVisionToolInput — happy path", () => {
       ccNames: ["Dr A. Maundrell", "Dr Lawrence Ong"],
     });
 
-    expect(result.documentType).toBe("gp_referral");
+    // Legacy `gp_referral` model output aliases forward to canonical `referral`.
+    expect(result.documentType).toBe("referral");
     expect(result.data).toEqual({
       firstName: "Jane",
       lastName: "Smith",
@@ -290,11 +299,11 @@ describe("normalizeVisionToolInput — invalid documentType", () => {
         dob: "08/11/1985",
         sex: "F",
       },
-      "gp_referral"
+      "referral"
     );
-    expect(result.documentType).toBe("gp_referral");
+    expect(result.documentType).toBe("referral");
     expect(result.warnings).toContain(
-      "Vision extraction returned an invalid document type; defaulted to gp_referral"
+      "Vision extraction returned an invalid document type; defaulted to referral"
     );
   });
 });
@@ -486,7 +495,7 @@ describe("normalizeVisionToolInput — no letterSubtype promote/demote", () => {
     );
   });
 
-  test("does NOT emit a classification-demoted warning", () => {
+  test("does NOT emit a classification-demoted warning (legacy referral_letter aliases to referral)", () => {
     const result = normalizeVisionToolInput({
       documentType: "referral_letter",
       firstName: "Jane",
@@ -496,7 +505,7 @@ describe("normalizeVisionToolInput — no letterSubtype promote/demote", () => {
       senderName: "Dr Sarah Jones",
       addresseeName: "Dr Michael Brown",
     });
-    expect(result.documentType).toBe("referral_letter");
+    expect(result.documentType).toBe("referral");
     expect(result.warnings.some((w) => w.startsWith("classification demoted"))).toBe(
       false
     );

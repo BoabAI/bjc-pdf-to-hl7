@@ -3,14 +3,14 @@ import type {
   DocumentType,
   MailboxSource,
 } from "./domain/types";
+import { resolveDocumentTypeAlias } from "./domain/document-type-aliases";
 
 export const MAX_PDF_SIZE_BYTES = 10 * 1024 * 1024;
 export const DEFAULT_CARRIER = "SMECAI";
 
 export const DOCUMENT_TYPES: DocumentType[] = [
   "consent_form",
-  "referral_letter",
-  "gp_referral",
+  "referral",
   "consult_letter",
   "pathology_result",
   "radiology_result",
@@ -83,7 +83,7 @@ export function allowedDocTypesForCategory(
     return ["pathology_result", "radiology_result"];
   }
   if (category === "letters") {
-    return ["referral_letter", "gp_referral", "consult_letter"];
+    return ["referral", "consult_letter"];
   }
   return [...DOCUMENT_TYPES];
 }
@@ -184,20 +184,23 @@ export function isDocumentType(value: unknown): value is DocumentType {
 }
 
 export function parseDocumentTypeOption(value: FormDataEntryValue | null): DocumentTypeOption {
+  // Accept legacy aliases (`gp_referral`, `referral_letter`) on input — they
+  // map forward to `referral`. Saved client preferences and any external
+  // callers still using the old strings keep working.
+  if (typeof value === "string") {
+    const aliased = resolveDocumentTypeAlias(value);
+    if (aliased) return aliased;
+  }
   return isDocumentType(value) ? value : "auto";
 }
 
 /**
  * True for doc types that route as REF^I12 with OBR-24=PHY (Genie Incoming
- * Letters). Includes the new `consult_letter` (specialist→GP correspondence)
- * which Nicole confirmed should land in the same inbox as referrals.
+ * Letters). Includes `consult_letter` (specialist→GP correspondence) which
+ * Nicole confirmed should land in the same inbox as referrals.
  */
 export function isReferralDocumentType(documentType: DocumentType): boolean {
-  return (
-    documentType === "referral_letter" ||
-    documentType === "gp_referral" ||
-    documentType === "consult_letter"
-  );
+  return documentType === "referral" || documentType === "consult_letter";
 }
 
 export function isResultDocumentType(documentType: DocumentType): boolean {
@@ -222,8 +225,7 @@ export function documentTypeLabel(documentType: DocumentType): string {
       return "Pathology Result";
     case "radiology_result":
       return "Radiology Result";
-    case "referral_letter":
-    case "gp_referral":
+    case "referral":
       return "Referral";
     case "consult_letter":
       return "Consult Letter";
@@ -272,8 +274,7 @@ export function diagnosticServiceSectionFor(
       return "LAB";
     case "radiology_result":
       return "RAD";
-    case "referral_letter":
-    case "gp_referral":
+    case "referral":
     case "consult_letter":
       return "PHY";
     default:

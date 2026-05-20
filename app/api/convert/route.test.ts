@@ -77,7 +77,7 @@ const baseExtraction = {
     medicareRef: "3",
   },
   warnings: ["Using Bedrock vision"],
-  documentType: "referral_letter" as const,
+  documentType: "referral" as const,
   extractionMethod: "vision" as const,
 };
 
@@ -334,7 +334,7 @@ describe("POST /api/convert Bedrock flow", () => {
     expect(response.status).toBe(200);
     expect(data).toEqual({
       success: true,
-      documentType: "referral_letter",
+      documentType: "referral",
     });
   });
 
@@ -342,13 +342,13 @@ describe("POST /api/convert Bedrock flow", () => {
     await POST(
       createConvertRequest({
         detectOnly: true,
-        documentType: "gp_referral",
+        documentType: "referral",
       })
     );
 
     expect(extractPatientDataMock).toHaveBeenCalledWith(
       expect.any(Buffer),
-      "gp_referral",
+      "referral",
       undefined,
       undefined
     );
@@ -448,7 +448,7 @@ describe("POST /api/convert Bedrock flow", () => {
   test("uses REF^I12 message type for referral_letter documents", async () => {
     extractPatientDataMock.mockResolvedValue({
       ...baseExtraction,
-      documentType: "referral_letter",
+      documentType: "referral",
     });
 
     const response = await POST(createConvertRequest());
@@ -462,7 +462,7 @@ describe("POST /api/convert Bedrock flow", () => {
   test("uses REF^I12 message type for gp_referral documents", async () => {
     extractPatientDataMock.mockResolvedValue({
       ...baseExtraction,
-      documentType: "gp_referral",
+      documentType: "referral",
     });
 
     const response = await POST(createConvertRequest());
@@ -490,7 +490,7 @@ describe("POST /api/convert Bedrock flow", () => {
   test("includes referralInfo in HL7 output when present", async () => {
     extractPatientDataMock.mockResolvedValue({
       ...baseExtraction,
-      documentType: "referral_letter",
+      documentType: "referral",
       referralInfo: {
         senderName: "Dr Sarah Jones",
         senderClinic: "Springfield Medical",
@@ -576,7 +576,7 @@ describe("POST /api/convert Bedrock flow", () => {
   test("referral_letter still routes to PHY in OBR-24 and uses Referral label", async () => {
     extractPatientDataMock.mockResolvedValue({
       ...baseExtraction,
-      documentType: "referral_letter",
+      documentType: "referral",
     });
 
     const response = await POST(createConvertRequest());
@@ -975,7 +975,7 @@ describe("POST /api/convert X-Source-Mailbox header", () => {
   test("flags mailboxDisagreement=true when results mailbox returns a referral classification", async () => {
     extractPatientDataMock.mockResolvedValue({
       ...baseExtraction,
-      documentType: "gp_referral",
+      documentType: "referral",
     });
 
     const response = await POST(
@@ -1013,7 +1013,7 @@ describe("POST /api/convert X-Source-Mailbox header", () => {
   test("does not flag disagreement when classification matches mailbox family", async () => {
     extractPatientDataMock.mockResolvedValue({
       ...baseExtraction,
-      documentType: "gp_referral",
+      documentType: "referral",
     });
 
     const response = await POST(
@@ -1206,7 +1206,7 @@ describe("POST /api/convert OBR-16 missing (results documents)", () => {
     process.env.STRICT_REQUIRED_FIELDS = "true";
     extractPatientDataMock.mockResolvedValue({
       ...baseExtraction,
-      documentType: "referral_letter",
+      documentType: "referral",
       referralInfo: {
         addresseeName: "Dr Michael Brown",
       },

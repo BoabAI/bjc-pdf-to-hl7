@@ -43,9 +43,9 @@ export interface HL7Options {
    * Drives OBR-16 source selection. For results documents (pathology_result,
    * radiology_result) the LAB is the sender and the ordering doctor lives on
    * the addressee; OBR-16 ("Ordered By") must therefore source from
-   * `referralInfo.addresseeName`. For all other types (referral_letter,
-   * gp_referral, consent_form, generic) OBR-16 keeps the legacy behaviour of
-   * sourcing from `referralInfo.senderName`. When omitted, the legacy
+   * `referralInfo.addresseeName`. For all other types (referral,
+   * consult_letter, consent_form, generic) OBR-16 keeps the legacy behaviour
+   * of sourcing from `referralInfo.senderName`. When omitted, the legacy
    * (sender-based) behaviour applies.
    */
   documentType?: DocumentType;
@@ -238,7 +238,7 @@ function buildOBR(options: HL7Options, context: HL7BuildContext): string {
   // For results documents (pathology_result, radiology_result) the LAB is the
   // sender and the ordering doctor sits on the addressee block, so OBR-16 must
   // source from `referralInfo.addresseeName`. For every other document type
-  // (referral_letter, gp_referral, consent_form, generic, or missing) OBR-16
+  // (referral, consult_letter, consent_form, generic, or missing) OBR-16
   // sources from `referralInfo.senderName` — the historical behaviour.
   // If the chosen source is empty, OBR-16 is left empty rather than synthesised.
   let orderingProviderField = "";

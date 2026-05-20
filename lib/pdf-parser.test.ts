@@ -21,7 +21,7 @@ const baseVisionResult = {
   },
   warnings: ["Using Bedrock vision"],
   model: "au.anthropic.claude-sonnet-4-6",
-  documentType: "referral_letter" as const,
+  documentType: "referral" as const,
   classificationConfidence: 100,
   tokensUsed: { input: 123, output: 45 },
 };
@@ -45,7 +45,7 @@ describe("extractPatientData", () => {
       success: true,
       data: baseVisionResult.data,
       warnings: baseVisionResult.warnings,
-      documentType: "referral_letter",
+      documentType: "referral",
       extractionMethod: "vision",
       classificationConfidence: 100,
     });
@@ -58,17 +58,17 @@ describe("extractPatientData", () => {
     const pdfBuffer = Buffer.from("%PDF-1.4 hint-matches");
     extractPatientDataWithVisionMock.mockResolvedValue({
       ...baseVisionResult,
-      documentType: "gp_referral",
+      documentType: "referral",
     });
 
-    const result = await extractPatientData(pdfBuffer, "gp_referral");
+    const result = await extractPatientData(pdfBuffer, "referral");
 
     expect(extractPatientDataWithVisionMock).toHaveBeenCalledWith(pdfBuffer, {
-      documentTypeHint: "gp_referral",
+      documentTypeHint: "referral",
       bjcDoctors: undefined,
       mailboxCategory: undefined,
     });
-    expect(result.documentType).toBe("gp_referral");
+    expect(result.documentType).toBe("referral");
   });
 
   test("Bedrock classification wins when it disagrees with the hint", async () => {
@@ -83,10 +83,10 @@ describe("extractPatientData", () => {
       documentType: "pathology_result",
     });
 
-    const result = await extractPatientData(pdfBuffer, "referral_letter");
+    const result = await extractPatientData(pdfBuffer, "referral");
 
     expect(extractPatientDataWithVisionMock).toHaveBeenCalledWith(pdfBuffer, {
-      documentTypeHint: "referral_letter",
+      documentTypeHint: "referral",
       bjcDoctors: undefined,
       mailboxHint: undefined,
     });
@@ -97,7 +97,7 @@ describe("extractPatientData", () => {
     const pdfBuffer = Buffer.from("%PDF-1.4 no-hint");
     extractPatientDataWithVisionMock.mockResolvedValue({
       ...baseVisionResult,
-      documentType: "gp_referral",
+      documentType: "referral",
     });
 
     const result = await extractPatientData(pdfBuffer, "auto");
@@ -107,7 +107,7 @@ describe("extractPatientData", () => {
       bjcDoctors: undefined,
       mailboxHint: undefined,
     });
-    expect(result.documentType).toBe("gp_referral");
+    expect(result.documentType).toBe("referral");
   });
 
   test("forwards bjcDoctors and mailboxHint to the vision extractor", async () => {
@@ -129,11 +129,11 @@ describe("extractPatientData", () => {
 
     const result = await extractPatientData(
       Buffer.from("%PDF-1.4 catch"),
-      "gp_referral"
+      "referral"
     );
 
     expect(result.success).toBe(false);
-    expect(result.documentType).toBe("gp_referral");
+    expect(result.documentType).toBe("referral");
   });
 
   test("falls back to 'generic' when extraction throws and no hint is provided", async () => {

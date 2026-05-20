@@ -14,6 +14,7 @@
  */
 
 import { DOCUMENT_TYPES } from "../../conversion-config";
+import { resolveDocumentTypeAlias } from "../../domain/document-type-aliases";
 import type {
   DocumentType,
   PatientData,
@@ -49,6 +50,11 @@ export function normalizeDocumentType(
   value: unknown,
   fallback: DocumentType = "generic"
 ): DocumentType {
+  // Resolve legacy aliases first so older model outputs (`gp_referral`,
+  // `referral_letter`) map forward to the canonical `referral` before the
+  // membership check.
+  const aliased = resolveDocumentTypeAlias(value);
+  if (aliased) return aliased;
   return typeof value === "string" &&
     DOCUMENT_TYPES.includes(value as DocumentType)
     ? (value as DocumentType)
@@ -182,7 +188,17 @@ export function normalizeVisionToolInput(
     fallbackDocumentType
   );
 
-  if (raw.documentType !== undefined && raw.documentType !== documentType) {
+  // Warn only when the raw value didn't resolve via the legacy alias map AND
+  // wasn't a canonical type — that's a genuine "model returned junk" signal.
+  // A legacy alias being mapped forward (gp_referral → referral) is silent.
+  const isLegacyAlias =
+    typeof raw.documentType === "string" &&
+    resolveDocumentTypeAlias(raw.documentType) !== undefined;
+  if (
+    raw.documentType !== undefined &&
+    raw.documentType !== documentType &&
+    !isLegacyAlias
+  ) {
     warnings.push(
       `Vision extraction returned an invalid document type; defaulted to ${documentType}`
     );

@@ -37,14 +37,9 @@ describe("buildVisionPrompt — default (no hint)", () => {
 
 describe("buildVisionPrompt — document type hint", () => {
   test("includes a referral document type hint in the prompt", () => {
-    const prompt = buildVisionPrompt("referral_letter");
-    expect(prompt).toContain("A document type hint was provided: referral_letter");
+    const prompt = buildVisionPrompt("referral");
+    expect(prompt).toContain("A document type hint was provided: referral");
     expect(prompt).toContain("extract_patient_data tool");
-  });
-
-  test("includes gp_referral hint when provided", () => {
-    const prompt = buildVisionPrompt("gp_referral");
-    expect(prompt).toContain("A document type hint was provided: gp_referral");
   });
 
   test("includes consult_letter hint when provided", () => {
@@ -65,7 +60,7 @@ describe("buildVisionPrompt — BJC doctor list", () => {
   });
 
   test("omits the BJC_DOCTORS block when no doctor list is provided", () => {
-    const prompt = buildVisionPrompt("gp_referral");
+    const prompt = buildVisionPrompt("referral");
     expect(prompt).not.toContain("BJC_DOCTORS");
   });
 
@@ -82,14 +77,13 @@ describe("buildVisionPrompt — mailbox category constraint", () => {
     expect(prompt).toContain("pathology_result");
     expect(prompt).toContain("radiology_result");
     // Explicitly tells the model NOT to pick referral/consult/consent from results
-    expect(prompt).toContain("Do not pick referral_letter");
+    expect(prompt).toContain("Do not pick referral");
   });
 
-  test("letters mailbox narrows candidates to referral / gp_referral / consult / generic", () => {
+  test("letters mailbox narrows candidates to referral / consult / generic", () => {
     const prompt = buildVisionPrompt(undefined, undefined, "letters");
     expect(prompt).toContain("Upstream mailbox: letters");
-    expect(prompt).toContain("referral_letter");
-    expect(prompt).toContain("gp_referral");
+    expect(prompt).toContain("referral");
     expect(prompt).toContain("consult_letter");
     // Explicitly tells the model NOT to pick lab/imaging from letters
     expect(prompt).toContain("Do not pick pathology_result");
@@ -101,23 +95,23 @@ describe("buildVisionPrompt — mailbox category constraint", () => {
   });
 
   test("default mailbox argument is 'none' (free classification)", () => {
-    const prompt = buildVisionPrompt("referral_letter");
+    const prompt = buildVisionPrompt("referral");
     expect(prompt).not.toContain("Upstream mailbox:");
   });
 
   test("letters mailbox reiterates the 'Thank you for seeing' = referral rule", () => {
     const prompt = buildVisionPrompt(undefined, undefined, "letters");
     expect(prompt).toContain("Thank you for seeing");
-    expect(prompt).toContain("referral_letter");
+    expect(prompt).toContain("referral");
   });
 
   test("combines hint, mailbox, and doctor list when all three are present", () => {
     const prompt = buildVisionPrompt(
-      "referral_letter",
+      "referral",
       ["Dr A", "Dr B"],
       "letters"
     );
-    expect(prompt).toContain("A document type hint was provided: referral_letter");
+    expect(prompt).toContain("A document type hint was provided: referral");
     expect(prompt).toContain("Upstream mailbox: letters");
     expect(prompt).toContain("BJC_DOCTORS list");
     expect(prompt).toContain("Dr A");

@@ -38,7 +38,7 @@ curl -X POST -F "pdf=@/path/to/file.pdf" http://localhost:3000/api/convert
 curl -X POST -F "pdf=@/path/to/file.pdf" -F "detectOnly=true" http://localhost:3000/api/convert
 
 # Convert with specific document type and Genie options
-curl -X POST -F "pdf=@/path/to/file.pdf" -F "documentType=gp_referral" -F "autoFile=true" http://localhost:3000/api/convert
+curl -X POST -F "pdf=@/path/to/file.pdf" -F "documentType=referral" -F "autoFile=true" http://localhost:3000/api/convert
 
 # Convert with carrier and doctor list for addressee resolution
 curl -X POST -F "pdf=@/path/to/file.pdf" -F "carrier=MYAPP" -F 'bjcDoctors=["Dr Irwin Lim","Dr Herman Lau"]' http://localhost:3000/api/convert
@@ -92,11 +92,17 @@ Password auth via Next.js middleware (`middleware.ts`):
 
 Six document types are classified by Bedrock vision:
 - **`consent_form`** - BJC Health Patient Information and Consent Forms
-- **`referral_letter`** - Specialist referral letters and clinic letters
-- **`gp_referral`** - GP/Best Practice referral letters
+- **`referral`** - Referral letters from any sender (GP, specialist, clinic, allied health)
+- **`consult_letter`** - Specialist-to-GP consultation reports ("Thanks for referring…")
 - **`pathology_result`** - Pathology / lab reports (Douglass Hanly Moir, Laverty, Sonic, etc.)
 - **`radiology_result`** - Imaging reports (PRP, I-MED, Lumus, etc.)
 - **`generic`** - Any other medical PDF or unclear case
+
+Legacy `gp_referral` and `referral_letter` strings (from pre-2026-05-20 audit
+rows or external callers) are aliased forward to `referral` by
+`lib/domain/document-type-aliases.ts`. Historical audit rows in DynamoDB are
+not migrated — `prettifyDocType` maps all three values to "Referral letter"
+on the dashboard.
 
 ### Core Modules
 
@@ -119,7 +125,7 @@ Six document types are classified by Bedrock vision:
 
 **`lib/hl7-builder.ts`** - Generates HL7 v2.4 messages per ADRM specification. Supports two message types:
 - **ORU^R01** (results) for consent forms and generic documents
-- **REF^I12** (referrals) for referral_letter and gp_referral, with AU simplified REF profile in MSH-12
+- **REF^I12** (referrals) for `referral` and `consult_letter`, with AU simplified REF profile in MSH-12
 - MSH: Message header with AUS country code, 8859/1 charset, configurable carrier (MSH-3)
 - PID: Patient identification with Medicare format (`number-ref^^^AUSHIC^MC`)
 - PV1: Patient visit (Outpatient), routes to doctor via provider number (PV1-9)
@@ -147,7 +153,7 @@ OBR-24 (Diagnostic Service Section) drives which Genie inbox the document lands 
 
 | Document type | Message type | OBR-24 | Genie inbox |
 |---------------|--------------|--------|-------------|
-| `referral_letter`, `gp_referral` | `REF^I12` | `PHY` | Incoming Letters |
+| `referral`, `consult_letter` | `REF^I12` | `PHY` | Incoming Letters |
 | `pathology_result` | `ORU^R01` | `LAB` | Pathology |
 | `radiology_result` | `ORU^R01` | `RAD` | Radiology |
 | `consent_form`, `generic` | `ORU^R01` | (empty) | Genie default routing |

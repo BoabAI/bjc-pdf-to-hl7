@@ -17,7 +17,7 @@ function makeExtraction(
       sex: "F",
     },
     warnings: [],
-    documentType: ("referral_letter" as DocumentType),
+    documentType: ("referral" as DocumentType),
     extractionMethod: "vision",
     classificationConfidence: 85,
     referralInfo: { senderName: "Dr GP", addresseeName: "Dr Irwin Lim" },
@@ -141,7 +141,7 @@ describe("evaluateAutoRouteEligibility — mailbox mismatch", () => {
 
   test("referral_letter from results mailbox fails as mailbox_mismatch", () => {
     const result = evaluateAutoRouteEligibility({
-      extraction: makeExtraction({ documentType: "referral_letter" }),
+      extraction: makeExtraction({ documentType: "referral" }),
       mailboxCategory: "results",
       settings: baseSettings,
     });
@@ -151,7 +151,7 @@ describe("evaluateAutoRouteEligibility — mailbox mismatch", () => {
 
   test("does not fail mailbox_mismatch when mailbox is 'none'", () => {
     const result = evaluateAutoRouteEligibility({
-      extraction: makeExtraction({ documentType: "referral_letter" }),
+      extraction: makeExtraction({ documentType: "referral" }),
       mailboxCategory: "none",
       settings: baseSettings,
     });
@@ -189,7 +189,7 @@ describe("evaluateAutoRouteEligibility — missing required fields", () => {
   test("referral letters don't require an addressee for the missing_fields check", () => {
     const result = evaluateAutoRouteEligibility({
       extraction: makeExtraction({
-        documentType: "referral_letter",
+        documentType: "referral",
         referralInfo: undefined,
       }),
       mailboxCategory: "letters",

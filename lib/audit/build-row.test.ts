@@ -38,7 +38,7 @@ const baseSuccess: ConvertResult = {
   extractedData: baseExtractedData,
   warnings: ["Using Bedrock vision"],
   extractionMethod: "vision",
-  documentType: "referral_letter",
+  documentType: "referral",
 };
 
 describe("buildConversionAuditRow", () => {
@@ -62,7 +62,7 @@ describe("buildConversionAuditRow", () => {
     expect(row.outcome).toBe("ok");
     expect(row.messageType).toBe("REF^I12");
     expect(row.diagnosticServiceSection).toBe("PHY");
-    expect(row.documentType).toBe("referral_letter");
+    expect(row.documentType).toBe("referral");
   });
 
   test("radiology_result records ORU^R01 + RAD", () => {

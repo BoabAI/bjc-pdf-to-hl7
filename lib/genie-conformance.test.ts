@@ -121,8 +121,8 @@ describe("MSH segment matches BJC Genie samples", () => {
     "generic",
     "pathology_result",
     "radiology_result",
-    "referral_letter",
-    "gp_referral",
+    "referral",
+    "referral",
   ])("MSH constants match for %s", (docType) => {
     const hl7 = buildForDocType(docType);
     const msh = fields(getSegment(hl7, "MSH"));
@@ -151,16 +151,16 @@ describe("MSH segment matches BJC Genie samples", () => {
     expect(fields(getSegment(buildForDocType("generic"), "MSH"))[8]).toBe("ORU^R01");
     expect(fields(getSegment(buildForDocType("pathology_result"), "MSH"))[8]).toBe("ORU^R01");
     expect(fields(getSegment(buildForDocType("radiology_result"), "MSH"))[8]).toBe("ORU^R01");
-    expect(fields(getSegment(buildForDocType("referral_letter"), "MSH"))[8]).toBe("REF^I12");
-    expect(fields(getSegment(buildForDocType("gp_referral"), "MSH"))[8]).toBe("REF^I12");
+    expect(fields(getSegment(buildForDocType("referral"), "MSH"))[8]).toBe("REF^I12");
+    expect(fields(getSegment(buildForDocType("referral"), "MSH"))[8]).toBe("REF^I12");
   });
 
   test("MSH-12 version — plain 2.4 for ORU; AU REF profile for REF", () => {
     expect(fields(getSegment(buildForDocType("consent_form"), "MSH"))[11]).toBe(ORU_MSH12);
     expect(fields(getSegment(buildForDocType("pathology_result"), "MSH"))[11]).toBe(ORU_MSH12);
     expect(fields(getSegment(buildForDocType("radiology_result"), "MSH"))[11]).toBe(ORU_MSH12);
-    expect(fields(getSegment(buildForDocType("referral_letter"), "MSH"))[11]).toBe(REF_MSH12);
-    expect(fields(getSegment(buildForDocType("gp_referral"), "MSH"))[11]).toBe(REF_MSH12);
+    expect(fields(getSegment(buildForDocType("referral"), "MSH"))[11]).toBe(REF_MSH12);
+    expect(fields(getSegment(buildForDocType("referral"), "MSH"))[11]).toBe(REF_MSH12);
   });
 });
 
@@ -173,7 +173,7 @@ describe("Segment ordering matches BJC Genie samples", () => {
   });
 
   test("REF^I12 order: MSH → RF1 → PRD(s) → PID → OBR → OBX → PV1", () => {
-    const segments = getSegments(buildForDocType("referral_letter")).map(
+    const segments = getSegments(buildForDocType("referral")).map(
       (s) => s.split("|")[0]
     );
     expect(segments).toEqual([
@@ -233,7 +233,7 @@ describe("PV1 segment matches BJC Genie samples", () => {
   });
 
   test("PV1-9 carries doctor name when set (REF addressee or orderingProvider)", () => {
-    const pv1 = fields(getSegment(buildForDocType("referral_letter"), "PV1"));
+    const pv1 = fields(getSegment(buildForDocType("referral"), "PV1"));
     // Sample shape: ^Lau^Herman^^^DR
     expect(pv1[9]).toBe("^Addressee^Test^^^DR");
   });
@@ -255,12 +255,12 @@ describe("OBR segment matches BJC Genie samples — matching fields", () => {
 
   test("OBR-25 result status is F (Final / auto-file)", () => {
     expect(fields(getSegment(buildForDocType("consent_form"), "OBR"))[25]).toBe("F");
-    expect(fields(getSegment(buildForDocType("referral_letter"), "OBR"))[25]).toBe("F");
+    expect(fields(getSegment(buildForDocType("referral"), "OBR"))[25]).toBe("F");
   });
 
   test("OBR-24 is PHY for REF (matches Xiao_Laibing sample)", () => {
-    expect(fields(getSegment(buildForDocType("referral_letter"), "OBR"))[24]).toBe("PHY");
-    expect(fields(getSegment(buildForDocType("gp_referral"), "OBR"))[24]).toBe("PHY");
+    expect(fields(getSegment(buildForDocType("referral"), "OBR"))[24]).toBe("PHY");
+    expect(fields(getSegment(buildForDocType("referral"), "OBR"))[24]).toBe("PHY");
   });
 
   test("OBR-24 is empty for consent_form / generic (matches all 6 ORU samples)", () => {
@@ -274,7 +274,7 @@ describe("OBR segment matches BJC Genie samples — matching fields", () => {
       .toBe("PDF^Correspondence^L");
     expect(fields(getSegment(buildForDocType("generic"), "OBR"))[4])
       .toBe("PDF^Correspondence^L");
-    expect(fields(getSegment(buildForDocType("referral_letter"), "OBR"))[4])
+    expect(fields(getSegment(buildForDocType("referral"), "OBR"))[4])
       .toBe("PDF^Referral^L");
   });
 });
@@ -319,7 +319,7 @@ describe("OBX segment matches BJC Genie samples", () => {
     "consent_form",
     "pathology_result",
     "radiology_result",
-    "referral_letter",
+    "referral",
   ])("OBX shape matches for %s", (docType) => {
     const obx = fields(getSegment(buildForDocType(docType), "OBX"));
     expect(obx[1]).toBe("1"); // OBX-1
@@ -340,7 +340,7 @@ describe("Segment terminator and file shape match samples", () => {
   });
 
   test("Trailing CR after final segment (matches sample tail bytes 0d)", () => {
-    const hl7 = buildForDocType("referral_letter");
+    const hl7 = buildForDocType("referral");
     expect(hl7.endsWith("\r")).toBe(true);
     // Last byte is exactly one CR, not two
     expect(hl7.endsWith("\r\r")).toBe(false);
@@ -349,7 +349,7 @@ describe("Segment terminator and file shape match samples", () => {
 
 describe("REF^I12 PRD segments match Xiao_Laibing sample", () => {
   test("two PRD segments: RP~AP for sender and RT~IR for addressee", () => {
-    const segments = getSegments(buildForDocType("referral_letter"));
+    const segments = getSegments(buildForDocType("referral"));
     const prds = segments.filter((s) => s.startsWith("PRD|"));
     expect(prds).toHaveLength(2);
 
@@ -365,7 +365,7 @@ describe("REF^I12 PRD segments match Xiao_Laibing sample", () => {
 
 describe("RF1 segment matches Xiao_Laibing sample", () => {
   test("RF1-7 effective date is a timestamp; RF1-1..6 empty", () => {
-    const rf1 = fields(getSegment(buildForDocType("referral_letter"), "RF1"));
+    const rf1 = fields(getSegment(buildForDocType("referral"), "RF1"));
     expect(rf1[1]).toBe("");
     expect(rf1[7]).toMatch(/^\d{14}$/);
   });

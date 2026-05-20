@@ -107,25 +107,28 @@ export const ROUTING_REASON_STYLE: Record<
 
 // Display-layer label maps. The audit pipeline writes raw values
 // (`outcome: "ok" | "fail"`, doc types from the classifier) — these helpers
-// translate to the human labels BJC ops use, and collapse the classifier's
-// 6 doc types into the 5 buckets they think in (referral_letter + gp_referral
-// → "Referral letter"; generic + consent_form → "Letter").
+// translate to the human labels BJC ops use.
 const OUTCOME_LABELS: Record<string, string> = {
   ok: "Successful",
   fail: "Failed",
 };
 
-// Display-layer labels for the dashboard. Nicole's mental model is five
-// buckets; we collapse the classifier's internal 7 doc types into them:
-//   - referral_letter + gp_referral → "Referral letter"
-//   - consult_letter                → "Consult letter"
-//   - generic + consent_form        → "Letter"
-//   - pathology_result              → "Pathology result"
-//   - radiology_result              → "Radiology result"
-//   - anything else                 → "Unknown"
+// Display-layer labels for the dashboard. Post-collapse taxonomy is
+// `referral`, `consult_letter`, `pathology_result`, `radiology_result`,
+// `consent_form`, `generic`. Pre-collapse audit rows still carry
+// `gp_referral` / `referral_letter` strings in DynamoDB (we do not migrate
+// historical data) — keep the legacy keys here so the historical bucket
+// stays coherent on /stats and /log:
+//   - referral OR referral_letter OR gp_referral → "Referral letter"
+//   - consult_letter                              → "Consult letter"
+//   - generic + consent_form                      → "Letter"
+//   - pathology_result                            → "Pathology result"
+//   - radiology_result                            → "Radiology result"
 const DOC_TYPE_LABELS: Record<string, string> = {
   pathology_result: "Pathology result",
   radiology_result: "Radiology result",
+  referral: "Referral letter",
+  // Legacy (pre-2026-05-20 collapse) keys — preserved for historical rows.
   referral_letter: "Referral letter",
   gp_referral: "Referral letter",
   consult_letter: "Consult letter",

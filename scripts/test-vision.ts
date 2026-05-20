@@ -119,7 +119,7 @@ const REVIEW_REFERRALS: ReviewReferralExpectation[] = [
   },
 ];
 
-const REFERRAL_DOC_TYPES = new Set(["referral_letter", "gp_referral"]);
+const REFERRAL_DOC_TYPES = new Set(["referral", "referral"]);
 
 console.log("\n" + "=".repeat(70));
 console.log("Review-referral regression (Nicole)");
