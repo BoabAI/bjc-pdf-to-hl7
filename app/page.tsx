@@ -127,7 +127,7 @@ export default function Home() {
     <>
       <AppNav />
       <main className="min-h-screen flex flex-col items-center justify-center px-4 py-10">
-        <div className="w-full max-w-[580px]">
+        <div className="w-full max-w-[680px]">
           <LogoStrip />
 
           <div className="card mt-6 animate-fade-in-up stagger-1">
@@ -167,7 +167,7 @@ export default function Home() {
               {(skippedNonPdf > 0 || skippedOversize > 0) && (
                 <div
                   role="status"
-                  className="flex items-start justify-between gap-3 p-3 rounded-md border border-[var(--border-light)] bg-[var(--bg-inner)] text-xs text-[var(--text-secondary)]"
+                  className="flex items-start justify-between gap-3 p-3 rounded-xl border border-[var(--border-light)] bg-[var(--bg-inner)] text-xs text-[var(--text-secondary)]"
                 >
                   <span>
                     {skippedNonPdf > 0 && (

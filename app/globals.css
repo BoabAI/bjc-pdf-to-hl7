@@ -50,6 +50,18 @@
   --error-border: #fecaca;
   --info-bg: var(--blue-50);
   --info-border: var(--blue-200);
+  --success-bg-strong: #dcfce7;
+
+  /* ── Warning — amber (manual review / caution) ── */
+  --warning: #b45309;
+  --warning-bg: #fffbeb;
+  --warning-bg-strong: #fef3c7;
+  --warning-border: #fcd34d;
+
+  /* ── AI / processing — violet (SMEC AI accent) ── */
+  --ai: #7c3aed;
+  --ai-bg: #f5f3ff;
+  --ai-border: #ddd6fe;
 }
 
 * {
@@ -405,6 +417,41 @@ a:focus-visible,
   background: var(--error-bg);
   color: var(--error);
   border: 1px solid var(--error-border);
+}
+
+.badge-warning {
+  background: var(--warning-bg);
+  color: var(--warning);
+  border: 1px solid var(--warning-border);
+}
+
+.badge-neutral {
+  background: var(--bg-inner);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-light);
+}
+
+.badge-ai {
+  background: var(--ai-bg);
+  color: var(--ai);
+  border: 1px solid var(--ai-border);
+}
+
+/* ── Audit table row tints (success / manual-review) ── */
+.audit-row-ok {
+  background: var(--success-bg);
+}
+
+.audit-row-ok:hover {
+  background: var(--success-bg-strong);
+}
+
+.audit-row-review {
+  background: var(--warning-bg);
+}
+
+.audit-row-review:hover {
+  background: var(--warning-bg-strong);
 }
 
 /* ── Scrollbar ── */

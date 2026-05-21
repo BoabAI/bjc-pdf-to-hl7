@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { DonutChart } from "@tremor/react";
+import { AppFooter } from "../components/AppFooter";
 import { AppNav } from "../components/AppNav";
 import { LogoStrip } from "../components/LogoStrip";
 import { ChartPieIcon } from "../components/ui/icons";
@@ -310,6 +311,8 @@ export default function StatsPage(): JSX.Element {
               />
             </section>
           </AuditPageState>
+
+          <AppFooter />
         </div>
       </main>
     </>

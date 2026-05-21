@@ -146,7 +146,8 @@ export function SettingsPanel(): JSX.Element {
             const v = Number(e.target.value);
             if (Number.isFinite(v)) setFloor(Math.max(0, Math.min(100, Math.trunc(v))));
           }}
-          className="w-16 input text-right"
+          className="input-field text-right"
+          style={{ width: "4.5rem" }}
           aria-label="Minimum classification confidence (numeric)"
         />
         <span className="text-xs text-[var(--text-muted)]">%</span>

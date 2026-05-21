@@ -1,5 +1,6 @@
 "use client";
 
+import { AppFooter } from "../components/AppFooter";
 import { AppNav } from "../components/AppNav";
 import { LogoStrip } from "../components/LogoStrip";
 import { SettingsPanel } from "../components/dashboard/SettingsPanel";
@@ -8,7 +9,7 @@ export default function SettingsPage(): JSX.Element {
   return (
     <>
       <AppNav />
-      <main className="min-h-screen px-4 py-8 md:py-10">
+      <main className="min-h-screen px-4 py-10">
         <div className="mx-auto w-full max-w-[680px] space-y-6">
           <LogoStrip />
 
@@ -27,6 +28,8 @@ export default function SettingsPage(): JSX.Element {
               <SettingsPanel />
             </div>
           </div>
+
+          <AppFooter />
         </div>
       </main>
     </>

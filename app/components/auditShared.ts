@@ -68,39 +68,40 @@ export const ROUTING_DECISION_LABELS = {
   manual_review: "Manual review",
 } as const;
 
-/** Reason label + Tailwind colours, mirrored across donuts and table badges. */
+/**
+ * Reason label + Tailwind colours, mirrored across donuts and table badges.
+ * This is a categorical scale that deliberately tracks the Tremor donut palette
+ * (amber/orange/rose/violet/slate) so badge hue == chart segment hue — it
+ * intentionally stays on Tailwind palette hues rather than brand semantic
+ * tokens. The app has no dark mode, so no `dark:` variants.
+ */
 export const ROUTING_REASON_STYLE: Record<
   NonNullable<AuditRow["routingReason"]>,
   { label: string; badge: string; donut: string }
 > = {
   low_confidence: {
     label: "Low confidence",
-    badge:
-      "bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-200 dark:border-yellow-700",
+    badge: "bg-yellow-100 text-yellow-800 border-yellow-300",
     donut: "amber",
   },
   missing_fields: {
     label: "Missing fields",
-    badge:
-      "bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900/30 dark:text-orange-200 dark:border-orange-700",
+    badge: "bg-orange-100 text-orange-800 border-orange-300",
     donut: "orange",
   },
   mailbox_mismatch: {
     label: "Wrong inbox",
-    badge:
-      "bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-200 dark:border-red-700",
+    badge: "bg-red-100 text-red-800 border-red-300",
     donut: "rose",
   },
   unknown_doc_type: {
     label: "Unknown type",
-    badge:
-      "bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900/30 dark:text-purple-200 dark:border-purple-700",
+    badge: "bg-purple-100 text-purple-800 border-purple-300",
     donut: "violet",
   },
   extraction_failed: {
     label: "Extraction failed",
-    badge:
-      "bg-zinc-200 text-zinc-900 border-zinc-400 dark:bg-zinc-700 dark:text-zinc-100 dark:border-zinc-600",
+    badge: "bg-zinc-200 text-zinc-900 border-zinc-400",
     donut: "slate",
   },
 };

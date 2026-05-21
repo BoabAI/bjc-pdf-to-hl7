@@ -2,8 +2,7 @@
 
 const SUPPORTED_FORMATS = [
   "Consent Forms",
-  "Specialist Referrals",
-  "GP Referrals",
+  "Referrals",
   "Pathology Results",
   "Radiology Results",
 ];

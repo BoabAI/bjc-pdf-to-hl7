@@ -43,10 +43,9 @@ const STATUS_LABELS: Record<FileEntryStatus, string> = {
 const STATUS_BADGES: Record<FileEntryStatus, string> = {
   queued: "bg-[var(--bg-inner)] text-[var(--text-muted)]",
   ready: "bg-[var(--bg-inner)] text-[var(--text-secondary)]",
-  converting:
-    "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
-  done: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
-  failed: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+  converting: "bg-[var(--ai-bg)] text-[var(--ai)]",
+  done: "bg-[var(--success-bg)] text-[var(--success)]",
+  failed: "bg-[var(--error-bg)] text-[var(--error)]",
 };
 
 export function FileQueueItem({
@@ -80,7 +79,7 @@ export function FileQueueItem({
             )}
           </p>
           {simulatedMailboxBadgeLabel(entry.simulatedMailbox ?? "") && (
-            <span className="inline-block mt-1.5 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[var(--bg-inner)] text-[var(--text-secondary)] border border-[var(--border-light)]">
+            <span className="badge-neutral inline-block mt-1.5 text-[10px] font-medium px-1.5 py-0.5 rounded">
               {simulatedMailboxBadgeLabel(entry.simulatedMailbox ?? "")}
             </span>
           )}
