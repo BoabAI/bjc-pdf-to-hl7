@@ -110,9 +110,9 @@ export function SettingsPanel(): JSX.Element {
         )}
       </div>
       <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-        Documents below this self-reported classification confidence divert to manual
-        review instead of producing HL7. Start cautious (75–85); lower it once Nicole
-        confirms misroutes are rare. 0 disables the floor.
+        When the AI&rsquo;s own confidence in classifying a document falls below this
+        threshold, it&rsquo;s routed to manual review instead of being converted to HL7.
+        Start cautious (75–85); set to 0 to disable the floor.
       </p>
 
       <div className="flex items-center gap-3">
