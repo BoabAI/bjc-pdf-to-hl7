@@ -23,7 +23,7 @@ describe("convertPdf", () => {
           success: true,
           filename: "out.hl7",
           hl7Content: "MSH|...",
-          documentType: "referral_letter",
+          documentType: "referral",
           extractionMethod: "vision",
         }),
       } as unknown as Response;
@@ -59,7 +59,7 @@ describe("convertPdf", () => {
     }) as unknown as typeof fetch;
 
     await convertPdf(fakeFile(), {
-      documentType: "referral_letter",
+      documentType: "referral",
       autoFile: false,
       carrier: "FAX",
       orderingProvider: "9000001Z",

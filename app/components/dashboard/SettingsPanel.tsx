@@ -14,13 +14,16 @@ interface SettingsApiResponse {
   error?: string;
 }
 
+const AUTOSAVE_DEBOUNCE_MS = 700;
+
 /**
- * Inline settings panel for the stats page. Lets ops nudge the classification
- * confidence floor without a deploy. Persists to DynamoDB via `/api/settings`;
- * the eligibility gate reads from the same source on the next conversion.
+ * Settings panel for the dedicated /settings page. Lets ops nudge the
+ * classification confidence floor without a deploy. Persists to DynamoDB via
+ * `/api/settings`; the eligibility gate reads from the same source on the next
+ * conversion.
  *
- * Optimistic UI is intentionally *not* used here — settings changes are
- * infrequent and a deliberate confirmation feels safer than silent acceptance.
+ * Changes auto-save — there is no explicit Save button. The PUT is debounced so
+ * a continuous slider drag results in a single write once the user settles.
  */
 export function SettingsPanel(): JSX.Element {
   const [loading, setLoading] = useState(true);
@@ -58,22 +61,21 @@ export function SettingsPanel(): JSX.Element {
     return () => controller.abort();
   }, [loadSettings]);
 
-  const dirty = floor !== serverFloor;
-
-  const handleSave = useCallback(async () => {
+  const saveFloor = useCallback(async (value: number) => {
     setSaving(true);
     setError(null);
     try {
       const res = await fetch("/api/settings", {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ minClassificationConfidence: floor }),
+        body: JSON.stringify({ minClassificationConfidence: value }),
       });
       const data = (await res.json()) as SettingsApiResponse;
       if (!res.ok || !data.success || !data.settings) {
         throw new Error(data.error ?? `Failed (${res.status})`);
       }
-      setFloor(data.settings.minClassificationConfidence);
+      // Only sync the persisted baseline — leave `floor` alone in case the user
+      // nudged it again while this request was in flight (the effect re-saves).
       setServerFloor(data.settings.minClassificationConfidence);
       setUpdatedAt(data.settings.updatedAt);
       setUpdatedBy(data.settings.updatedBy);
@@ -84,12 +86,16 @@ export function SettingsPanel(): JSX.Element {
     } finally {
       setSaving(false);
     }
-  }, [floor]);
+  }, []);
 
-  const handleReset = useCallback(() => {
-    setFloor(serverFloor);
-    setError(null);
-  }, [serverFloor]);
+  // Debounced auto-save: fires once the value settles and differs from the
+  // persisted baseline. Holds off while a save is in flight, then re-checks.
+  useEffect(() => {
+    if (loading || saving) return;
+    if (floor === serverFloor) return;
+    const id = setTimeout(() => void saveFloor(floor), AUTOSAVE_DEBOUNCE_MS);
+    return () => clearTimeout(id);
+  }, [floor, serverFloor, loading, saving, saveFloor]);
 
   if (loading) {
     return (
@@ -105,14 +111,18 @@ export function SettingsPanel(): JSX.Element {
         <h2 className="text-sm font-semibold text-[var(--text-primary)]">
           Auto-route confidence floor
         </h2>
-        {savedFlash && (
-          <span className="text-xs text-[var(--success)]">Saved.</span>
-        )}
+        <span className="text-xs" aria-live="polite">
+          {saving ? (
+            <span className="text-[var(--text-muted)]">Saving…</span>
+          ) : savedFlash ? (
+            <span className="text-[var(--success)]">Saved.</span>
+          ) : null}
+        </span>
       </div>
       <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-        Documents below this self-reported classification confidence divert to manual
-        review instead of producing HL7. Start cautious (75–85); lower it once Nicole
-        confirms misroutes are rare. 0 disables the floor.
+        When the AI&rsquo;s own confidence in classifying a document falls below this
+        threshold, it&rsquo;s routed to manual review instead of being converted to HL7.
+        Start cautious (75–85); set to 0 to disable the floor.
       </p>
 
       <div className="flex items-center gap-3">
@@ -123,7 +133,6 @@ export function SettingsPanel(): JSX.Element {
           step={1}
           value={floor}
           onChange={(e) => setFloor(Number(e.target.value))}
-          disabled={saving}
           className="flex-1 accent-[var(--bjc-blue)]"
           aria-label="Minimum classification confidence"
         />
@@ -137,8 +146,8 @@ export function SettingsPanel(): JSX.Element {
             const v = Number(e.target.value);
             if (Number.isFinite(v)) setFloor(Math.max(0, Math.min(100, Math.trunc(v))));
           }}
-          disabled={saving}
-          className="w-16 input text-right"
+          className="input-field text-right"
+          style={{ width: "4.5rem" }}
           aria-label="Minimum classification confidence (numeric)"
         />
         <span className="text-xs text-[var(--text-muted)]">%</span>
@@ -152,24 +161,7 @@ export function SettingsPanel(): JSX.Element {
               }`
             : "Never changed since deploy."}
         </p>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={handleReset}
-            disabled={!dirty || saving}
-            className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] disabled:opacity-40"
-          >
-            Reset
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={!dirty || saving}
-            className="btn-primary text-xs px-3 py-1.5 disabled:opacity-40"
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
-        </div>
+        <p className="text-[11px] text-[var(--text-muted)]">Changes save automatically</p>
       </div>
 
       {error && (

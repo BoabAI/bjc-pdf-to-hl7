@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useMemo, useState } from "react";
+import { AppFooter } from "../components/AppFooter";
 import { AppNav } from "../components/AppNav";
 import { LogoStrip } from "../components/LogoStrip";
 import { SectionHeader } from "../components/ui/SectionHeader";
@@ -222,7 +223,7 @@ export default function LogPage(): JSX.Element {
               <label className="flex items-center gap-1.5">
                 <span className="text-[var(--text-muted)]">Routing:</span>
                 <select
-                  className="input text-xs py-1"
+                  className="select-field text-xs py-1"
                   value={routingFilter}
                   onChange={(e) =>
                     setRoutingFilter(e.target.value as typeof routingFilter)
@@ -237,7 +238,7 @@ export default function LogPage(): JSX.Element {
               <label className="flex items-center gap-1.5">
                 <span className="text-[var(--text-muted)]">Review reason:</span>
                 <select
-                  className="input text-xs py-1"
+                  className="select-field text-xs py-1"
                   value={reasonFilter}
                   onChange={(e) =>
                     setReasonFilter(e.target.value as typeof reasonFilter)
@@ -293,15 +294,13 @@ export default function LogPage(): JSX.Element {
                         <tr
                           className={
                             "border-b border-[var(--border-light)] " +
-                            (isManual
-                              ? "bg-amber-50/60 hover:bg-amber-100/60"
-                              : "bg-emerald-50/60 hover:bg-emerald-100/60")
+                            (isManual ? "audit-row-review" : "audit-row-ok")
                           }
                         >
                           <td className="py-2 pr-4 whitespace-nowrap text-[var(--text-primary)]">
                             {formatSydneyTimestamp(row.ts)}
                           </td>
-                          <td className="py-2 pr-4 font-mono text-[var(--text-primary)]">
+                          <td className="py-2 pr-4 mono text-[var(--text-primary)]">
                             {row.patientInitials ?? "—"}
                           </td>
                           <td className="py-2 pr-4 text-[var(--text-primary)]">
@@ -315,8 +314,8 @@ export default function LogPage(): JSX.Element {
                               className={
                                 "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border " +
                                 (isManual
-                                  ? "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-700"
-                                  : "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-200 dark:border-emerald-700")
+                                  ? "bg-[var(--warning-bg)] text-[var(--warning)] border-[var(--warning-border)]"
+                                  : "bg-[var(--success-bg)] text-[var(--success)] border-[var(--success-border)]")
                               }
                             >
                               {ROUTING_DECISION_LABELS[effectiveRouting]}
@@ -336,7 +335,7 @@ export default function LogPage(): JSX.Element {
                               <span className="text-[var(--text-faint)]">—</span>
                             )}
                           </td>
-                          <td className="py-2 pr-4 font-mono text-xs text-[var(--text-secondary)]">
+                          <td className="py-2 pr-4 mono text-xs text-[var(--text-secondary)]">
                             {row.filenameHash}
                           </td>
                           <td className="py-2 pr-4 text-[var(--text-primary)]">
@@ -370,12 +369,12 @@ export default function LogPage(): JSX.Element {
                         {isExpanded && hasDetail ? (
                           <tr
                             id={`warnings-${row.ts}`}
-                            className="border-b border-[var(--border-light)] bg-amber-50/60"
+                            className="border-b border-[var(--border-light)] bg-[var(--warning-bg)]"
                           >
                             <td colSpan={8} className="py-3 px-4">
                               <ul className="list-disc pl-5 space-y-1 text-sm text-[var(--text-primary)]">
                                 {row.warnings?.map((msg, i) => (
-                                  <li key={i} className="font-mono text-xs">
+                                  <li key={i} className="mono text-xs">
                                     {msg}
                                   </li>
                                 ))}
@@ -391,6 +390,8 @@ export default function LogPage(): JSX.Element {
             </div>
           </section>
           </AuditPageState>
+
+          <AppFooter />
         </div>
       </main>
     </>

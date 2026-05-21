@@ -12,9 +12,11 @@ interface ConversionResultPanelProps {
 }
 
 /**
- * Tailwind colour palette for the manual-review reasons. Mirrors the dashboard
- * donut and Outlook category colours so a reviewer sees the same hue at every
- * surface.
+ * Categorical colour scale for the manual-review reasons. Deliberately mirrors
+ * the Tremor donut palette (amber/orange/rose/violet/slate) and Outlook category
+ * colours so a reviewer sees the same hue at every surface — these intentionally
+ * stay on Tailwind palette hues rather than the brand semantic tokens. The app
+ * has no dark mode, so no `dark:` variants.
  */
 const REVIEW_REASON_STYLES: Record<
   ManualReviewReason,
@@ -22,33 +24,33 @@ const REVIEW_REASON_STYLES: Record<
 > = {
   low_confidence: {
     label: "Low confidence",
-    rowBg: "bg-yellow-50 dark:bg-yellow-900/20",
-    rowBorder: "border-yellow-300 dark:border-yellow-700",
-    text: "text-yellow-800 dark:text-yellow-200",
+    rowBg: "bg-yellow-50",
+    rowBorder: "border-yellow-300",
+    text: "text-yellow-800",
   },
   missing_fields: {
     label: "Missing fields",
-    rowBg: "bg-orange-50 dark:bg-orange-900/20",
-    rowBorder: "border-orange-300 dark:border-orange-700",
-    text: "text-orange-800 dark:text-orange-200",
+    rowBg: "bg-orange-50",
+    rowBorder: "border-orange-300",
+    text: "text-orange-800",
   },
   mailbox_mismatch: {
     label: "Wrong inbox",
-    rowBg: "bg-red-50 dark:bg-red-900/20",
-    rowBorder: "border-red-300 dark:border-red-700",
-    text: "text-red-800 dark:text-red-200",
+    rowBg: "bg-red-50",
+    rowBorder: "border-red-300",
+    text: "text-red-800",
   },
   unknown_doc_type: {
     label: "Unknown type",
-    rowBg: "bg-purple-50 dark:bg-purple-900/20",
-    rowBorder: "border-purple-300 dark:border-purple-700",
-    text: "text-purple-800 dark:text-purple-200",
+    rowBg: "bg-purple-50",
+    rowBorder: "border-purple-300",
+    text: "text-purple-800",
   },
   extraction_failed: {
     label: "Extraction failed",
-    rowBg: "bg-zinc-100 dark:bg-zinc-800",
-    rowBorder: "border-zinc-400 dark:border-zinc-600",
-    text: "text-zinc-900 dark:text-zinc-100",
+    rowBg: "bg-zinc-100",
+    rowBorder: "border-zinc-400",
+    text: "text-zinc-900",
   },
 };
 
@@ -116,7 +118,7 @@ export function ConversionResultPanel({
             {missingPatientData ? "Could not extract patient data" : "Conversion Successful"}
           </h3>
           {!missingPatientData && result.extractionMethod === "vision" && (
-            <span className="badge text-[10px] px-2 py-0.5 bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700">
+            <span className="badge badge-ai text-[10px] px-2 py-0.5">
               AI Vision
             </span>
           )}
@@ -200,16 +202,16 @@ function ManualReviewBlock({
 
 function MailboxDisagreementCallout() {
   return (
-    <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-700">
+    <div className="p-4 rounded-xl bg-[var(--warning-bg)] border border-[var(--warning-border)]">
       <div className="flex items-start gap-2.5">
-        <svg className="w-5 h-5 text-amber-700 dark:text-amber-300 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+        <svg className="w-5 h-5 text-[var(--warning)] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
         </svg>
         <div className="flex-1 min-w-0">
-          <h4 className="font-semibold text-sm text-amber-800 dark:text-amber-200">
+          <h4 className="font-semibold text-sm text-[var(--warning)]">
             Mailbox / content mismatch
           </h4>
-          <p className="text-xs text-amber-700 dark:text-amber-300 mt-1 leading-relaxed">
+          <p className="text-xs text-[var(--warning)] mt-1 leading-relaxed">
             The PDF arrived in one mailbox but was classified as a different document
             family. Routing follows the AI verdict — verify before filing.
           </p>

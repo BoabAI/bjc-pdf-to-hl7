@@ -80,7 +80,7 @@ describe("extractPatientDataWithVision success path", () => {
     const result = await extractPatientDataWithVision(PDF_BUFFER, {
       model: "custom-model",
       timeoutMs: 1_000,
-      documentTypeHint: "gp_referral",
+      documentTypeHint: "referral",
     });
 
     expect(clientConfigs).toEqual([{ region: "ap-southeast-2" }]);
@@ -94,7 +94,7 @@ describe("extractPatientDataWithVision success path", () => {
       "medical document data extraction assistant"
     );
     expect(input.messages[0].content[0].text).toContain(
-      "A document type hint was provided: gp_referral"
+      "A document type hint was provided: referral"
     );
     expect(input.messages[0].content[1].document.source.bytes).toEqual(PDF_BUFFER);
     expect(input.toolConfig.toolChoice.tool.name).toBe("extract_patient_data");
@@ -116,10 +116,10 @@ describe("extractPatientDataWithVision success path", () => {
         medicareRef: "2",
       },
       warnings: [
-        "Vision extraction returned an invalid document type; defaulted to gp_referral",
+        "Vision extraction returned an invalid document type; defaulted to referral",
       ],
       model: "custom-model",
-      documentType: "gp_referral",
+      documentType: "referral",
       classificationConfidence: 100,
       referralInfo: {
         senderName: "Dr Sarah Jones",
@@ -291,13 +291,13 @@ describe("extractPatientDataWithVision failure handling", () => {
 
     const result = await extractPatientDataWithVision(PDF_BUFFER, {
       model: "custom-model",
-      documentTypeHint: "referral_letter",
+      documentTypeHint: "referral",
     });
 
     expect(result.warnings).toEqual([
       "Vision extraction failed: Bedrock access denied — ensure the runtime IAM role has bedrock:InvokeModel permission for custom-model",
     ]);
-    expect(result.documentType).toBe("referral_letter");
+    expect(result.documentType).toBe("referral");
   });
 
   test("returns a credentials warning when AWS credentials are unavailable", async () => {
@@ -338,7 +338,7 @@ describe("CC extraction and BJC doctor list", () => {
             {
               toolUse: {
                 input: {
-                  documentType: "gp_referral",
+                  documentType: "referral",
                   firstName: "Jane",
                   lastName: "Smith",
                   dob: "05/06/1984",
@@ -382,7 +382,7 @@ describe("CC extraction and BJC doctor list", () => {
             {
               toolUse: {
                 input: {
-                  documentType: "gp_referral",
+                  documentType: "referral",
                   firstName: "Jane",
                   lastName: "Smith",
                   dob: "05/06/1984",
@@ -419,7 +419,7 @@ describe("CC extraction and BJC doctor list", () => {
             {
               toolUse: {
                 input: {
-                  documentType: "gp_referral",
+                  documentType: "referral",
                   firstName: "Jane",
                   lastName: "Smith",
                   dob: "05/06/1984",
@@ -568,7 +568,7 @@ describe("CC extraction and BJC doctor list", () => {
             {
               toolUse: {
                 input: {
-                  documentType: "gp_referral",
+                  documentType: "referral",
                   firstName: "Jane",
                   lastName: "Smith",
                   dob: "05/06/1984",
@@ -601,7 +601,7 @@ describe("CC extraction and BJC doctor list", () => {
             {
               toolUse: {
                 input: {
-                  documentType: "gp_referral",
+                  documentType: "referral",
                   firstName: "Jane",
                   lastName: "Smith",
                   dob: "05/06/1984",
@@ -633,7 +633,7 @@ describe("CC extraction and BJC doctor list", () => {
             {
               toolUse: {
                 input: {
-                  documentType: "referral_letter",
+                  documentType: "referral",
                   firstName: "Jane",
                   lastName: "Smith",
                   dob: "05/06/1984",

@@ -15,8 +15,8 @@ import {
 describe("DOCUMENT_TYPES whitelist", () => {
   test("includes the seven doc types including consult_letter", () => {
     expect(DOCUMENT_TYPES).toContain("consent_form");
-    expect(DOCUMENT_TYPES).toContain("referral_letter");
-    expect(DOCUMENT_TYPES).toContain("gp_referral");
+    expect(DOCUMENT_TYPES).toContain("referral");
+    expect(DOCUMENT_TYPES).toContain("referral");
     expect(DOCUMENT_TYPES).toContain("consult_letter");
     expect(DOCUMENT_TYPES).toContain("generic");
     expect(DOCUMENT_TYPES).toContain("pathology_result");
@@ -55,8 +55,8 @@ describe("parseDocumentTypeOption", () => {
 
 describe("isReferralDocumentType", () => {
   test("returns true for referral_letter and gp_referral", () => {
-    expect(isReferralDocumentType("referral_letter")).toBe(true);
-    expect(isReferralDocumentType("gp_referral")).toBe(true);
+    expect(isReferralDocumentType("referral")).toBe(true);
+    expect(isReferralDocumentType("referral")).toBe(true);
   });
 
   test("returns true for consult_letter (routes to Incoming Letters)", () => {
@@ -84,8 +84,8 @@ describe("isResultDocumentType", () => {
   });
 
   test("returns false for referral types", () => {
-    expect(isResultDocumentType("referral_letter")).toBe(false);
-    expect(isResultDocumentType("gp_referral")).toBe(false);
+    expect(isResultDocumentType("referral")).toBe(false);
+    expect(isResultDocumentType("referral")).toBe(false);
   });
 
   test("returns false for consent_form and generic", () => {
@@ -104,11 +104,11 @@ describe("documentTypeLabel", () => {
   });
 
   test("returns 'Referral' for referral_letter", () => {
-    expect(documentTypeLabel("referral_letter")).toBe("Referral");
+    expect(documentTypeLabel("referral")).toBe("Referral");
   });
 
   test("returns 'Referral' for gp_referral", () => {
-    expect(documentTypeLabel("gp_referral")).toBe("Referral");
+    expect(documentTypeLabel("referral")).toBe("Referral");
   });
 
   test("returns 'Consult Letter' for consult_letter", () => {
@@ -134,11 +134,11 @@ describe("diagnosticServiceSectionFor", () => {
   });
 
   test("returns PHY for referral_letter", () => {
-    expect(diagnosticServiceSectionFor("referral_letter")).toBe("PHY");
+    expect(diagnosticServiceSectionFor("referral")).toBe("PHY");
   });
 
   test("returns PHY for gp_referral", () => {
-    expect(diagnosticServiceSectionFor("gp_referral")).toBe("PHY");
+    expect(diagnosticServiceSectionFor("referral")).toBe("PHY");
   });
 
   test("returns PHY for consult_letter (routes to Incoming Letters)", () => {
@@ -199,13 +199,9 @@ describe("allowedDocTypesForCategory", () => {
     expect(allowed).toEqual(["pathology_result", "radiology_result"]);
   });
 
-  test("letters → referral + gp_referral + consult_letter", () => {
+  test("letters → referral + consult_letter (post-collapse)", () => {
     const allowed = allowedDocTypesForCategory("letters");
-    expect(allowed).toEqual([
-      "referral_letter",
-      "gp_referral",
-      "consult_letter",
-    ]);
+    expect(allowed).toEqual(["referral", "consult_letter"]);
   });
 
   test("none → all DOCUMENT_TYPES (free classification)", () => {

@@ -6,11 +6,11 @@ import {
 
 describe("messageTypeForDocumentType", () => {
   test("referral_letter → REF^I12", () => {
-    expect(messageTypeForDocumentType("referral_letter")).toBe("REF^I12");
+    expect(messageTypeForDocumentType("referral")).toBe("REF^I12");
   });
 
   test("gp_referral → REF^I12", () => {
-    expect(messageTypeForDocumentType("gp_referral")).toBe("REF^I12");
+    expect(messageTypeForDocumentType("referral")).toBe("REF^I12");
   });
 
   test("consult_letter → REF^I12 (routes to Incoming Letters)", () => {

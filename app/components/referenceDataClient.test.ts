@@ -3,6 +3,7 @@
  */
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import {
+  AuthExpiredError,
   deleteCarrier,
   deleteDoctor,
   getReferenceData,
@@ -154,6 +155,30 @@ describe("putDoctor / putCarrier", () => {
       putDoctor({ id: "d1", name: "x", providerNumber: "x" })
     ).rejects.toThrow("db unavailable");
   });
+
+  test("throws AuthExpiredError when server returns 401 on PUT", async () => {
+    globalThis.fetch = mockFetch({
+      ok: false,
+      status: 401,
+      statusText: "Unauthorized",
+      body: { success: false, error: "Unauthorized" },
+    }) as unknown as typeof fetch;
+
+    await expect(
+      putDoctor({ id: "d1", name: "x", providerNumber: "x" })
+    ).rejects.toBeInstanceOf(AuthExpiredError);
+  });
+
+  test("throws AuthExpiredError when GET returns 401", async () => {
+    globalThis.fetch = mockFetch({
+      ok: false,
+      status: 401,
+      statusText: "Unauthorized",
+      body: { success: false, error: "Unauthorized" },
+    }) as unknown as typeof fetch;
+
+    await expect(getReferenceData()).rejects.toBeInstanceOf(AuthExpiredError);
+  });
 });
 
 describe("deleteDoctor / deleteCarrier", () => {
@@ -183,5 +208,16 @@ describe("deleteDoctor / deleteCarrier", () => {
     }) as unknown as typeof fetch;
 
     await expect(deleteCarrier("c1")).rejects.toThrow("boom");
+  });
+
+  test("throws AuthExpiredError when DELETE returns 401", async () => {
+    globalThis.fetch = mockFetch({
+      ok: false,
+      status: 401,
+      statusText: "Unauthorized",
+      body: { success: false, error: "Unauthorized" },
+    }) as unknown as typeof fetch;
+
+    await expect(deleteDoctor("d1")).rejects.toBeInstanceOf(AuthExpiredError);
   });
 });

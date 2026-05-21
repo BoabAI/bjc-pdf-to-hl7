@@ -43,7 +43,7 @@ const SEEDS: Seed[] = [
   {
     minutesAgo: 22,
     outcome: "ok",
-    documentType: "referral_letter",
+    documentType: "referral",
     messageType: "REF^I12",
     diagnosticServiceSection: "PHY",
     patientInitials: "M.O.",
@@ -92,7 +92,7 @@ const SEEDS: Seed[] = [
   {
     minutesAgo: 360,
     outcome: "ok",
-    documentType: "gp_referral",
+    documentType: "referral",
     messageType: "REF^I12",
     diagnosticServiceSection: "PHY",
     patientInitials: "P.H.",

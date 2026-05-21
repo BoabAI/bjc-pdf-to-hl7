@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AppFooter } from "../components/AppFooter";
 import { AppNav } from "../components/AppNav";
 import { LogoStrip } from "../components/LogoStrip";
 import { SectionHeader } from "../components/ui/SectionHeader";
@@ -211,7 +212,7 @@ export default function CompliancePage() {
   return (
     <>
       <AppNav />
-      <main className="min-h-screen flex flex-col items-center px-4 py-8">
+      <main className="min-h-screen flex flex-col items-center px-4 py-10">
         <div className="w-full max-w-[680px]">
           <LogoStrip />
 
@@ -227,7 +228,7 @@ export default function CompliancePage() {
                 <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">
                   Data Handling & Compliance
                 </h1>
-                <p className="text-sm text-[var(--text-secondary)] mt-0.5 leading-relaxed">
+                <p className="text-sm text-[var(--text-secondary)] mt-1.5 leading-relaxed">
                   How this application protects patient information
                 </p>
               </div>
@@ -283,7 +284,7 @@ export default function CompliancePage() {
 
           {/* Practice responsibility notice */}
           <div className="px-7 py-5 space-y-4">
-            <div className="p-4 rounded-xl bg-[var(--bg-inner)] border border-[var(--border-light)]">
+            <div className="card-inner p-4">
               <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-2">
                 Practice responsibility
               </h3>
@@ -297,7 +298,7 @@ export default function CompliancePage() {
               </p>
             </div>
 
-            <div className="p-4 rounded-xl bg-[var(--bg-inner)] border border-[var(--border-light)]">
+            <div className="card-inner p-4">
               <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-2">
                 Important notice
               </h3>
@@ -318,12 +319,7 @@ export default function CompliancePage() {
           </div>
         </div>
 
-        {/* Footer */}
-        <footer className="mt-6 text-center animate-fade-in stagger-3">
-          <p className="text-[11px] text-[var(--text-muted)] tracking-wide">
-            HL7 v2.4 &middot; ADRM Compliant &middot; Genie Compatible &middot; IRAP PROTECTED Infrastructure
-          </p>
-        </footer>
+        <AppFooter />
         </div>
       </main>
     </>

@@ -86,7 +86,7 @@ curl -X POST \
 curl -X POST \
   -b cookies.txt \
   -F "pdf=@/path/to/file.pdf" \
-  -F "documentType=gp_referral" \
+  -F "documentType=referral" \
   -F "autoFile=true" \
   -F "carrier=MYAPP" \
   -F "orderingProvider=1234567A" \
@@ -100,7 +100,7 @@ curl -X POST \
 |-----------|------|----------|---------|-------------|
 | `pdf` | File | Yes | - | PDF file (max 10MB) |
 | `detectOnly` | string | No | - | `"true"` to classify without converting. Legacy — kept for scripts; not used by the web UI (every file is classified during conversion, so a separate detect call would just double the Bedrock cost). |
-| `documentType` | string | No | `"auto"` | Optional hint for the classifier. `auto`, `consent_form`, `referral_letter`, `gp_referral`, `pathology_result`, `radiology_result`, `generic`. The vision model classifies regardless and uses this only as a tiebreaker on ambiguous documents. |
+| `documentType` | string | No | `"auto"` | Optional hint for the classifier. `auto`, `consent_form`, `referral`, `consult_letter`, `pathology_result`, `radiology_result`, `generic`. The vision model classifies regardless and uses this only as a tiebreaker on ambiguous documents. Legacy values `referral_letter` / `gp_referral` are silently aliased to `referral`. |
 | `autoFile` | string | No | `"true"` | `"true"` = auto-file (F), `"false"` = queue for review (P) |
 | `orderingProvider` | string | No | - | Medicare Provider Number for doctor routing (PV1-9) |
 | `carrier` | string | No | `"SMECAI"` | Sending Application (MSH-3) |

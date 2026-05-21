@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { AppFooter } from "../../components/AppFooter";
 import { AppNav } from "../../components/AppNav";
 import { LogoStrip } from "../../components/LogoStrip";
 
@@ -48,8 +49,8 @@ export default function FilenameHashHelpPage(): JSX.Element {
   return (
     <>
       <AppNav />
-      <main className="min-h-screen px-4 py-8 md:py-10">
-        <div className="mx-auto w-full max-w-[760px] space-y-6">
+      <main className="min-h-screen px-4 py-10">
+        <div className="mx-auto w-full max-w-[680px] space-y-6">
           <LogoStrip />
 
           <div className="card animate-fade-in-up">
@@ -83,7 +84,7 @@ export default function FilenameHashHelpPage(): JSX.Element {
                   placeholder="e.g. referral_jane_smith.pdf"
                   spellCheck={false}
                   autoComplete="off"
-                  className="w-full px-3 py-2 border border-[var(--border-light)] rounded-md font-mono text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent,#2563eb)]"
+                  className="input-field mono"
                 />
                 <p className="text-xs text-[var(--text-secondary)]">
                   Use the <strong>exact</strong> original filename, including
@@ -95,20 +96,20 @@ export default function FilenameHashHelpPage(): JSX.Element {
               <section className="space-y-2">
                 <h2 className="text-base font-semibold">Hash</h2>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <code className="font-mono text-base px-3 py-2 bg-[var(--surface-muted,#f5f5f5)] border border-[var(--border-light)] rounded-md min-w-[10ch] inline-block">
+                  <code className="mono text-base px-3 py-2 bg-[var(--bg-inner)] border border-[var(--border-light)] rounded-md min-w-[10ch] inline-block">
                     {hash || "—"}
                   </code>
                   <button
                     type="button"
                     onClick={handleCopy}
                     disabled={!hash}
-                    className="text-xs px-3 py-2 border border-[var(--border-light)] rounded-md hover:bg-[var(--surface-muted,#f5f5f5)] disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="text-xs px-3 py-2 border border-[var(--border-light)] rounded-md hover:bg-[var(--bg-inner)] disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {copied ? "Copied" : "Copy"}
                   </button>
                 </div>
                 <p className="text-xs text-[var(--text-secondary)]">
-                  Compare this against the value in the <Link href="/log" className="text-[var(--accent,#2563eb)] hover:underline">audit log</Link>.
+                  Compare this against the value in the <Link href="/log" className="text-[var(--bjc-blue)] hover:underline">audit log</Link>.
                   If it doesn&apos;t match, the file was likely renamed by your
                   email client, browser, or scanner before upload.
                 </p>
@@ -118,7 +119,7 @@ export default function FilenameHashHelpPage(): JSX.Element {
                 <h2 className="text-base font-semibold">How it works</h2>
                 <p className="text-[var(--text-secondary)]">
                   The hash is the first 12 hex characters of{" "}
-                  <code className="font-mono">SHA-256</code> of the filename
+                  <code className="mono">SHA-256</code> of the filename
                   string (not the file&apos;s contents). Re-saving the same PDF
                   under a different name produces a different hash. Standard
                   Windows/Mac &ldquo;file hash&rdquo; tools won&apos;t match,
@@ -130,13 +131,15 @@ export default function FilenameHashHelpPage(): JSX.Element {
               <div className="pt-2">
                 <Link
                   href="/log"
-                  className="text-sm text-[var(--accent,#2563eb)] hover:underline"
+                  className="text-sm text-[var(--bjc-blue)] hover:underline"
                 >
                   ← Back to Audit Log
                 </Link>
               </div>
             </div>
           </div>
+
+          <AppFooter />
         </div>
       </main>
     </>

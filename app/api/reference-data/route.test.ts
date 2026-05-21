@@ -226,7 +226,8 @@ describe("PUT /api/reference-data — input validation hardening", () => {
     );
     expect(response.status).toBe(400);
     const body = await response.json();
-    expect(body.error).toMatch(/providerNumber/);
+    expect(body.error).toMatch(/provider number/i);
+    expect(body.error).toMatch(/HL7 separators/);
     expect(putDoctorMock).not.toHaveBeenCalled();
   });
 
@@ -257,6 +258,35 @@ describe("PUT /api/reference-data — input validation hardening", () => {
     expect(putDoctorMock).toHaveBeenCalledWith(doctor);
   });
 
+  test("accepts doctor with spaced provider number (Medicare convention)", async () => {
+    // Real Medicare provider numbers are conventionally displayed with a
+    // space before the location/check char (e.g. `123456 7Y`). Staff copy
+    // them in that shape; the API must not reject it.
+    const doctor = {
+      id: "d1",
+      name: "Dr Smith",
+      providerNumber: "123456 7Y",
+    };
+    const response = await PUT(
+      makeRequest("", { method: "PUT", body: { kind: "DOCTOR", item: doctor } })
+    );
+    expect(response.status).toBe(200);
+    expect(putDoctorMock).toHaveBeenCalledWith(doctor);
+  });
+
+  test("accepts doctor with hyphenated provider number", async () => {
+    const doctor = {
+      id: "d1",
+      name: "Dr Smith",
+      providerNumber: "9876-543T",
+    };
+    const response = await PUT(
+      makeRequest("", { method: "PUT", body: { kind: "DOCTOR", item: doctor } })
+    );
+    expect(response.status).toBe(200);
+    expect(putDoctorMock).toHaveBeenCalledWith(doctor);
+  });
+
   test("rejects doctor with HL7 separator in name", async () => {
     const response = await PUT(
       makeRequest("", {
@@ -273,7 +303,7 @@ describe("PUT /api/reference-data — input validation hardening", () => {
     );
     expect(response.status).toBe(400);
     const body = await response.json();
-    expect(body.error).toMatch(/name/);
+    expect(body.error).toMatch(/name/i);
     expect(putDoctorMock).not.toHaveBeenCalled();
   });
 

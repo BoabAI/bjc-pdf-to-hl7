@@ -8,8 +8,16 @@
  */
 
 /**
- * The seven document classes recognized by the pipeline. Source of truth for
+ * The six document classes recognized by the pipeline. Source of truth for
  * routing, prompts, audit policy, and UI labels.
+ *
+ * `referral` covers both GP-authored and specialist-authored referral letters
+ * — Nicole confirmed the operational distinction has no consequence (both
+ * route to PHY → Genie Incoming Letters). Pre-collapse audit rows still carry
+ * the legacy `"gp_referral"` / `"referral_letter"` strings; the display layer
+ * (`prettifyDocType`) maps them all to "Referral letter" so historical buckets
+ * stay coherent. The alias map in `lib/domain/document-type-aliases.ts`
+ * translates the legacy strings forward when they arrive on the input side.
  *
  * `consult_letter` is specialist-to-GP correspondence ("Thanks for referring
  * X, I saw her today…"). Routed to Genie Incoming Letters the same way as a
@@ -17,8 +25,7 @@
  */
 export type DocumentType =
   | "consent_form"
-  | "referral_letter"
-  | "gp_referral"
+  | "referral"
   | "consult_letter"
   | "pathology_result"
   | "radiology_result"
@@ -63,7 +70,7 @@ export interface ReferralInfo {
  * Upstream mailbox the PDF arrived in. Acts as a soft prior for vision
  * classification and a misroute signal in audit (LLM verdict still wins).
  *
- * - `referrals` expects {referral_letter, gp_referral}
+ * - `referrals` expects {referral, consult_letter}
  * - `results` expects {pathology_result, radiology_result}
  *
  * `consent_form` and `generic` are never flagged as disagreements (too

@@ -28,7 +28,7 @@ export const EXTRACTION_TOOL = {
             type: "string",
             enum: DOCUMENT_TYPES,
             description:
-              "Best-fit document type: consent_form, referral_letter, gp_referral, consult_letter, pathology_result, radiology_result, or generic",
+              "Best-fit document type: consent_form, referral, consult_letter, pathology_result, radiology_result, or generic",
           },
           firstName: {
             type: ["string", "null"],
@@ -86,12 +86,12 @@ export const EXTRACTION_TOOL = {
           senderName: {
             type: ["string", "null"],
             description:
-              "Name of the referring doctor or letter author (e.g. 'Dr John Smith'). Only for referral/GP referral letters.",
+              "Name of the referring doctor or letter author (e.g. 'Dr John Smith'). Only for referral letters.",
           },
           senderClinic: {
             type: ["string", "null"],
             description:
-              "Clinic or practice name of the sender/referring doctor. Only for referral/GP referral letters.",
+              "Clinic or practice name of the sender/referring doctor. Only for referral letters.",
           },
           senderProviderNumber: {
             type: ["string", "null"],

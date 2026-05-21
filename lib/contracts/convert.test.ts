@@ -27,7 +27,7 @@ describe("isConvertResponse", () => {
         success: true,
         filename: "out.hl7",
         hl7Content: "MSH|...",
-        documentType: "referral_letter",
+        documentType: "referral",
         extractionMethod: "vision",
         warnings: ["a", "b"],
         mailboxDisagreement: true,

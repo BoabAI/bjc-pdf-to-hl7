@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { DonutChart } from "@tremor/react";
+import { AppFooter } from "../components/AppFooter";
 import { AppNav } from "../components/AppNav";
 import { LogoStrip } from "../components/LogoStrip";
 import { ChartPieIcon } from "../components/ui/icons";
@@ -16,7 +17,6 @@ import {
 } from "../components/auditShared";
 import { AuditDateRangeHeader } from "../components/audit/AuditDateRangeHeader";
 import { AuditPageState } from "../components/audit/AuditPageState";
-import { SettingsPanel } from "../components/dashboard/SettingsPanel";
 
 type TremorColor =
   | "blue"
@@ -272,8 +272,6 @@ export default function StatsPage(): JSX.Element {
             onToChange={setTo}
           />
 
-          <SettingsPanel />
-
           <AuditPageState loading={loading} error={error} hasRows={hasRows}>
             <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <BreakdownPie
@@ -313,6 +311,8 @@ export default function StatsPage(): JSX.Element {
               />
             </section>
           </AuditPageState>
+
+          <AppFooter />
         </div>
       </main>
     </>

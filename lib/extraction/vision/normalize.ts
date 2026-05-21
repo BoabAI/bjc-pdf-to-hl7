@@ -14,6 +14,7 @@
  */
 
 import { DOCUMENT_TYPES } from "../../conversion-config";
+import { resolveDocumentTypeAlias } from "../../domain/document-type-aliases";
 import type {
   DocumentType,
   PatientData,
@@ -49,6 +50,11 @@ export function normalizeDocumentType(
   value: unknown,
   fallback: DocumentType = "generic"
 ): DocumentType {
+  // Resolve legacy aliases first so older model outputs (`gp_referral`,
+  // `referral_letter`) map forward to the canonical `referral` before the
+  // membership check.
+  const aliased = resolveDocumentTypeAlias(value);
+  if (aliased) return aliased;
   return typeof value === "string" &&
     DOCUMENT_TYPES.includes(value as DocumentType)
     ? (value as DocumentType)
@@ -90,17 +96,21 @@ export function cleanMedicareNumber(value: unknown): string | undefined {
   return value.replace(/\s/g, "") || undefined;
 }
 
-// Provider numbers must be 1-12 alphanumeric characters. The HL7 separators
-// (`|`, `^`, `~`, `&`, `\`) and ASCII control characters would corrupt segments
-// if echoed back from a crafted PDF — drop the value to undefined rather than
-// passing it through to HL7 build.
-const PROVIDER_NUMBER_RE = /^[A-Z0-9]{1,12}$/i;
+// Provider numbers are passed through verbatim (after a trim and length cap)
+// so the spaced Medicare convention (`123456 7Y`) survives extraction. HL7
+// separators (`|`, `^`, `~`, `&`, `\`) and ASCII control chars would corrupt
+// segments if echoed back from a crafted PDF — drop to undefined in that case
+// rather than passing through to the HL7 builder.
+const PROVIDER_NUMBER_HL7_OR_CONTROL = /[|^~&\\\x00-\x1f\x7f]/;
+const MAX_EXTRACTED_PROVIDER_NUMBER_LEN = 20;
 
 export function cleanProviderNumber(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
   if (trimmed.length === 0) return undefined;
-  return PROVIDER_NUMBER_RE.test(trimmed) ? trimmed : undefined;
+  if (trimmed.length > MAX_EXTRACTED_PROVIDER_NUMBER_LEN) return undefined;
+  if (PROVIDER_NUMBER_HL7_OR_CONTROL.test(trimmed)) return undefined;
+  return trimmed;
 }
 
 export function cleanStringArray(value: unknown): string[] | undefined {
@@ -178,7 +188,17 @@ export function normalizeVisionToolInput(
     fallbackDocumentType
   );
 
-  if (raw.documentType !== undefined && raw.documentType !== documentType) {
+  // Warn only when the raw value didn't resolve via the legacy alias map AND
+  // wasn't a canonical type — that's a genuine "model returned junk" signal.
+  // A legacy alias being mapped forward (gp_referral → referral) is silent.
+  const isLegacyAlias =
+    typeof raw.documentType === "string" &&
+    resolveDocumentTypeAlias(raw.documentType) !== undefined;
+  if (
+    raw.documentType !== undefined &&
+    raw.documentType !== documentType &&
+    !isLegacyAlias
+  ) {
     warnings.push(
       `Vision extraction returned an invalid document type; defaulted to ${documentType}`
     );

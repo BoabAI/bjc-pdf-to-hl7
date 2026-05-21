@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { AppFooter } from "../components/AppFooter";
 import { AppNav } from "../components/AppNav";
 import { LogoStrip } from "../components/LogoStrip";
 
 const EFFECTIVE_DATE = "20 March 2026";
 const ENTITY_NAME = "SMEC AI";
-const CONTACT_EMAIL = "privacy@smec.ai";
+const CONTACT_EMAIL = "info@smecai.au";
 
 interface PolicySection {
   id: string;
@@ -403,7 +404,7 @@ export default function PrivacyPolicyPage() {
   return (
     <>
       <AppNav />
-      <main className="min-h-screen flex flex-col items-center px-4 py-8">
+      <main className="min-h-screen flex flex-col items-center px-4 py-10">
         <div className="w-full max-w-[680px]">
           <LogoStrip />
 
@@ -421,7 +422,7 @@ export default function PrivacyPolicyPage() {
                 <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">
                   Privacy Policy
                 </h1>
-                <p className="text-sm text-[var(--text-secondary)] mt-0.5 leading-relaxed">
+                <p className="text-sm text-[var(--text-secondary)] mt-1.5 leading-relaxed">
                   Effective {EFFECTIVE_DATE}
                 </p>
               </div>
@@ -432,7 +433,7 @@ export default function PrivacyPolicyPage() {
 
           {/* Table of contents */}
           <div className="px-7 pt-5 pb-2">
-            <div className="p-4 rounded-xl bg-[var(--bg-inner)] border border-[var(--border-light)]">
+            <div className="card-inner p-4">
               <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-2">
                 Contents
               </h3>
@@ -451,7 +452,7 @@ export default function PrivacyPolicyPage() {
           </div>
 
           {/* Policy sections */}
-          <div className="px-7 py-5 space-y-6 privacy-content">
+          <div className="px-7 py-5 space-y-6">
             {sections.map((section, idx) => (
               <section
                 key={section.id}
@@ -492,12 +493,7 @@ export default function PrivacyPolicyPage() {
           </div>
         </div>
 
-        {/* Footer */}
-        <footer className="mt-6 text-center animate-fade-in stagger-3">
-          <p className="text-[11px] text-[var(--text-muted)] tracking-wide">
-            HL7 v2.4 &middot; ADRM Compliant &middot; Genie Compatible &middot; IRAP PROTECTED Infrastructure
-          </p>
-        </footer>
+        <AppFooter />
         </div>
       </main>
     </>

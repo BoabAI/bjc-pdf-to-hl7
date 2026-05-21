@@ -35,8 +35,8 @@ export function AuditDateRangeHeader({
       className="card p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4"
     >
       <div>
-        <h1 id="audit-range-title" className="text-2xl font-bold text-[var(--text-primary)]">{title}</h1>
-        <p className="text-sm text-[var(--text-secondary)] mt-1">{subtitle}</p>
+        <h1 id="audit-range-title" className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">{title}</h1>
+        <p className="text-sm text-[var(--text-secondary)] mt-1.5 leading-relaxed">{subtitle}</p>
       </div>
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col">

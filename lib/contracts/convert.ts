@@ -96,8 +96,7 @@ export interface ConvertResponse {
 
 const DOCUMENT_TYPES: ReadonlySet<DocumentType> = new Set<DocumentType>([
   "consent_form",
-  "referral_letter",
-  "gp_referral",
+  "referral",
   "consult_letter",
   "pathology_result",
   "radiology_result",

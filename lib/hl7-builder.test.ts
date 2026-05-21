@@ -841,7 +841,7 @@ describe("OBR-16 (Ordered By) - results documents", () => {
 
   test("referral_letter OBR-16 still uses senderName (unchanged)", () => {
     const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
-      documentType: "referral_letter",
+      documentType: "referral",
       referralInfo: {
         senderName: "Dr Sarah Jones",
         senderProviderNumber: "1234567A",
@@ -855,7 +855,7 @@ describe("OBR-16 (Ordered By) - results documents", () => {
 
   test("gp_referral OBR-16 still uses senderName (unchanged)", () => {
     const hl7 = buildHL7Message(samplePatient, TINY_PDF, {
-      documentType: "gp_referral",
+      documentType: "referral",
       referralInfo: {
         senderName: "Dr GP Smith",
         addresseeName: "Dr Specialist Brown",

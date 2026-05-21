@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   cleanMedicareNumber,
   cleanPhone,
+  cleanProviderNumber,
   cleanStringArray,
   convertDateToHL7,
   emptyPatientData,
@@ -28,9 +29,17 @@ describe("convertDateToHL7", () => {
 
 describe("normalizeDocumentType", () => {
   test("returns the value when it is a known document type", () => {
-    expect(normalizeDocumentType("referral_letter")).toBe("referral_letter");
+    expect(normalizeDocumentType("referral")).toBe("referral");
     expect(normalizeDocumentType("pathology_result")).toBe("pathology_result");
     expect(normalizeDocumentType("consult_letter")).toBe("consult_letter");
+  });
+
+  test("maps legacy gp_referral and referral_letter to the canonical referral", () => {
+    // Pre-collapse model outputs (or older fixtures) used `gp_referral` and
+    // `referral_letter`. They must alias forward to `referral` rather than
+    // falling through to the `generic` fallback.
+    expect(normalizeDocumentType("gp_referral")).toBe("referral");
+    expect(normalizeDocumentType("referral_letter")).toBe("referral");
   });
 
   test("falls back to generic by default for unknown values", () => {
@@ -67,6 +76,51 @@ describe("nullableString", () => {
     expect(nullableString("   ")).toBeUndefined();
     expect(nullableString(null)).toBeUndefined();
     expect(nullableString(42)).toBeUndefined();
+  });
+});
+
+describe("cleanProviderNumber", () => {
+  test("accepts the canonical Medicare format with a space", () => {
+    // Real Medicare provider numbers are usually displayed as "123456 7Y"
+    // (6 digits + space + check digit + 1-char location). PDFs often carry
+    // them in that shape and must survive extraction unchanged.
+    expect(cleanProviderNumber("123456 7Y")).toBe("123456 7Y");
+  });
+
+  test("accepts seed-style 8-char alphanumeric", () => {
+    expect(cleanProviderNumber("9000001Z")).toBe("9000001Z");
+  });
+
+  test("accepts hyphenated variants seen in some sender footers", () => {
+    expect(cleanProviderNumber("9876-543T")).toBe("9876-543T");
+  });
+
+  test("trims surrounding whitespace but preserves interior spaces", () => {
+    expect(cleanProviderNumber("  123456 7Y  ")).toBe("123456 7Y");
+  });
+
+  test("returns undefined when the value contains an HL7 separator", () => {
+    expect(cleanProviderNumber("1234567|EVIL")).toBeUndefined();
+    expect(cleanProviderNumber("ABC^DEF")).toBeUndefined();
+    expect(cleanProviderNumber("XX&YY")).toBeUndefined();
+    expect(cleanProviderNumber("A~B")).toBeUndefined();
+    expect(cleanProviderNumber("PATH\\BAD")).toBeUndefined();
+  });
+
+  test("returns undefined when the value contains an ASCII control char", () => {
+    expect(cleanProviderNumber("123456")).toBeUndefined();
+  });
+
+  test("returns undefined for empty / whitespace-only / non-string inputs", () => {
+    expect(cleanProviderNumber("")).toBeUndefined();
+    expect(cleanProviderNumber("   ")).toBeUndefined();
+    expect(cleanProviderNumber(null)).toBeUndefined();
+    expect(cleanProviderNumber(undefined)).toBeUndefined();
+    expect(cleanProviderNumber(123)).toBeUndefined();
+  });
+
+  test("rejects absurdly long values", () => {
+    expect(cleanProviderNumber("X".repeat(50))).toBeUndefined();
   });
 });
 
@@ -145,7 +199,7 @@ describe("emptyPatientData", () => {
 });
 
 describe("normalizeVisionToolInput — happy path", () => {
-  test("returns a fully populated PatientData and ReferralInfo", () => {
+  test("returns a fully populated PatientData and ReferralInfo (legacy gp_referral aliases to referral)", () => {
     const result = normalizeVisionToolInput({
       documentType: "gp_referral",
       firstName: "  Jane  ",
@@ -167,7 +221,8 @@ describe("normalizeVisionToolInput — happy path", () => {
       ccNames: ["Dr A. Maundrell", "Dr Lawrence Ong"],
     });
 
-    expect(result.documentType).toBe("gp_referral");
+    // Legacy `gp_referral` model output aliases forward to canonical `referral`.
+    expect(result.documentType).toBe("referral");
     expect(result.data).toEqual({
       firstName: "Jane",
       lastName: "Smith",
@@ -244,11 +299,11 @@ describe("normalizeVisionToolInput — invalid documentType", () => {
         dob: "08/11/1985",
         sex: "F",
       },
-      "gp_referral"
+      "referral"
     );
-    expect(result.documentType).toBe("gp_referral");
+    expect(result.documentType).toBe("referral");
     expect(result.warnings).toContain(
-      "Vision extraction returned an invalid document type; defaulted to gp_referral"
+      "Vision extraction returned an invalid document type; defaulted to referral"
     );
   });
 });
@@ -440,7 +495,7 @@ describe("normalizeVisionToolInput — no letterSubtype promote/demote", () => {
     );
   });
 
-  test("does NOT emit a classification-demoted warning", () => {
+  test("does NOT emit a classification-demoted warning (legacy referral_letter aliases to referral)", () => {
     const result = normalizeVisionToolInput({
       documentType: "referral_letter",
       firstName: "Jane",
@@ -450,7 +505,7 @@ describe("normalizeVisionToolInput — no letterSubtype promote/demote", () => {
       senderName: "Dr Sarah Jones",
       addresseeName: "Dr Michael Brown",
     });
-    expect(result.documentType).toBe("referral_letter");
+    expect(result.documentType).toBe("referral");
     expect(result.warnings.some((w) => w.startsWith("classification demoted"))).toBe(
       false
     );
