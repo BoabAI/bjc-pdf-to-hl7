@@ -121,6 +121,7 @@ describe("extractPatientDataWithVision success path", () => {
       model: "custom-model",
       documentType: "referral",
       classificationConfidence: 100,
+      isUrgent: false,
       referralInfo: {
         senderName: "Dr Sarah Jones",
         senderClinic: "Springfield Medical",

@@ -20,6 +20,7 @@ function makeExtraction(
     documentType: ("referral" as DocumentType),
     extractionMethod: "vision",
     classificationConfidence: 85,
+    isUrgent: false,
     referralInfo: { senderName: "Dr GP", addresseeName: "Dr Irwin Lim" },
     ...overrides,
   };
@@ -225,6 +226,93 @@ describe("evaluateAutoRouteEligibility — confidence floor", () => {
       extraction: makeExtraction({ classificationConfidence: 5 }),
       mailboxCategory: "letters",
       settings: { minClassificationConfidence: 0 },
+    });
+    expect(result.eligible).toBe(true);
+  });
+});
+
+describe("evaluateAutoRouteEligibility — urgent results", () => {
+  test("urgent pathology_result (results mailbox, addressee present) fails as urgent_result", () => {
+    const result = evaluateAutoRouteEligibility({
+      extraction: makeExtraction({
+        documentType: "pathology_result",
+        isUrgent: true,
+      }),
+      mailboxCategory: "results",
+      settings: baseSettings,
+    });
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toBe("urgent_result");
+    expect(result.suggestedCategory).toContain("Urgent result");
+  });
+
+  test("urgent radiology_result fails as urgent_result", () => {
+    const result = evaluateAutoRouteEligibility({
+      extraction: makeExtraction({
+        documentType: "radiology_result",
+        isUrgent: true,
+      }),
+      mailboxCategory: "results",
+      settings: baseSettings,
+    });
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toBe("urgent_result");
+  });
+
+  test("urgent pathology_result WITHOUT addressee still fails as urgent_result (precedence over missing_fields)", () => {
+    const result = evaluateAutoRouteEligibility({
+      extraction: makeExtraction({
+        documentType: "pathology_result",
+        isUrgent: true,
+        referralInfo: { senderName: "Lab" },
+      }),
+      mailboxCategory: "results",
+      settings: baseSettings,
+    });
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toBe("urgent_result");
+  });
+
+  test("urgent pathology_result with UNREADABLE patient still fails as urgent_result (precedence over extraction_failed)", () => {
+    // Mirrors Nicole's de-identified example: URGENT stamp present but the
+    // patient block is blacked out, so extraction can't read name/DOB. Urgent
+    // is checked before extraction, so the doc is labelled urgent, not failed.
+    const result = evaluateAutoRouteEligibility({
+      extraction: makeExtraction({
+        documentType: "pathology_result",
+        isUrgent: true,
+        success: false,
+        data: { firstName: "UNKNOWN", lastName: "PATIENT", dob: "19000101", sex: "U" },
+        referralInfo: { addresseeName: "Dr Cellina Ching" },
+      }),
+      mailboxCategory: "results",
+      settings: baseSettings,
+    });
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toBe("urgent_result");
+  });
+
+  test("urgent referral (letters mailbox) is NOT urgent-blocked (results-only)", () => {
+    const result = evaluateAutoRouteEligibility({
+      extraction: makeExtraction({
+        documentType: "referral",
+        isUrgent: true,
+      }),
+      mailboxCategory: "letters",
+      settings: baseSettings,
+    });
+    expect(result.eligible).toBe(true);
+    expect(result.reason).not.toBe("urgent_result");
+  });
+
+  test("non-urgent pathology_result with addressee is eligible (regression)", () => {
+    const result = evaluateAutoRouteEligibility({
+      extraction: makeExtraction({
+        documentType: "pathology_result",
+        isUrgent: false,
+      }),
+      mailboxCategory: "results",
+      settings: baseSettings,
     });
     expect(result.eligible).toBe(true);
   });

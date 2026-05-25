@@ -44,7 +44,8 @@ export type ManualReviewReason =
   | "missing_fields"
   | "mailbox_mismatch"
   | "unknown_doc_type"
-  | "extraction_failed";
+  | "extraction_failed"
+  | "urgent_result";
 
 /** Default Outlook category label PAD applies for each reason. Lives in code
  *  so the wire shape is self-contained; BJC ops can override on the PAD side
@@ -55,6 +56,7 @@ export const MANUAL_REVIEW_CATEGORIES: Record<ManualReviewReason, string> = {
   mailbox_mismatch: "Needs review — Wrong inbox",
   unknown_doc_type: "Needs review — Unknown type",
   extraction_failed: "Needs review — Extraction failed",
+  urgent_result: "Needs review — Urgent result",
 };
 
 /** Single shared shape for `/api/convert` responses. */
@@ -115,6 +117,7 @@ const MANUAL_REVIEW_REASONS: ReadonlySet<ManualReviewReason> =
     "mailbox_mismatch",
     "unknown_doc_type",
     "extraction_failed",
+    "urgent_result",
   ]);
 
 export function isManualReviewReason(value: unknown): value is ManualReviewReason {

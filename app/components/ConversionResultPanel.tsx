@@ -52,6 +52,12 @@ const REVIEW_REASON_STYLES: Record<
     rowBorder: "border-zinc-400",
     text: "text-zinc-900",
   },
+  urgent_result: {
+    label: "Urgent result",
+    rowBg: "bg-red-50 dark:bg-red-900/20",
+    rowBorder: "border-red-300 dark:border-red-700",
+    text: "text-red-800 dark:text-red-200",
+  },
 };
 
 export function ConversionResultPanel({

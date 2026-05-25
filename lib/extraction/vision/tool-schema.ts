@@ -121,6 +121,11 @@ export const EXTRACTION_TOOL = {
             description:
               "Self-reported confidence in the document type classification, as an integer from 0 (no confidence) to 100 (certain). Lower this value when (a) the document is ambiguous, (b) multiple types could apply, or (c) image quality is poor.",
           },
+          isUrgent: {
+            type: "boolean",
+            description:
+              "true if the word 'urgent'/'URGENT' appears anywhere prominent on the document — a header, stamp, priority field, or in the report body/findings (e.g. 'urgent clinical correlation'). Case-insensitive. When unsure, return true.",
+          },
         },
         required: [
           "documentType",
@@ -136,6 +141,7 @@ export const EXTRACTION_TOOL = {
           "medicareNo",
           "medicareRef",
           "classificationConfidence",
+          "isUrgent",
         ],
         additionalProperties: false,
       },

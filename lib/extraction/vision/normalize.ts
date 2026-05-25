@@ -138,6 +138,10 @@ export interface NormalizedVisionInput {
   /** Self-reported model confidence in the classification, 0-100. Defaults to
    * 100 when the model omits the field (older fixtures). */
   classificationConfidence: number;
+  /** True when the model flagged the word "urgent" anywhere prominent on the
+   * document. Defaults to `false` when absent or non-boolean (older fixtures /
+   * bad input). The results-only urgent-blocking policy lives in the gate. */
+  isUrgent: boolean;
 }
 
 /** Clamp the model's self-reported confidence to a 0-100 integer. Returns 100
@@ -178,6 +182,7 @@ export function normalizeVisionToolInput(
       data: emptyPatientData(),
       warnings,
       classificationConfidence: 100,
+      isUrgent: false,
     };
   }
 
@@ -258,5 +263,6 @@ export function normalizeVisionToolInput(
     referralInfo: hasReferralInfo ? referralInfo : undefined,
     warnings,
     classificationConfidence,
+    isUrgent: raw.isUrgent === true,
   };
 }
