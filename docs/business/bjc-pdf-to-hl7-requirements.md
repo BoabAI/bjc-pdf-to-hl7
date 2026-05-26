@@ -75,7 +75,7 @@ One audit row written (metadata only — no patient data)
 
 Staff can convert PDFs at any time via the web interface — useful for documents that arrive outside the automation (e.g. a faxed letter that didn't auto-process, a one-off scan, a document that landed in the wrong inbox).
 
-- Sign in with a BJC Health email address
+- Sign in with your BJC Health Microsoft 365 account (your existing Microsoft security, including 2FA, applies)
 - Drag-and-drop one or many PDFs onto the upload zone, or use Browse
 - Each PDF is detected (document type identified) in parallel as soon as it lands
 - Conversion runs sequentially. The HL7 file becomes available to download as each conversion finishes
@@ -95,7 +95,7 @@ A secure web dashboard is available for staff to manage the automation, monitor 
 - **Carrier configuration** — Set the default carrier value written into HL7 messages (defaults to **fax**)
 - **Audit log** — Every conversion is logged. Default view is the current month; date-range filter and CSV export are built in
 - **Processing metrics (stats)** — Pie charts showing volume by document type, outcome (Successful / Failed), and source (email vs web upload), plus trends over time
-- **Health status** — At-a-glance view of whether the automation and conversion service are running normally
+- **Health status** — At-a-glance view of whether the automation and conversion service are running normally, backed by an automatic email alert if the converter stops processing (so no one has to log in to notice an outage)
 
 The dashboard is hosted on a SMEC AI subdomain (replacing the Amplify default URL) and is accessible from any web browser by anyone with a `bjchealth.com.au` email address.
 
@@ -158,10 +158,11 @@ Documents are filed automatically against the matching patient record in Genie b
 ## DATA SECURITY
 
 - **No document content is retained.** PDFs are processed in memory and discarded immediately after conversion. The SMEC AI cloud service does not store, log, or retain any patient documents or extracted patient data
-- **Only metadata and metrics are kept.** The audit log records timestamp, document type, outcome (Successful / Failed), source (email / web), HL7 message type, routing flag, file size, duration, and a one-way SHA-256 hash of the filename. No clinical content, patient names, dates of birth, or Medicare numbers are stored in the cloud
+- **Only metadata and metrics are kept.** The audit log records timestamp, document type, outcome (Successful / Failed), source (email / web), HL7 message type, routing flag, file size, duration, the patient's initials (e.g. "JM"), and a scrambled (one-way hashed) version of the filename. No document content, patient names, dates of birth, Medicare numbers, or addresses are stored in the cloud
+- **Backups.** The audit log has continuous backup, restorable to any point within the previous 35 days. Documents themselves are never stored by SMEC AI — the original of each document stays in BJC Health's Microsoft 365 mailbox, under BJC Health's existing backup policy
 - **All processing in Australian data centres.** The conversion service runs on AWS Sydney. AI extraction uses AWS Bedrock with data residency in Australia (Sydney + Melbourne)
 - **Encrypted in transit.** All communication between the BJC server and the SMEC AI cloud service uses HTTPS encryption
-- **Authenticated access.** The web dashboard and conversion API are restricted to `bjchealth.com.au` email addresses
+- **Authenticated access.** Login uses Microsoft single sign-on with BJC Health's own Microsoft 365 accounts, so BJC Health's existing Microsoft security rules — including multi-factor authentication (2FA) — apply automatically. SMEC AI does not run a separate login of its own. Access is restricted to bjchealth.com.au accounts
 - **AWS Bedrock AI** — The AI model used for extraction is hosted in Australia, does not store or use submitted data for training, and is IRAP PROTECTED assessed
 
 ---
@@ -187,6 +188,7 @@ These items are required before each stage can go live:
 | --------------------- | ----------------------------------------------------------------------------------------------------------- |
 | Automatic retry       | If the cloud service is briefly unavailable, the automation retries twice before marking as failed          |
 | Failure notifications | Staff receive an email when a document can't be processed                                                   |
+| Outage alert          | An automatic email is sent if the converter stops processing documents, so no one has to log in to notice it |
 | Audit log             | Every conversion is logged in the cloud (metadata only — no document content) and viewable on the dashboard |
 | Crash recovery        | If the server restarts, the automation resumes within ~10 minutes                                           |
 | Temp file cleanup     | Leftover temporary files are automatically cleaned up                                                       |

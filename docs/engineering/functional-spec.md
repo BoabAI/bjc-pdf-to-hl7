@@ -891,16 +891,20 @@ bjc-pdf-to-hl7/
 |   +-- test-vision.ts                   Live Bedrock test (mock referrals)
 |   +-- test-addressee-scenarios.ts             Live Bedrock test (addressee resolution scenarios)
 +-- docs/
-|   +-- functional-spec.md               This document
-|   +-- reference/
-|   |   +-- amplify-bedrock-credentials.md   Compute role + Bedrock auth setup
-|   +-- workflow/
-|   |   +-- bjc-pdf-to-hl7-operational-guide.md  Operational guide for ops staff
-|   +-- research/
+|   +-- README.md                        Docs index / map (start here)
+|   +-- engineering/                     Specs + technical research
+|   |   +-- functional-spec.md           This document
 |   |   +-- genie-hl7-input-format.md            Genie HL7 input requirements
 |   |   +-- genie-desktop-results-workflow.md    Genie desktop results research
 |   |   +-- sister-system-pdf-to-directory.md    Sister system reference
-|   +-- test-pdfs/                       Test PDF fixtures (referrals/, addressees/, results/, originals/)
+|   +-- operations/                      Runbooks (run & deploy)
+|   |   +-- bjc-pdf-to-hl7-operational-guide.md  Operational guide for ops staff
+|   |   +-- amplify-bedrock-credentials.md       Compute role + Bedrock auth setup
+|   +-- business/                        Commercial / client docs (costs, requirements, emails, stakeholder Q&A, marketing)
+|   +-- meetings/                        Meeting transcripts + action notes
+|   +-- plans/                           Implementation plans
+|   +-- strategy/                        Forward product strategy
+|   +-- test-pdfs/                       Test PDF fixtures (referrals/, addressees/, results/, originals/, urgent/)
 |   +-- archive/                         Historical / superseded docs
 +-- middleware.ts                        Auth + cache-control middleware
 +-- middleware.test.ts                   Middleware tests

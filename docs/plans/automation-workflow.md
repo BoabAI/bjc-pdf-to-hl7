@@ -2,7 +2,7 @@
 
 ## Context
 
-BJC Health currently uses a manual browser-based tool to convert referral PDFs to HL7 files. The requirements doc (`docs/workflow/bjc-pdf-to-hl7-requirements.md`) describes a fully automated pipeline: emails arrive in a shared mailbox, PAD (Power Automate Desktop) processes them every 15 minutes, calls the SMEC AI cloud service, saves HL7 files to Genie's import folder, and routes emails to Linked/Review folders. A web dashboard provides doctor list management, health monitoring, metrics, and audit logging.
+BJC Health currently uses a manual browser-based tool to convert referral PDFs to HL7 files. The requirements doc (`docs/business/bjc-pdf-to-hl7-requirements.md`) describes a fully automated pipeline: emails arrive in a shared mailbox, PAD (Power Automate Desktop) processes them every 15 minutes, calls the SMEC AI cloud service, saves HL7 files to Genie's import folder, and routes emails to Linked/Review folders. A web dashboard provides doctor list management, health monitoring, metrics, and audit logging.
 
 **What exists:** Next.js 14 app on AWS Amplify with PDF-to-HL7 conversion via Bedrock Claude vision, password cookie auth, browser UI with localStorage-backed doctor list, 187+ tests. No database, no API key auth, no audit logging, no dashboard, no metrics.
 
@@ -317,7 +317,7 @@ interface DailyMetric {
 **Why:** The PAD flow runs on the Windows server and is built separately. We provide the API contract and reference flow design.
 
 ### New Files
-- **`docs/workflow/pad-integration-guide.md`** — Complete PAD integration reference:
+- **`docs/operations/pad-integration-guide.md`** — Complete PAD integration reference:
   - API endpoint contract (POST /api/convert with X-API-Key header)
   - Request/response format with examples
   - Authentication setup (API key from dashboard)
@@ -362,7 +362,7 @@ Refactor existing code where it improves clarity:
 | New test files | 9 | Matching .test.ts for each source module + route |
 | Modified files | 4 | middleware.ts, app/api/convert/route.ts, app/page.tsx, package.json |
 | Config files | 2 | amplify.yml, .env.example |
-| Documentation | 1 | docs/workflow/pad-integration-guide.md |
+| Documentation | 1 | docs/operations/pad-integration-guide.md |
 
 ---
 

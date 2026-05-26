@@ -1,6 +1,6 @@
 # 2026-05-20 BJC PDF-to-Genie Meeting — Follow-up Plan (POC / in-repo)
 
-Source transcript: `docs/transcripts/2026-05-20-bjc-pdf-to-genie-meeting-notes.md`
+Source transcript: `docs/meetings/2026-05-20-bjc-pdf-to-genie-meeting-notes.md`
 Sister plan (everything outside this repo): `docs/plans/2026-05-20-production-rollout.md`
 
 ## Context

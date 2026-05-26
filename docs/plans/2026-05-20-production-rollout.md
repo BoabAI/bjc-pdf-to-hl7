@@ -6,7 +6,7 @@ Sister plan to `docs/plans/2026-05-20-meeting-followup.md`. This file holds the 
 
 The converter itself (this repo) is the POC and is largely done — see the sibling plan's "already shipped" table. What's left to take it from POC to live production is the **ingestion pipeline** (email → converter → Genie) and the **operational validation** of that pipeline. Both live outside the Next.js codebase.
 
-The meeting (`docs/transcripts/2026-05-20-bjc-pdf-to-genie-meeting-notes.md`) decided to start with fax processing only, treat each email attachment independently, and keep human review available throughout. No firm dates were agreed.
+The meeting (`docs/meetings/2026-05-20-bjc-pdf-to-genie-meeting-notes.md`) decided to start with fax processing only, treat each email attachment independently, and keep human review available throughout. No firm dates were agreed.
 
 ---
 
@@ -21,7 +21,7 @@ The meeting (`docs/transcripts/2026-05-20-bjc-pdf-to-genie-meeting-notes.md`) de
 
 **Option B — Multipart endpoint.** `/api/convert` accepts an array of PDFs and returns an array of results. More invasive — touches `lib/contracts/convert.ts`, `lib/convert-service.ts`, all tests, and the UI's progress state. No real benefit over Option A.
 
-**Recommendation:** Option A. Document it in `docs/workflow/bjc-pdf-to-hl7-operational-guide.md` (in-repo doc) and treat it as the contract for Action R2.
+**Recommendation:** Option A. Document it in `docs/operations/bjc-pdf-to-hl7-operational-guide.md` (in-repo doc) and treat it as the contract for Action R2.
 
 **Deliverable:** One-paragraph decision note appended to the operational guide; no production code in this action.
 
@@ -87,7 +87,7 @@ The meeting (`docs/transcripts/2026-05-20-bjc-pdf-to-genie-meeting-notes.md`) de
 
 **Owner:** Nicole + Sean.
 **Repo impact:** None.
-**Scope:** Awareness only. Capture relevant alternative tooling in `docs/research/`.
+**Scope:** Awareness only. Capture relevant alternative tooling in `docs/engineering/`.
 
 ---
 

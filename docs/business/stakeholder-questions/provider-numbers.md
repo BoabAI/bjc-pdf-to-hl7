@@ -46,4 +46,4 @@ If the answer to Q1 is "yes" → start with Option A (separate rows). It require
 - [Services Australia — Manage your provider and prescriber numbers](https://www.servicesaustralia.gov.au/manage-your-provider-and-prescriber-numbers?context=20)
 - [Medical-Objects KB — Genie Sending](https://kb.medical-objects.com.au/display/PUB/Genie+Sending)
 - [Medical-Objects KB — Genie](https://kb.medical-objects.com.au/display/PUB/Genie)
-- Project doc: `docs/research/genie-hl7-input-format.md` (PV1-9 routing, OBR-24 inbox routing)
+- Project doc: `docs/engineering/genie-hl7-input-format.md` (PV1-9 routing, OBR-24 inbox routing)

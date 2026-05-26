@@ -15,9 +15,10 @@ Convert Australian medical PDFs to HL7 v2.4 format (Genie-compatible) using AWS 
 
 ## Documentation map
 
-- **`docs/functional-spec.md`** — Developer / technical reference for this repo (architecture, modules, HL7 generation rules, deployment, testing).
-- **`docs/workflow/bjc-pdf-to-hl7-operational-guide.md`** — Plain-English guide for BJC ops staff and Medihost (workflow, what's imported, manual upload path, code escrow).
-- **`docs/research/sister-system-pdf-to-directory.md`** — Reference for the sister consent-form-to-directory project (different repo).
+- **`docs/README.md`** — Index/map of the whole docs tree (start here).
+- **`docs/engineering/functional-spec.md`** — Developer / technical reference for this repo (architecture, modules, HL7 generation rules, deployment, testing).
+- **`docs/operations/bjc-pdf-to-hl7-operational-guide.md`** — Plain-English guide for BJC ops staff and Medihost (workflow, what's imported, manual upload path, code escrow).
+- **`docs/engineering/sister-system-pdf-to-directory.md`** — Reference for the sister consent-form-to-directory project (different repo).
 
 ## Quick Start
 

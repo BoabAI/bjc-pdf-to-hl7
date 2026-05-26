@@ -191,11 +191,12 @@ Locally, create `.env.local`. On Amplify, env vars are set at the app level and 
 
 ### Reference Docs
 
-- `docs/functional-spec.md` - Full functional specification (developer reference)
-- `docs/research/genie-hl7-input-format.md` - Genie's HL7 input requirements
-- `docs/reference/amplify-bedrock-credentials.md` - Amplify compute role + Bedrock auth setup
-- `docs/workflow/bjc-pdf-to-hl7-operational-guide.md` - Plain-English operational guide for BJC ops staff and Medihost
-- `docs/research/sister-system-pdf-to-directory.md` - Reference for the sister consent-form-to-directory project (different repo)
+- `docs/README.md` - Index/map of the docs tree (start here)
+- `docs/engineering/functional-spec.md` - Full functional specification (developer reference)
+- `docs/engineering/genie-hl7-input-format.md` - Genie's HL7 input requirements
+- `docs/operations/amplify-bedrock-credentials.md` - Amplify compute role + Bedrock auth setup
+- `docs/operations/bjc-pdf-to-hl7-operational-guide.md` - Plain-English operational guide for BJC ops staff and Medihost
+- `docs/engineering/sister-system-pdf-to-directory.md` - Reference for the sister consent-form-to-directory project (different repo)
 - `docs/archive/` - Historical/superseded docs (cost analysis, pricing research, refactor plans, PDF dups)
 
 ## Deployment

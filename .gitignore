@@ -66,6 +66,7 @@ docs/test-pdfs/**/*.pdf
 !docs/test-pdfs/results/*.pdf
 !docs/test-pdfs/letter-subtypes/*.pdf
 !docs/test-pdfs/review-referrals/*.pdf
+!docs/test-pdfs/urgent/*.pdf
 
 # Real BJC HL7 / PDF samples — local reference only, NEVER commit
 /samples/
@@ -109,3 +110,6 @@ scripts/video/remotion/public/narration-segments/_archive2/
 
 # BJC test PDFs from Nicole (real PHI — never commit)
 docs/latest/
+
+# Separate-client strategy brief — keep out of the BJC repo
+docs/strategy/advanced-hearing-solutions-backoffice-automation.md

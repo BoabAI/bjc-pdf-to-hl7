@@ -191,7 +191,7 @@ BJC Health currently has two automations running on the same Windows server:
 - **PDF-to-Directory** (live since 2025): Processes **consent forms** from the PD@ mailbox. Renames PDFs and saves them to a network folder for Genie auto-import.
 - **PDF-to-HL7** (this service, live since Feb 2026): Processes **referrals, pathology, and radiology** from three dedicated mailboxes. Converts PDFs to HL7 messages and saves them to the Genie import folder.
 
-Both automations run independently and do not interfere with each other. See `docs/research/sister-system-pdf-to-directory.md` for reference details on PDF-to-Directory.
+Both automations run independently and do not interfere with each other. See `docs/engineering/sister-system-pdf-to-directory.md` for reference details on PDF-to-Directory.
 
 ---
 

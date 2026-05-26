@@ -10,7 +10,7 @@ Plan file: `/Users/sean/.claude/plans/users-sean-projects-bjc-pdf-to-hl7-docs-fu
 
 Both open with "Thank you for seeing [patient] for [follow-up / ongoing review]" — standard AU **review referral** phrasing, not a thank-you note. Both contain GP letterhead + "Dear Dr X" + provider-number signature. Bedrock misclassifies them as `pathology_result` / `radiology_result`, almost certainly because the body has dated problem-history lists (`2016 D-Dimer Elevation`, `09/09/2013 Osteoarthritis`) and tabular medication grids that visually resemble lab data.
 
-**Architectural realisation (from the transcripts):** In production, PDFs don't arrive context-free. Per the 28 Apr meeting (`docs/transcripts/2026-04-28-bjc-next-steps.md`) and 4 May meeting (`docs/transcripts/2026-05-04-bjc-pdf-to-genie.md`):
+**Architectural realisation (from the transcripts):** In production, PDFs don't arrive context-free. Per the 28 Apr meeting (`docs/meetings/2026-04-28-bjc-next-steps.md`) and 4 May meeting (`docs/meetings/2026-05-04-bjc-pdf-to-genie.md`):
 
 | Mailbox | Source | Content (per Nicole) | Volume |
 |---------|--------|----------------------|--------|

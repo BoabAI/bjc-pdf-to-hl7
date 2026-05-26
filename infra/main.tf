@@ -18,6 +18,18 @@ variable "amplify_compute_role_name" {
   default     = "AmplifyComputeRole-ddv0o3k8wcjhr"
 }
 
+variable "alarm_emails" {
+  description = "Email addresses notified when the converter pipeline goes quiet (BJC ops + SMEC AI). No subscriptions are created if empty; each subscriber must confirm via the AWS opt-in email."
+  type        = list(string)
+  default     = []
+}
+
+variable "silence_window_hours" {
+  description = "Raise the pipeline-silence alarm if no document has been processed (no audit row written) for this many hours. Set comfortably longer than the longest expected quiet stretch (overnight/weekends). Keep <= 24 — CloudWatch alarm periods cannot exceed one day."
+  type        = number
+  default     = 6
+}
+
 resource "aws_dynamodb_table" "audit" {
   name         = "bjc-pdf-to-hl7-audit"
   billing_mode = "PAY_PER_REQUEST"
@@ -111,6 +123,68 @@ resource "aws_iam_role_policy" "reference_data_dynamodb" {
       Resource = aws_dynamodb_table.reference_data.arn
     }]
   })
+}
+
+# --- Pipeline health alerting -------------------------------------------------
+# Answers BJC clarification Q5 ("auto notification when not running properly, or
+# do you have to log in to see?"). Push instead of pull.
+#
+# Every conversion attempt writes exactly one row to the audit table — success
+# and failure alike (recordConversion -> PutItem, called on both code paths in
+# app/api/convert/route.ts). So write activity on the audit table is a proxy for
+# "the pipeline is alive". If the conversion service, the PAD workflow, the BJC
+# server, or the mailbox auth dies, documents stop flowing, no rows are written,
+# and this alarm fires.
+#
+# This deliberately does NOT alarm on per-document extraction failures: those are
+# handled gracefully (manual_review -> Review folder) and still write an audit
+# row, so they are "running properly" for the purpose of this alarm.
+
+resource "aws_sns_topic" "pipeline_alerts" {
+  name = "bjc-pdf-to-hl7-pipeline-alerts"
+
+  tags = {
+    Project = "bjc-pdf-to-hl7"
+  }
+}
+
+resource "aws_sns_topic_subscription" "pipeline_alerts_email" {
+  for_each  = toset(var.alarm_emails)
+  topic_arn = aws_sns_topic.pipeline_alerts.arn
+  protocol  = "email"
+  endpoint  = each.value
+}
+
+resource "aws_cloudwatch_metric_alarm" "pipeline_silence" {
+  alarm_name        = "bjc-pdf-to-hl7-pipeline-silence"
+  alarm_description = "No documents processed (no audit rows written) for ${var.silence_window_hours}h. The converter pipeline may be down — check the conversion service, the PAD workflow, the BJC server, and mailbox auth."
+
+  namespace   = "AWS/DynamoDB"
+  metric_name = "ConsumedWriteCapacityUnits"
+  dimensions = {
+    TableName = aws_dynamodb_table.audit.name
+  }
+
+  statistic           = "Sum"
+  period              = var.silence_window_hours * 3600
+  evaluation_periods  = 1
+  comparison_operator = "LessThanOrEqualToThreshold"
+  threshold           = 0
+
+  # DynamoDB only publishes this metric when there is write activity, so "no
+  # datapoints" is exactly the silent-pipeline condition we want to catch.
+  treat_missing_data = "breaching"
+
+  alarm_actions = [aws_sns_topic.pipeline_alerts.arn]
+  ok_actions    = [aws_sns_topic.pipeline_alerts.arn] # notify on recovery too
+
+  tags = {
+    Project = "bjc-pdf-to-hl7"
+  }
+}
+
+output "PIPELINE_ALERTS_TOPIC_ARN" {
+  value = aws_sns_topic.pipeline_alerts.arn
 }
 
 output "DYNAMODB_TABLE" {

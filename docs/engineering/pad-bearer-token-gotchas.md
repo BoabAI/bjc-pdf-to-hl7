@@ -240,7 +240,7 @@ For a single BJC server, the first one is the right answer. Robin name on disk: 
 Justification:
 - **Single Windows server, single tenant, single flow.** The complexity of Azure Key Vault (App Registration, vault provisioning, network egress to vault.azure.net, Dataverse cloud-flow round-trip on every PAD run, additional licensing surface) is not warranted.
 - **Power Automate Premium licensing is present** but the premium vault path adds **end-to-end latency** to every run (cloud-flow hop) and a new failure mode (vault unreachable → flow halts) for marginal security gain over DPAPI on a hardened domain-joined server.
-- **Aligns with the AU medical security baseline** (`docs/research/au-medical-security-baseline.md`): "shared bearer token in `Authorization: Bearer <token>` … secret in Amplify env. Rotate quarterly. Combine with… HMAC-signed body." Credential Manager + sensitive variables satisfies the "consumer stores in its own secret store" clause.
+- **Aligns with the AU medical security baseline** (`docs/engineering/au-medical-security-baseline.md`): "shared bearer token in `Authorization: Bearer <token>` … secret in Amplify env. Rotate quarterly. Combine with… HMAC-signed body." Credential Manager + sensitive variables satisfies the "consumer stores in its own secret store" clause.
 - **DPAPI is the right tool for the threat model.** The threat is not "nation-state extracts token from disk" — it's "junior admin browses the flow definition or run logs". DPAPI ties decryption to the service account; sensitive variables suppress logs. Both threats covered.
 - **Rotation is simple** (Gotcha 13).
 

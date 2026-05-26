@@ -155,7 +155,7 @@ Five fixes applied after the 19 Feb 2026 outage:
 
 ## Relationship to PDF-to-HL7
 
-See `docs/workflow/bjc-pdf-to-hl7-operational-guide.md` for the relationship between the two systems and the combined operational picture.
+See `docs/operations/bjc-pdf-to-hl7-operational-guide.md` for the relationship between the two systems and the combined operational picture.
 
 ---
 

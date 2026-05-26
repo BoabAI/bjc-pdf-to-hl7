@@ -123,6 +123,6 @@ A reader can confirm this themselves:
 
 This document covers the SMEC AI side of the pipeline. The customer-side
 mailbox-to-PAD-to-SMEC-AI leg is owned by BJC and is documented separately
-in `docs/research/pad-bearer-token-gotchas.md`. The browser-upload leg
+in `docs/engineering/pad-bearer-token-gotchas.md`. The browser-upload leg
 (operator uploads a PDF via the web UI) is identical to the email leg from
 the moment the multipart body arrives at the Lambda.

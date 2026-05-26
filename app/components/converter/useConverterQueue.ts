@@ -40,6 +40,8 @@ export interface UseConverterQueueResult {
   removeEntry: (id: string) => void;
   resetQueue: () => void;
   convertAll: () => Promise<void>;
+  /** Re-runs conversion for every entry currently in the `failed` state. */
+  retryFailed: () => Promise<void>;
 }
 
 /**
@@ -165,6 +167,24 @@ export function useConverterQueue(
     }
   }, [entries, isConverting, convertEntry]);
 
+  const retryFailed = useCallback(async () => {
+    if (isConverting) return;
+    // Snapshot failed entries up front so files added mid-retry don't join in.
+    const failed = entries.filter((e) => e.status === "failed");
+    if (failed.length === 0) return;
+
+    setIsConverting(true);
+    try {
+      // convertEntry flips each row to "converting" then done/failed, so no
+      // separate re-queue step is needed — the failed badge clears on entry.
+      for (const entry of failed) {
+        await convertEntry(entry);
+      }
+    } finally {
+      setIsConverting(false);
+    }
+  }, [entries, isConverting, convertEntry]);
+
   return {
     entries,
     isConverting,
@@ -175,5 +195,6 @@ export function useConverterQueue(
     removeEntry,
     resetQueue,
     convertAll,
+    retryFailed,
   };
 }

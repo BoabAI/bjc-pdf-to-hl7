@@ -18,7 +18,7 @@
  *
  * Two intentional divergences from the samples are explicitly documented
  * (OBR-4 label and OBR-24 for ORU result types) — see
- * `docs/research/genie-results-routing.md` for the analysis. The tests
+ * `docs/engineering/genie-results-routing.md` for the analysis. The tests
  * pin our CURRENT (post-PR-1) behaviour and call out the divergence so
  * Nicole's Genie UI test post-deploy can decide whether to converge or
  * keep our richer routing.
@@ -281,7 +281,7 @@ describe("OBR segment matches BJC Genie samples — matching fields", () => {
 
 // =============================================================================
 // Intentional divergences — pin our PR 1 design and document the divergence.
-// See docs/research/genie-results-routing.md for the analysis.
+// See docs/engineering/genie-results-routing.md for the analysis.
 // =============================================================================
 
 describe("Intentional divergences from BJC Genie samples (post-PR-1 design)", () => {
