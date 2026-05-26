@@ -512,6 +512,41 @@ describe("normalizeVisionToolInput — no letterSubtype promote/demote", () => {
   });
 });
 
+describe("normalizeVisionToolInput — isUrgent", () => {
+  function base(extra: Record<string, unknown>) {
+    return normalizeVisionToolInput({
+      documentType: "pathology_result",
+      firstName: "Jane",
+      lastName: "Smith",
+      dob: "08/11/1985",
+      sex: "F",
+      ...extra,
+    });
+  }
+
+  test("is true only when raw.isUrgent === true", () => {
+    expect(base({ isUrgent: true }).isUrgent).toBe(true);
+  });
+
+  test("is false when absent", () => {
+    expect(base({}).isUrgent).toBe(false);
+  });
+
+  test("is false when explicitly false", () => {
+    expect(base({ isUrgent: false }).isUrgent).toBe(false);
+  });
+
+  test("is false for non-boolean values", () => {
+    expect(base({ isUrgent: "true" }).isUrgent).toBe(false);
+    expect(base({ isUrgent: 1 }).isUrgent).toBe(false);
+    expect(base({ isUrgent: null }).isUrgent).toBe(false);
+  });
+
+  test("is false when raw input is not a record", () => {
+    expect(normalizeVisionToolInput(null, "generic").isUrgent).toBe(false);
+  });
+});
+
 describe("normalizeVisionToolInput — classificationConfidence", () => {
   test("returns the model's reported confidence as an integer", () => {
     const result = normalizeVisionToolInput({

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { isConvertResponse } from "./convert";
+import { isConvertResponse, isManualReviewReason } from "./convert";
 
 describe("isConvertResponse", () => {
   test("rejects non-object inputs", () => {
@@ -133,5 +133,36 @@ describe("isConvertResponse", () => {
         reason: "not-a-real-reason",
       })
     ).toBe(false);
+  });
+
+  test("accepts manual_review envelope with urgent_result reason", () => {
+    expect(
+      isConvertResponse({
+        success: true,
+        action: "manual_review",
+        reason: "urgent_result",
+        suggestedCategory: "Needs review — Urgent result",
+      })
+    ).toBe(true);
+  });
+});
+
+describe("isManualReviewReason", () => {
+  test("accepts urgent_result", () => {
+    expect(isManualReviewReason("urgent_result")).toBe(true);
+  });
+
+  test("accepts the existing reasons", () => {
+    expect(isManualReviewReason("low_confidence")).toBe(true);
+    expect(isManualReviewReason("missing_fields")).toBe(true);
+    expect(isManualReviewReason("mailbox_mismatch")).toBe(true);
+    expect(isManualReviewReason("unknown_doc_type")).toBe(true);
+    expect(isManualReviewReason("extraction_failed")).toBe(true);
+  });
+
+  test("rejects unknown values and non-strings", () => {
+    expect(isManualReviewReason("not-a-reason")).toBe(false);
+    expect(isManualReviewReason(undefined)).toBe(false);
+    expect(isManualReviewReason(42)).toBe(false);
   });
 });

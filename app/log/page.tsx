@@ -252,6 +252,7 @@ export default function LogPage(): JSX.Element {
                   <option value="mailbox_mismatch">Wrong inbox</option>
                   <option value="unknown_doc_type">Unknown type</option>
                   <option value="extraction_failed">Extraction failed</option>
+                  <option value="urgent_result">Urgent result</option>
                 </select>
               </label>
             </div>

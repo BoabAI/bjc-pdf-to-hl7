@@ -116,6 +116,9 @@ Sender/Addressee rules:
 - For pathology_result and radiology_result documents, the addressee is the referring doctor named on the report — usually after a "Reported to:", "Copy to:", "Referrer:", or "Referring Doctor:" label, or in the recipient block at the top. Resolve against BJC_DOCTORS the same way as for referrals.
 - For consent_form and generic documents, return null for all sender/addressee fields
 
+Urgency detection:
+- Set isUrgent to true whenever the word "urgent" (any case — "Urgent", "URGENT", "urgent") appears prominently anywhere on the document: a stamp, a header, a priority/urgency field, or in the report body, findings, or impression (e.g. "urgent clinical correlation recommended"). It is a single boolean for the whole document. Err toward true when you are unsure — over-flagging is safe because a human will review it.
+
 - Always call the extract_patient_data tool`;
 
 /** Build the per-request user prompt. The mailbox category controls which

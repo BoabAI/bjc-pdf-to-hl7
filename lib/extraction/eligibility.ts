@@ -5,16 +5,22 @@
  * (auto-route) or divert the document to manual review.
  *
  * Order of failure preference (most specific → most generic):
- *   1. `extraction_failed`     — Bedrock returned no usable patient data.
- *   2. `unknown_doc_type`      — model picked `generic` (catch-all). The
+ *   1. `urgent_result`         — a pathology/radiology result the model
+ *                                flagged as urgent. Never auto-files — a
+ *                                human must phone the doctor. Results-only;
+ *                                checked first so it wins the label even when
+ *                                the patient block is unreadable (redacted /
+ *                                poor-quality fax) or the doc trips a later check.
+ *   2. `extraction_failed`     — Bedrock returned no usable patient data.
+ *   3. `unknown_doc_type`      — model picked `generic` (catch-all). The
  *                                eligibility gate is never confident enough
  *                                to auto-route generic correspondence.
- *   3. `mailbox_mismatch`      — model picked a doc type outside the
+ *   4. `mailbox_mismatch`      — model picked a doc type outside the
  *                                allowed set for the mailbox category.
- *   4. `missing_fields`        — required field for the picked doc type
+ *   5. `missing_fields`        — required field for the picked doc type
  *                                is absent (patient name/DOB; OBR-16 for
  *                                pathology/radiology results).
- *   5. `low_confidence`        — model confidence below the configured
+ *   6. `low_confidence`        — model confidence below the configured
  *                                floor.
  *
  * Reason → suggested Outlook category mapping lives on the wire shape
@@ -39,6 +45,7 @@ import {
 
 export interface EligibilityCheck {
   name:
+    | "urgentResult"
     | "extractionSucceeded"
     | "docTypeSupported"
     | "docTypeInMailboxCategory"
@@ -119,7 +126,22 @@ export function evaluateAutoRouteEligibility(
   const strictRequiredFields = input.strictRequiredFields ?? true;
   const checks: EligibilityCheck[] = [];
 
-  // 1. Extraction succeeded — name + DOB present (the only fields the rest
+  // 1. Urgent results never auto-file — they need a human (phone the doctor).
+  //    Results-only. Checked first so an urgent result wins the label even when
+  //    the patient block is unreadable (redacted / poor-quality fax) — the
+  //    model's `isUrgent` signal is reliable independent of patient extraction.
+  const urgentBlocked =
+    isResultDocumentType(extraction.documentType) && extraction.isUrgent === true;
+  checks.push({
+    name: "urgentResult",
+    passed: !urgentBlocked,
+    detail: urgentBlocked
+      ? `${extraction.documentType} marked urgent — held for manual handling`
+      : undefined,
+  });
+  if (urgentBlocked) return fail("urgent_result", checks);
+
+  // 2. Extraction succeeded — name + DOB present (the only fields the rest
   //    of the pipeline truly depends on; everything else is best-effort).
   const extractionOk = extraction.success && hasRealPatientName(extraction) && hasRealDob(extraction);
   checks.push({
@@ -131,7 +153,7 @@ export function evaluateAutoRouteEligibility(
   });
   if (!extractionOk) return fail("extraction_failed", checks);
 
-  // 2. Doc type is something we can route. `generic` is intentionally
+  // 3. Doc type is something we can route. `generic` is intentionally
   //    treated as "I don't know" — we never auto-route it.
   const docType = extraction.documentType;
   const docTypeKnown = docType !== "generic";
@@ -142,7 +164,7 @@ export function evaluateAutoRouteEligibility(
   });
   if (!docTypeKnown) return fail("unknown_doc_type", checks);
 
-  // 3. Doc type is in the mailbox category's allowed set. Only enforced
+  // 4. Doc type is in the mailbox category's allowed set. Only enforced
   //    when the mailbox is known (results/letters); web uploads with no
   //    header skip this check.
   const inCategory =
@@ -157,7 +179,7 @@ export function evaluateAutoRouteEligibility(
   });
   if (!inCategory) return fail("mailbox_mismatch", checks);
 
-  // 4. Required HL7 fields for the picked doc type. Today the only
+  // 5. Required HL7 fields for the picked doc type. Today the only
   //    type-specific requirement is OBR-16 on result documents — sourced
   //    from referralInfo.addresseeName when the doc has been classified
   //    as pathology/radiology. Lenient callers (`strictRequiredFields: false`)
@@ -171,7 +193,7 @@ export function evaluateAutoRouteEligibility(
   });
   if (!requiredOk.ok && strictRequiredFields) return fail("missing_fields", checks);
 
-  // 5. Confidence floor (read from runtime settings). Missing confidence
+  // 6. Confidence floor (read from runtime settings). Missing confidence
   //    (e.g. legacy callers that pre-date the classifier reporting it) is
   //    treated as no-signal and passes — we never want to manual-review on
   //    pure absence of a signal.

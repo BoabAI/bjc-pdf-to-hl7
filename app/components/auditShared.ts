@@ -55,7 +55,8 @@ export interface AuditRow {
     | "missing_fields"
     | "mailbox_mismatch"
     | "unknown_doc_type"
-    | "extraction_failed";
+    | "extraction_failed"
+    | "urgent_result";
   /** Suggested Outlook category label PAD would apply to the source email. */
   suggestedCategory?: string;
   /** Classifier self-reported confidence (0-100). */
@@ -103,6 +104,12 @@ export const ROUTING_REASON_STYLE: Record<
     label: "Extraction failed",
     badge: "bg-zinc-200 text-zinc-900 border-zinc-400",
     donut: "slate",
+  },
+  urgent_result: {
+    label: "Urgent result",
+    badge:
+      "bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-200 dark:border-red-700",
+    donut: "red",
   },
 };
 

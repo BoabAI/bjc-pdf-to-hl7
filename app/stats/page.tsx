@@ -26,7 +26,8 @@ type TremorColor =
   | "rose"
   | "emerald"
   | "slate"
-  | "orange";
+  | "orange"
+  | "red";
 
 const DOC_TYPE_COLORS: TremorColor[] = ["blue", "teal", "violet", "amber", "slate"];
 const OUTCOME_COLORS: TremorColor[] = ["emerald", "rose"];
@@ -45,7 +46,8 @@ const TREMOR_COLOR_SAFELIST =
   "fill-rose-500 stroke-rose-500 bg-rose-500 text-rose-500 " +
   "fill-emerald-500 stroke-emerald-500 bg-emerald-500 text-emerald-500 " +
   "fill-slate-500 stroke-slate-500 bg-slate-500 text-slate-500 " +
-  "fill-orange-500 stroke-orange-500 bg-orange-500 text-orange-500";
+  "fill-orange-500 stroke-orange-500 bg-orange-500 text-orange-500 " +
+  "fill-red-500 stroke-red-500 bg-red-500 text-red-500";
 
 const COLOR_SWATCH: Record<TremorColor, string> = {
   blue: "bg-blue-500",
@@ -56,6 +58,7 @@ const COLOR_SWATCH: Record<TremorColor, string> = {
   emerald: "bg-emerald-500",
   slate: "bg-slate-500",
   orange: "bg-orange-500",
+  red: "bg-red-500",
 };
 
 interface ChartDatum {
@@ -244,6 +247,7 @@ export default function StatsPage(): JSX.Element {
       "Wrong inbox": "rose",
       "Unknown type": "violet",
       "Extraction failed": "slate",
+      "Urgent result": "red",
     };
     return reasonData.map((d) => map[d.name] ?? "slate");
   }, [reasonData]);

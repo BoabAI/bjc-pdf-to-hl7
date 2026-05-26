@@ -47,6 +47,9 @@ export interface VisionExtractionResult {
   /** Self-reported model confidence in the classification, 0-100. Defaults to
    * 100 when the model omits the field (older fixtures or fallback paths). */
   classificationConfidence: number;
+  /** True when the model flagged the word "urgent" prominently. Omitted (→
+   * falsy) on the no-tool-use and error paths. */
+  isUrgent?: boolean;
   referralInfo?: ReferralInfo;
   tokensUsed?: { input: number; output: number };
 }
@@ -147,6 +150,7 @@ export async function extractPatientDataWithVision(
       model,
       documentType: normalized.documentType,
       classificationConfidence: normalized.classificationConfidence,
+      isUrgent: normalized.isUrgent,
       referralInfo: normalized.referralInfo,
       tokensUsed,
     };

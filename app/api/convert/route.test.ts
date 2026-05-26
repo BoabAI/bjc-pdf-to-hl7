@@ -608,6 +608,37 @@ describe("POST /api/convert Bedrock flow", () => {
     expect(data.hl7Content).toBeUndefined();
   });
 
+  test("urgent pathology_result diverts to manual_review (no HL7, 200 not 422)", async () => {
+    // Urgent results never auto-file — the eligibility gate diverts them to
+    // manual review with reason "urgent_result" and emits no HL7. The route
+    // returns 200 (manual_review), NOT 422 (which is reserved for the strict
+    // missing_fields bridge).
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "pathology_result",
+      isUrgent: true,
+      referralInfo: {
+        senderName: "Douglass Hanly Moir Pathology",
+        addresseeName: "Dr Sarah Smith",
+      },
+    });
+
+    const response = await POST(
+      createConvertRequest({
+        documentType: "pathology_result",
+        filename: "urgent-labs.pdf",
+        mailboxHeader: "results",
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.success).toBe(true);
+    expect(data.action).toBe("manual_review");
+    expect(data.reason).toBe("urgent_result");
+    expect(data.hl7Content).toBeUndefined();
+  });
+
   test("carrier flows to MSH-3 and extractedData", async () => {
     const response = await POST(
       createConvertRequest({ carrier: "EMAIL" })
