@@ -70,7 +70,10 @@ resource "aws_iam_role_policy" "audit_dynamodb" {
       Effect = "Allow"
       Action = [
         "dynamodb:PutItem",
-        "dynamodb:Query"
+        "dynamodb:Query",
+        # GetItem: lib/settings.ts reads the runtime-settings singleton
+        # (month="settings", ts="runtime") from this table via GetItem.
+        "dynamodb:GetItem"
       ]
       Resource = aws_dynamodb_table.audit.arn
     }]
