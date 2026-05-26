@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Carrier, Doctor } from "@/lib/conversion-config";
+import { sanitizeReferenceField } from "@/lib/text-sanitize";
 import {
   AddBlock,
   EmptyState,
@@ -72,8 +73,8 @@ function DoctorRow({
     }
   }, [isEditing, doctor.name, doctor.providerNumber]);
 
-  const trimmedName = name.trim();
-  const trimmedProvider = providerNumber.trim();
+  const trimmedName = sanitizeReferenceField(name);
+  const trimmedProvider = sanitizeReferenceField(providerNumber);
   const dirty = trimmedName !== doctor.name || trimmedProvider !== doctor.providerNumber;
   const duplicate = trimmedName.length > 0 && isDuplicateName(trimmedName);
   const canSave = trimmedName.length > 0 && trimmedProvider.length > 0 && dirty && !duplicate;
@@ -204,8 +205,8 @@ function CarrierRow({
     }
   }, [isEditing, carrier.value, carrier.label]);
 
-  const trimmedValue = value.trim().toUpperCase();
-  const trimmedLabel = label.trim();
+  const trimmedValue = sanitizeReferenceField(value).toUpperCase();
+  const trimmedLabel = sanitizeReferenceField(label);
   const dirty = trimmedValue !== carrier.value || trimmedLabel !== carrier.label;
   const duplicate = trimmedValue.length > 0 && isDuplicateValue(trimmedValue);
   const canSave =
@@ -341,8 +342,8 @@ export function ReferenceDataTab({
   const [editingCarrierId, setEditingCarrierId] = useState<string | null>(null);
 
   const submitDoctor = () => {
-    const name = newDoctorName.trim();
-    const provider = newDoctorProvider.trim();
+    const name = sanitizeReferenceField(newDoctorName);
+    const provider = sanitizeReferenceField(newDoctorProvider);
     if (!name || !provider) return;
     if (doctors.some((d) => d.name.toLowerCase() === name.toLowerCase())) return;
     onAddDoctor(name, provider);
@@ -351,8 +352,8 @@ export function ReferenceDataTab({
   };
 
   const submitCarrier = () => {
-    const value = newCarrierValue.trim().toUpperCase();
-    const label = newCarrierLabel.trim();
+    const value = sanitizeReferenceField(newCarrierValue).toUpperCase();
+    const label = sanitizeReferenceField(newCarrierLabel);
     if (!value || !label) return;
     if (carriers.some((c) => c.value.toUpperCase() === value)) return;
     onAddCarrier(value, label);

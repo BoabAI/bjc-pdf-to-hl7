@@ -10,18 +10,17 @@ import {
 import type { Carrier, Doctor } from "@/lib/conversion-config";
 import type { ReferenceDataResponse } from "@/lib/contracts/reference-data";
 import { auth } from "@/lib/auth";
-import { logOperationalError } from "@/lib/server/logging";
+import { logOperationalError, logServerEvent } from "@/lib/server/logging";
+import { sanitizeReferenceField } from "@/lib/text-sanitize";
 
 export const runtime = "nodejs";
 
-// HL7 separator and control characters that would corrupt segments if injected
-// into identifier fields. Field separator (|), component separator (^),
-// repetition (~), subcomponent (&), escape (\), and ASCII control chars.
-const HL7_SEPARATOR_OR_CONTROL = /[|^~&\\\x00-\x1f\x7f]/;
-
-function containsHL7SeparatorOrControl(value: string): boolean {
-  return HL7_SEPARATOR_OR_CONTROL.test(value);
-}
+// We do NOT reject HL7 separator characters (| ^ ~ & \) at input — the HL7
+// builder (escapeHL7 in lib/hl7-builder.ts) escapes them on output, so a name
+// like "Dr Smith & Associates" is stored as-is and emitted safely. Rejecting
+// them here was redundant and surfaced as a confusing "Save failed" for
+// ordinary names. We only strip control characters (via sanitizeReferenceField)
+// and enforce length caps. See lib/text-sanitize.ts.
 
 // Sanity caps to prevent absurd payloads (a 297-char doctor name was accepted
 // before this was added). The HL7 spec limits some of these fields, but we
@@ -58,33 +57,27 @@ function validateDoctor(value: unknown): ValidatedDoctor {
   if (!isDoctorShape(value)) {
     return { ok: false, error: "Invalid doctor payload" };
   }
-  if (containsHL7SeparatorOrControl(value.providerNumber)) {
-    return {
-      ok: false,
-      error:
-        "Provider number must not contain HL7 separators (|, ^, ~, &, \\) or control characters.",
-    };
+  const name = sanitizeReferenceField(value.name);
+  const providerNumber = sanitizeReferenceField(value.providerNumber);
+  if (!name) {
+    return { ok: false, error: "Doctor name is required." };
   }
-  if (value.providerNumber.length > MAX_PROVIDER_NUMBER_LEN) {
+  if (!providerNumber) {
+    return { ok: false, error: "Provider number is required." };
+  }
+  if (providerNumber.length > MAX_PROVIDER_NUMBER_LEN) {
     return {
       ok: false,
       error: `Provider number must be ${MAX_PROVIDER_NUMBER_LEN} characters or fewer.`,
     };
   }
-  if (containsHL7SeparatorOrControl(value.name)) {
-    return {
-      ok: false,
-      error:
-        "Doctor name must not contain HL7 separators (|, ^, ~, &, \\) or control characters.",
-    };
-  }
-  if (value.name.length > MAX_DOCTOR_NAME_LEN) {
+  if (name.length > MAX_DOCTOR_NAME_LEN) {
     return {
       ok: false,
       error: `Doctor name must be ${MAX_DOCTOR_NAME_LEN} characters or fewer.`,
     };
   }
-  return { ok: true, value };
+  return { ok: true, value: { ...value, name, providerNumber } };
 }
 
 function isCarrierShape(value: unknown): value is Carrier {
@@ -105,33 +98,27 @@ function validateCarrier(value: unknown): ValidatedCarrier {
   if (!isCarrierShape(value)) {
     return { ok: false, error: "Invalid carrier payload" };
   }
-  if (containsHL7SeparatorOrControl(value.value)) {
-    return {
-      ok: false,
-      error:
-        "Invalid carrier payload: value must not contain HL7 separators or control characters",
-    };
+  const carrierValue = sanitizeReferenceField(value.value);
+  const label = sanitizeReferenceField(value.label);
+  if (!carrierValue) {
+    return { ok: false, error: "Invalid carrier payload: value is required" };
   }
-  if (containsHL7SeparatorOrControl(value.label)) {
-    return {
-      ok: false,
-      error:
-        "Invalid carrier payload: label must not contain HL7 separators or control characters",
-    };
+  if (!label) {
+    return { ok: false, error: "Invalid carrier payload: label is required" };
   }
-  if (value.value.length > MAX_CARRIER_VALUE_LEN) {
+  if (carrierValue.length > MAX_CARRIER_VALUE_LEN) {
     return {
       ok: false,
       error: `Invalid carrier payload: value must be ${MAX_CARRIER_VALUE_LEN} characters or fewer`,
     };
   }
-  if (value.label.length > MAX_CARRIER_LABEL_LEN) {
+  if (label.length > MAX_CARRIER_LABEL_LEN) {
     return {
       ok: false,
       error: `Invalid carrier payload: label must be ${MAX_CARRIER_LABEL_LEN} characters or fewer`,
     };
   }
-  return { ok: true, value };
+  return { ok: true, value: { ...value, value: carrierValue, label } };
 }
 
 export const GET = auth(async (request) => {
@@ -171,6 +158,12 @@ export const PUT = auth(async (request) => {
   if (kind === "DOCTOR") {
     const result = validateDoctor(item);
     if (!result.ok) {
+      // Log the rule that failed (never the raw value) so a recurring "Save
+      // failed" in the UI is visible in CloudWatch — 400s were previously silent.
+      logServerEvent("warn", "reference-data", "validation-reject", {
+        kind: "DOCTOR",
+        reason: result.error,
+      });
       return NextResponse.json(
         { success: false, error: result.error },
         { status: 400 }
@@ -191,6 +184,10 @@ export const PUT = auth(async (request) => {
   if (kind === "CARRIER") {
     const result = validateCarrier(item);
     if (!result.ok) {
+      logServerEvent("warn", "reference-data", "validation-reject", {
+        kind: "CARRIER",
+        reason: result.error,
+      });
       return NextResponse.json(
         { success: false, error: result.error },
         { status: 400 }
@@ -208,6 +205,10 @@ export const PUT = auth(async (request) => {
     return NextResponse.json({ success: true });
   }
 
+  logServerEvent("warn", "reference-data", "validation-reject", {
+    op: "PUT",
+    reason: "Invalid kind. Expected DOCTOR or CARRIER.",
+  });
   return NextResponse.json(
     { success: false, error: "Invalid kind. Expected DOCTOR or CARRIER." },
     { status: 400 }

@@ -31,6 +31,15 @@ mock.module("@/lib/auth", () => ({
     },
 }));
 
+// Mock the server logger so we can assert validation rejections are logged
+// (400s were previously silent) without writing to the console during tests.
+const logServerEventMock = mock();
+const logOperationalErrorMock = mock();
+mock.module("@/lib/server/logging", () => ({
+  logServerEvent: logServerEventMock,
+  logOperationalError: logOperationalErrorMock,
+}));
+
 const routeModule = await import("./route");
 const GET = routeModule.GET as unknown as (req: NextRequest) => Promise<Response>;
 const PUT = routeModule.PUT as unknown as (req: NextRequest) => Promise<Response>;
@@ -63,6 +72,8 @@ beforeEach(() => {
   putCarrierMock.mockReset().mockResolvedValue(undefined);
   deleteDoctorMock.mockReset().mockResolvedValue(undefined);
   deleteCarrierMock.mockReset().mockResolvedValue(undefined);
+  logServerEventMock.mockReset();
+  logOperationalErrorMock.mockReset();
   console.error = (() => {}) as typeof console.error;
 });
 
@@ -164,74 +175,95 @@ describe("PUT /api/reference-data", () => {
   });
 });
 
-describe("PUT /api/reference-data — input validation hardening", () => {
-  test("rejects carrier with HL7 separator in value", async () => {
+describe("PUT /api/reference-data — input sanitisation & caps", () => {
+  // HL7 separator chars (| ^ ~ & \) are NOT rejected at input — the HL7 builder
+  // (escapeHL7, covered in lib/hl7-builder.test.ts) escapes them on output, so
+  // storing them raw is safe. Rejecting them surfaced as a confusing "Save
+  // failed" for ordinary names. Only control characters are stripped; the
+  // length caps remain.
+
+  test("accepts a doctor name with an ampersand (escaped to \\T\\ on output)", async () => {
+    const doctor = {
+      id: "d1",
+      name: "Dr Smith & Associates",
+      providerNumber: "9000001Z",
+    };
     const response = await PUT(
-      makeRequest("", {
-        method: "PUT",
-        body: {
-          kind: "CARRIER",
-          item: { id: "c1", value: "MYCO|EVIL", label: "OK" },
-        },
-      })
+      makeRequest("", { method: "PUT", body: { kind: "DOCTOR", item: doctor } })
     );
-    expect(response.status).toBe(400);
-    const body = await response.json();
-    expect(body.error).toMatch(/value/);
-    expect(body.error).toMatch(/HL7 separators/);
-    expect(putCarrierMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(putDoctorMock).toHaveBeenCalledWith(doctor);
   });
 
-  test("rejects carrier with backslash in label", async () => {
+  test("accepts a doctor name with a caret (preserved, escaped on output)", async () => {
+    const doctor = {
+      id: "d1",
+      name: "Dr Smith ^Jones",
+      providerNumber: "9000001Z",
+    };
     const response = await PUT(
-      makeRequest("", {
-        method: "PUT",
-        body: {
-          kind: "CARRIER",
-          item: { id: "c1", value: "OK", label: "Email\\Bad" },
-        },
-      })
+      makeRequest("", { method: "PUT", body: { kind: "DOCTOR", item: doctor } })
     );
-    expect(response.status).toBe(400);
-    expect(putCarrierMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(putDoctorMock).toHaveBeenCalledWith(doctor);
   });
 
-  test("rejects carrier with control character in label", async () => {
+  test("accepts a carrier value with an HL7 separator (escaped on output)", async () => {
+    const carrier = { id: "c1", value: "MYCO|CO", label: "OK" };
     const response = await PUT(
-      makeRequest("", {
-        method: "PUT",
-        body: {
-          kind: "CARRIER",
-          item: { id: "c1", value: "OK", label: "OKBell" },
-        },
-      })
+      makeRequest("", { method: "PUT", body: { kind: "CARRIER", item: carrier } })
     );
-    expect(response.status).toBe(400);
-    expect(putCarrierMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(putCarrierMock).toHaveBeenCalledWith(carrier);
   });
 
-  test("rejects doctor with HL7 separator in providerNumber", async () => {
+  test("accepts a carrier label with a backslash", async () => {
+    const carrier = { id: "c1", value: "OK", label: "Email\\Bad" };
+    const response = await PUT(
+      makeRequest("", { method: "PUT", body: { kind: "CARRIER", item: carrier } })
+    );
+    expect(response.status).toBe(200);
+    expect(putCarrierMock).toHaveBeenCalledWith(carrier);
+  });
+
+  test("strips control characters from doctor fields (e.g. pasted newline/tab)", async () => {
     const response = await PUT(
       makeRequest("", {
         method: "PUT",
         body: {
           kind: "DOCTOR",
-          item: {
-            id: "d1",
-            name: "Dr Smith",
-            providerNumber: "1234567|EVIL",
-          },
+          item: { id: "d1", name: "Dr Smith\n", providerNumber: "9000001Z\t" },
         },
       })
     );
-    expect(response.status).toBe(400);
-    const body = await response.json();
-    expect(body.error).toMatch(/provider number/i);
-    expect(body.error).toMatch(/HL7 separators/);
-    expect(putDoctorMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(putDoctorMock).toHaveBeenCalledWith({
+      id: "d1",
+      name: "Dr Smith",
+      providerNumber: "9000001Z",
+    });
   });
 
-  test("rejects doctor with empty providerNumber", async () => {
+  test("strips a control character embedded in a carrier label", async () => {
+    const response = await PUT(
+      makeRequest("", {
+        method: "PUT",
+        body: {
+          kind: "CARRIER",
+          //  (bell) — the kind of invisible char a paste can carry in.
+          item: { id: "c1", value: "OK", label: "OKBell" },
+        },
+      })
+    );
+    expect(response.status).toBe(200);
+    expect(putCarrierMock).toHaveBeenCalledWith({
+      id: "c1",
+      value: "OK",
+      label: "OKBell",
+    });
+  });
+
+  test("rejects a doctor with an empty providerNumber", async () => {
     const response = await PUT(
       makeRequest("", {
         method: "PUT",
@@ -245,79 +277,126 @@ describe("PUT /api/reference-data — input validation hardening", () => {
     expect(putDoctorMock).not.toHaveBeenCalled();
   });
 
-  test("accepts doctor with seed-style providerNumber", async () => {
-    const doctor = {
-      id: "d1",
-      name: "Dr Smith",
-      providerNumber: "9000001Z",
-    };
-    const response = await PUT(
-      makeRequest("", { method: "PUT", body: { kind: "DOCTOR", item: doctor } })
-    );
-    expect(response.status).toBe(200);
-    expect(putDoctorMock).toHaveBeenCalledWith(doctor);
-  });
-
-  test("accepts doctor with spaced provider number (Medicare convention)", async () => {
-    // Real Medicare provider numbers are conventionally displayed with a
-    // space before the location/check char (e.g. `123456 7Y`). Staff copy
-    // them in that shape; the API must not reject it.
-    const doctor = {
-      id: "d1",
-      name: "Dr Smith",
-      providerNumber: "123456 7Y",
-    };
-    const response = await PUT(
-      makeRequest("", { method: "PUT", body: { kind: "DOCTOR", item: doctor } })
-    );
-    expect(response.status).toBe(200);
-    expect(putDoctorMock).toHaveBeenCalledWith(doctor);
-  });
-
-  test("accepts doctor with hyphenated provider number", async () => {
-    const doctor = {
-      id: "d1",
-      name: "Dr Smith",
-      providerNumber: "9876-543T",
-    };
-    const response = await PUT(
-      makeRequest("", { method: "PUT", body: { kind: "DOCTOR", item: doctor } })
-    );
-    expect(response.status).toBe(200);
-    expect(putDoctorMock).toHaveBeenCalledWith(doctor);
-  });
-
-  test("rejects doctor with HL7 separator in name", async () => {
+  test("rejects a doctor whose name is only control characters", async () => {
     const response = await PUT(
       makeRequest("", {
         method: "PUT",
         body: {
           kind: "DOCTOR",
-          item: {
-            id: "d1",
-            name: "Dr Smith ^Hack",
-            providerNumber: "9000001Z",
-          },
+          item: { id: "d1", name: "\n\t", providerNumber: "9000001Z" },
         },
       })
     );
     expect(response.status).toBe(400);
-    const body = await response.json();
-    expect(body.error).toMatch(/name/i);
     expect(putDoctorMock).not.toHaveBeenCalled();
   });
 
-  test("accepts doctor with clean name", async () => {
-    const doctor = {
-      id: "d1",
-      name: "Dr Smith",
-      providerNumber: "9000001Z",
-    };
+  test("accepts a doctor with a seed-style providerNumber", async () => {
+    const doctor = { id: "d1", name: "Dr Smith", providerNumber: "9000001Z" };
     const response = await PUT(
       makeRequest("", { method: "PUT", body: { kind: "DOCTOR", item: doctor } })
     );
     expect(response.status).toBe(200);
     expect(putDoctorMock).toHaveBeenCalledWith(doctor);
+  });
+
+  test("accepts a doctor with a spaced provider number (Medicare convention)", async () => {
+    // Real Medicare provider numbers are conventionally displayed with a space
+    // before the location/check char (e.g. `123456 7Y`). Staff copy them in
+    // that shape; the API must not reject it.
+    const doctor = { id: "d1", name: "Dr Smith", providerNumber: "123456 7Y" };
+    const response = await PUT(
+      makeRequest("", { method: "PUT", body: { kind: "DOCTOR", item: doctor } })
+    );
+    expect(response.status).toBe(200);
+    expect(putDoctorMock).toHaveBeenCalledWith(doctor);
+  });
+
+  test("accepts a doctor with a hyphenated provider number", async () => {
+    const doctor = { id: "d1", name: "Dr Smith", providerNumber: "9876-543T" };
+    const response = await PUT(
+      makeRequest("", { method: "PUT", body: { kind: "DOCTOR", item: doctor } })
+    );
+    expect(response.status).toBe(200);
+    expect(putDoctorMock).toHaveBeenCalledWith(doctor);
+  });
+
+  test("rejects a doctor name over the length cap", async () => {
+    const response = await PUT(
+      makeRequest("", {
+        method: "PUT",
+        body: {
+          kind: "DOCTOR",
+          item: { id: "d1", name: "D".repeat(101), providerNumber: "9000001Z" },
+        },
+      })
+    );
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error).toMatch(/100 characters or fewer/);
+    expect(putDoctorMock).not.toHaveBeenCalled();
+  });
+
+  test("rejects a provider number over the length cap", async () => {
+    const response = await PUT(
+      makeRequest("", {
+        method: "PUT",
+        body: {
+          kind: "DOCTOR",
+          item: { id: "d1", name: "Dr Smith", providerNumber: "9".repeat(21) },
+        },
+      })
+    );
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error).toMatch(/20 characters or fewer/);
+    expect(putDoctorMock).not.toHaveBeenCalled();
+  });
+
+  test("rejects a carrier value over the length cap", async () => {
+    const response = await PUT(
+      makeRequest("", {
+        method: "PUT",
+        body: {
+          kind: "CARRIER",
+          item: { id: "c1", value: "V".repeat(21), label: "OK" },
+        },
+      })
+    );
+    expect(response.status).toBe(400);
+    expect(putCarrierMock).not.toHaveBeenCalled();
+  });
+
+  test("rejects a carrier label over the length cap", async () => {
+    const response = await PUT(
+      makeRequest("", {
+        method: "PUT",
+        body: {
+          kind: "CARRIER",
+          item: { id: "c1", value: "OK", label: "L".repeat(61) },
+        },
+      })
+    );
+    expect(response.status).toBe(400);
+    expect(putCarrierMock).not.toHaveBeenCalled();
+  });
+
+  test("logs a structured warning when a save is rejected (no raw value)", async () => {
+    await PUT(
+      makeRequest("", {
+        method: "PUT",
+        body: {
+          kind: "DOCTOR",
+          item: { id: "d1", name: "Dr Smith", providerNumber: "" },
+        },
+      })
+    );
+    expect(logServerEventMock).toHaveBeenCalledTimes(1);
+    const [level, category, message, context] = logServerEventMock.mock.calls[0];
+    expect(level).toBe("warn");
+    expect(category).toBe("reference-data");
+    expect(message).toBe("validation-reject");
+    expect(context).toMatchObject({ kind: "DOCTOR" });
   });
 });
 
