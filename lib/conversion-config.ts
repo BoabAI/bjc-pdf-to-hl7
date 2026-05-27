@@ -118,9 +118,12 @@ export interface Doctor {
   /** Display name, e.g. "Dr Irwin Lim". Used by Bedrock for AI addressee resolution. */
   name: string;
   /**
-   * Medicare provider number — placed in PV1-9 as `<num>^^^AUSHICPR`.
-   * Real allocations are 8 chars (6 digits + check digit + location char).
-   * Seeded values lead with `9` so they are clearly fictional.
+   * Medicare provider number — **optional**, `""` when not set. Only the doctor
+   * name drives the PDF→HL7 conversion (AI addressee resolution); the provider
+   * number is recorded for reference (and possible PV1-9 routing) but is not
+   * required to add a doctor. Real allocations are 8 chars (6 digits + check
+   * digit + location char); seeded values lead with `9` so they are clearly
+   * fictional.
    */
   providerNumber: string;
 }
