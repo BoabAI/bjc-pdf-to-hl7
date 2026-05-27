@@ -48,8 +48,8 @@ function isDoctorShape(value: unknown): value is Doctor {
     v.id.length > 0 &&
     typeof v.name === "string" &&
     v.name.length > 0 &&
-    typeof v.providerNumber === "string" &&
-    v.providerNumber.length > 0
+    // Provider number is optional: a string (possibly empty) or omitted.
+    (typeof v.providerNumber === "string" || typeof v.providerNumber === "undefined")
   );
 }
 
@@ -58,12 +58,12 @@ function validateDoctor(value: unknown): ValidatedDoctor {
     return { ok: false, error: "Invalid doctor payload" };
   }
   const name = sanitizeReferenceField(value.name);
-  const providerNumber = sanitizeReferenceField(value.providerNumber);
+  // Provider number is optional — coalesce a missing value to "".
+  const providerNumber = sanitizeReferenceField(
+    typeof value.providerNumber === "string" ? value.providerNumber : ""
+  );
   if (!name) {
     return { ok: false, error: "Doctor name is required." };
-  }
-  if (!providerNumber) {
-    return { ok: false, error: "Provider number is required." };
   }
   if (providerNumber.length > MAX_PROVIDER_NUMBER_LEN) {
     return {

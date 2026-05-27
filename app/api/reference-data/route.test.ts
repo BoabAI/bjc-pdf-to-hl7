@@ -263,18 +263,32 @@ describe("PUT /api/reference-data — input sanitisation & caps", () => {
     });
   });
 
-  test("rejects a doctor with an empty providerNumber", async () => {
+  test("accepts a doctor with an empty providerNumber (optional)", async () => {
+    const doctor = { id: "d1", name: "Dr Smith", providerNumber: "" };
+    const response = await PUT(
+      makeRequest("", { method: "PUT", body: { kind: "DOCTOR", item: doctor } })
+    );
+    expect(response.status).toBe(200);
+    expect(putDoctorMock).toHaveBeenCalledWith({
+      id: "d1",
+      name: "Dr Smith",
+      providerNumber: "",
+    });
+  });
+
+  test("accepts a doctor with no providerNumber field at all", async () => {
     const response = await PUT(
       makeRequest("", {
         method: "PUT",
-        body: {
-          kind: "DOCTOR",
-          item: { id: "d1", name: "Dr Smith", providerNumber: "" },
-        },
+        body: { kind: "DOCTOR", item: { id: "d1", name: "Dr Smith" } },
       })
     );
-    expect(response.status).toBe(400);
-    expect(putDoctorMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(putDoctorMock).toHaveBeenCalledWith({
+      id: "d1",
+      name: "Dr Smith",
+      providerNumber: "",
+    });
   });
 
   test("rejects a doctor whose name is only control characters", async () => {
@@ -387,7 +401,7 @@ describe("PUT /api/reference-data — input sanitisation & caps", () => {
         method: "PUT",
         body: {
           kind: "DOCTOR",
-          item: { id: "d1", name: "Dr Smith", providerNumber: "" },
+          item: { id: "d1", name: "D".repeat(101), providerNumber: "9000001Z" },
         },
       })
     );

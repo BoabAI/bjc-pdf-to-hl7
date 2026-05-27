@@ -77,7 +77,8 @@ function DoctorRow({
   const trimmedProvider = sanitizeReferenceField(providerNumber);
   const dirty = trimmedName !== doctor.name || trimmedProvider !== doctor.providerNumber;
   const duplicate = trimmedName.length > 0 && isDuplicateName(trimmedName);
-  const canSave = trimmedName.length > 0 && trimmedProvider.length > 0 && dirty && !duplicate;
+  // Provider number is optional — only the name is required to save.
+  const canSave = trimmedName.length > 0 && dirty && !duplicate;
 
   const submit = () => {
     if (!canSave) return;
@@ -107,7 +108,7 @@ function DoctorRow({
         </label>
         <label className="block">
           <span className="block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1">
-            Provider number
+            Provider number <span className="normal-case font-normal text-[var(--text-muted)]">(optional)</span>
           </span>
           <input
             type="text"
@@ -118,7 +119,7 @@ function DoctorRow({
               if (e.key === "Escape") onCancelEdit();
             }}
             className="input-field w-full text-sm font-mono py-1.5"
-            placeholder="9000001Z"
+            placeholder="9000001Z (optional)"
             maxLength={12}
           />
         </label>
@@ -155,9 +156,15 @@ function DoctorRow({
         <div className="text-sm text-[var(--text-primary)] truncate leading-tight">
           {doctor.name}
         </div>
-        <div className="mt-0.5 inline-block text-[11px] font-mono text-[var(--text-muted)] bg-[var(--bg-inner)] border border-[var(--border-light)] rounded px-1.5 py-px">
-          {doctor.providerNumber}
-        </div>
+        {doctor.providerNumber ? (
+          <div className="mt-0.5 inline-block text-[11px] font-mono text-[var(--text-muted)] bg-[var(--bg-inner)] border border-[var(--border-light)] rounded px-1.5 py-px">
+            {doctor.providerNumber}
+          </div>
+        ) : (
+          <div className="mt-0.5 text-[11px] italic text-[var(--text-muted)]">
+            No provider number
+          </div>
+        )}
       </div>
       <div className="flex items-center gap-1 flex-shrink-0">
         <button onClick={onStartEdit} className="icon-btn" title="Edit">
@@ -344,7 +351,8 @@ export function ReferenceDataTab({
   const submitDoctor = () => {
     const name = sanitizeReferenceField(newDoctorName);
     const provider = sanitizeReferenceField(newDoctorProvider);
-    if (!name || !provider) return;
+    // Provider number is optional — only the name is required.
+    if (!name) return;
     if (doctors.some((d) => d.name.toLowerCase() === name.toLowerCase())) return;
     onAddDoctor(name, provider);
     setNewDoctorName("");
@@ -369,7 +377,7 @@ export function ReferenceDataTab({
           icon={<UserGroupIcon />}
           title="Doctors"
           count={doctors.length}
-          description="Names drive AI addressee resolution on referral letters. Provider numbers route the HL7 message to the correct doctor's Genie inbox."
+          description="Names drive AI addressee resolution on referral letters. The provider number is optional — add it when you want to record the doctor's Medicare provider number."
         />
 
         <AddBlock label="Add doctor">
@@ -385,7 +393,7 @@ export function ReferenceDataTab({
           <div className="flex gap-2">
             <input
               type="text"
-              placeholder="Provider No. (e.g. 9000001Z)"
+              placeholder="Provider No. — optional (e.g. 9000001Z)"
               value={newDoctorProvider}
               onChange={(e) => setNewDoctorProvider(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && submitDoctor()}
@@ -394,7 +402,7 @@ export function ReferenceDataTab({
             />
             <button
               onClick={submitDoctor}
-              disabled={!newDoctorName.trim() || !newDoctorProvider.trim()}
+              disabled={!newDoctorName.trim()}
               className="btn-primary text-sm px-5 py-2 disabled:opacity-40"
             >
               Add
