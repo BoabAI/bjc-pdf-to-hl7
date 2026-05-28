@@ -106,7 +106,7 @@ export const ROUTING_REASON_STYLE: Record<
     donut: "slate",
   },
   urgent_result: {
-    label: "Urgent result",
+    label: "Urgent",
     badge:
       "bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-200 dark:border-red-700",
     donut: "red",

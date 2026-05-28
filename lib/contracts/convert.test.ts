@@ -141,7 +141,7 @@ describe("isConvertResponse", () => {
         success: true,
         action: "manual_review",
         reason: "urgent_result",
-        suggestedCategory: "Needs review — Urgent result",
+        suggestedCategory: "Needs review — Urgent",
       })
     ).toBe(true);
   });

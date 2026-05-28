@@ -247,7 +247,7 @@ export default function StatsPage(): JSX.Element {
       "Wrong inbox": "rose",
       "Unknown type": "violet",
       "Extraction failed": "slate",
-      "Urgent result": "red",
+      "Urgent": "red",
     };
     return reasonData.map((d) => map[d.name] ?? "slate");
   }, [reasonData]);

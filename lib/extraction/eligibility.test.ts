@@ -243,7 +243,7 @@ describe("evaluateAutoRouteEligibility — urgent documents", () => {
     });
     expect(result.eligible).toBe(false);
     expect(result.reason).toBe("urgent_result");
-    expect(result.suggestedCategory).toContain("Urgent result");
+    expect(result.suggestedCategory).toContain("Urgent");
   });
 
   test("urgent radiology_result fails as urgent_result", () => {

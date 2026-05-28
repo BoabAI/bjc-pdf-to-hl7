@@ -53,7 +53,7 @@ const REVIEW_REASON_STYLES: Record<
     text: "text-zinc-900",
   },
   urgent_result: {
-    label: "Urgent result",
+    label: "Urgent",
     rowBg: "bg-red-50 dark:bg-red-900/20",
     rowBorder: "border-red-300 dark:border-red-700",
     text: "text-red-800 dark:text-red-200",

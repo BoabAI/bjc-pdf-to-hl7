@@ -56,7 +56,7 @@ export const MANUAL_REVIEW_CATEGORIES: Record<ManualReviewReason, string> = {
   mailbox_mismatch: "Needs review — Wrong inbox",
   unknown_doc_type: "Needs review — Unknown type",
   extraction_failed: "Needs review — Extraction failed",
-  urgent_result: "Needs review — Urgent result",
+  urgent_result: "Needs review — Urgent",
 };
 
 /** Single shared shape for `/api/convert` responses. */
