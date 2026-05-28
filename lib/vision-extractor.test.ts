@@ -172,7 +172,7 @@ describe("extractPatientDataWithVision success path", () => {
       "Classify this Australian medical PDF and extract the patient information using the extract_patient_data tool."
     );
     expect(result.documentType).toBe("generic");
-    expect(result.model).toBe("au.anthropic.claude-opus-4-7");
+    expect(result.model).toBe("au.anthropic.claude-sonnet-4-6");
   });
 });
 
@@ -199,7 +199,7 @@ describe("extractPatientDataWithVision failure handling", () => {
         sex: "U",
       },
       warnings: ["Bedrock returned no tool use result"],
-      model: "au.anthropic.claude-opus-4-7",
+      model: "au.anthropic.claude-sonnet-4-6",
       documentType: "consent_form",
       classificationConfidence: 100,
     });

@@ -147,9 +147,9 @@ These are run via Bun against the project's TypeScript modules.
 
 ### Live Bedrock tests (run manually with `AWS_PROFILE` set)
 
-These call Bedrock (Claude Opus 4.7) for real and are NOT run by `bun test`.
+These call Bedrock (Claude Sonnet 4.6) for real and are NOT run by `bun test`.
 They require AWS credentials with `bedrock:InvokeModel` for
-`anthropic.claude-opus-4-7` in **both** `ap-southeast-2` and
+`anthropic.claude-sonnet-4-6` in **both** `ap-southeast-2` and
 `ap-southeast-4` (AU inference profiles route to Melbourne).
 
 | Script | Purpose |
