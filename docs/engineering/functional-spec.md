@@ -16,7 +16,7 @@ The PDF to HL7 Converter is a web application that converts patient PDF document
 ### 1.1 Key Capabilities
 
 - Automatic document type detection across six types (consent forms, specialist referrals, GP referrals, pathology results, radiology results, generic)
-- Patient data extraction via AWS Bedrock Claude Sonnet 4.6 vision (name, DOB, sex, Medicare, address, phone, sender, addressee, CC)
+- Patient data extraction via AWS Bedrock Claude Opus 4.7 vision (name, DOB, sex, Medicare, address, phone, sender, addressee, CC)
 - HL7 v2.4 message generation per Australian ADRM specification: ORU^R01 (results) and REF^I12 (referrals)
 - OBR-24 routing flag (`PHY` / `LAB` / `RAD`) drives Genie inbox per document type
 - PDF embedding as Base64 in OBX segment for Genie import
@@ -32,7 +32,7 @@ The PDF to HL7 Converter is a web application that converts patient PDF document
 | Framework | Next.js 14 (App Router) |
 | Runtime | Bun (locally and on Amplify) |
 | Language | TypeScript 5 (strict) |
-| PDF Extraction | AWS Bedrock Claude Sonnet 4.6 (vision via Converse API) |
+| PDF Extraction | AWS Bedrock Claude Opus 4.7 (vision via Converse API) |
 | Audit log | AWS DynamoDB (`bjc-pdf-to-hl7-audit`, `ap-southeast-2`) |
 | Charts | Recharts |
 | Styling | Tailwind CSS 3 + Custom CSS |
@@ -281,7 +281,7 @@ The OBR-24 column comes from `diagnosticServiceSectionFor()` in `lib/conversion-
 
 ### 5.2 Detection Logic
 
-Document classification is performed by AWS Bedrock Claude Sonnet 4.6 using vision analysis. The model examines the full PDF and classifies based on visual and textual cues:
+Document classification is performed by AWS Bedrock Claude Opus 4.7 using vision analysis. The model examines the full PDF and classifies based on visual and textual cues:
 
 - **consent_form**: Checkboxes, signature lines, "I consent to...", patient declaration sections, BJC Health branding, intake questionnaires
 - **gp_referral**: "re." line with patient name, "Dear Dr..." addressing a specialist, GP clinic letterhead, Medicare provider number, medication lists, "Yours sincerely" from a GP
@@ -314,7 +314,7 @@ Document classification is performed by AWS Bedrock Claude Sonnet 4.6 using visi
 
 ### 6.2 Bedrock Vision Extraction
 
-All document types are processed by AWS Bedrock Claude Sonnet 4.6 using the Converse API with tool calling. The model receives the full PDF as a document and extracts structured data via a tool schema.
+All document types are processed by AWS Bedrock Claude Opus 4.7 using the Converse API with tool calling. The model receives the full PDF as a document and extracts structured data via a tool schema.
 
 **Extraction is format-agnostic** — the model uses visual and textual understanding to locate patient details regardless of document layout. There are no regex patterns or format-specific parsing rules.
 
@@ -685,7 +685,7 @@ Static page describing privacy treatment — what is and isn't stored, the cooki
 
 The Amplify **compute role** (`AmplifyComputeRole-ddv0o3k8wcjhr`), not the service role, provides runtime AWS credentials for SSR Lambda invocations. It must allow:
 
-- `bedrock:InvokeModel` on `anthropic.claude-sonnet-4-6` foundation model + `au.anthropic.claude-sonnet-4-6` inference profile in **both** `ap-southeast-2` (Sydney) and `ap-southeast-4` (Melbourne). AU inference profiles route to Melbourne.
+- `bedrock:InvokeModel` on `anthropic.claude-opus-4-7` foundation model + `au.anthropic.claude-opus-4-7` inference profile in **both** `ap-southeast-2` (Sydney) and `ap-southeast-4` (Melbourne). AU inference profiles route to Melbourne.
 - `dynamodb:PutItem` and `dynamodb:Query` on the `bjc-pdf-to-hl7-audit` table.
 
 These permissions are managed by `infra/main.tf` (Terraform). The DynamoDB table itself, an inline IAM policy attached to the compute role, and the Bedrock inline policy are all defined there.

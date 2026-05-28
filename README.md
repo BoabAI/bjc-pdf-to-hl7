@@ -5,7 +5,7 @@ Convert Australian medical PDFs to HL7 v2.4 format (Genie-compatible) using AWS 
 ## Features
 
 - Upload consent forms, specialist referrals, GP referrals, and generic medical documents via web interface or API
-- Automatic document type classification via AWS Bedrock Claude Sonnet 4.6
+- Automatic document type classification via AWS Bedrock Claude Opus 4.7
 - Extract patient data with AI vision (name, DOB, address, Medicare, sender, addressee, CC recipients)
 - Generate HL7 v2.4 messages: **ORU^R01** (results) for consent forms/generic, **REF^I12** (referrals) for referral letters
 - AI addressee resolution against a configurable BJC Health doctor list
@@ -37,7 +37,7 @@ bun dev
 
 ### Local AWS Credentials
 
-Bedrock vision runs server-side, even in dev. Export `AWS_PROFILE` (or `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`) before `bun dev`. The credentials need `bedrock:InvokeModel` on `anthropic.claude-sonnet-4-6` in **both** `ap-southeast-2` and `ap-southeast-4` — AU inference profiles route to Melbourne.
+Bedrock vision runs server-side, even in dev. Export `AWS_PROFILE` (or `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`) before `bun dev`. The credentials need `bedrock:InvokeModel` on `anthropic.claude-opus-4-7` in **both** `ap-southeast-2` and `ap-southeast-4` — AU inference profiles route to Melbourne.
 
 ### Common Commands
 
@@ -191,7 +191,7 @@ The root layout uses `force-dynamic` and middleware sets `Cache-Control: no-stor
 - **Next.js 14** — App Router, Server Components, `output: "standalone"`
 - **TypeScript** — strict mode
 - **Tailwind CSS** — styling
-- **AWS Bedrock** — Claude Sonnet 4.6 vision for PDF classification + extraction
+- **AWS Bedrock** — Claude Opus 4.7 vision for PDF classification + extraction
 - **AWS Amplify** — hosting (WEB_COMPUTE)
 - **Bun** — package manager and test runner
 

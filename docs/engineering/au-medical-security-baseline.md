@@ -102,8 +102,8 @@ APP 8.1: before disclosing PI to an overseas recipient, take reasonable steps to
 This is the standard OAIC position: handing PI to a third party (even a cloud processor) is a disclosure unless it falls within the narrow "use-by-the-entity-via-cloud-storage" carve-out. Bedrock invocation is processing, not pure storage, so we should not rely on the "cloud storage = use, not disclosure" reading.
 
 ### Where the data physically goes
-- We use AU inference profile `au.anthropic.claude-sonnet-4-6`. AWS confirms data **at rest** stays in source region. **In-transit during cross-region inference, prompts may move between APAC regions** (`ap-southeast-2` Sydney ↔ `ap-southeast-4` Melbourne). Both are in Australia.
-- Crucially, Bedrock-hosted Anthropic models on the AU profile keep inference within AU. AWS's general APAC inference profiles can route to other APAC countries (Tokyo, Mumbai) — **make sure the code uses the `au.` profile, not the broader `apac.` profile.** (CLAUDE.md confirms `au.anthropic.claude-sonnet-4-6` is in use.)
+- We use AU inference profile `au.anthropic.claude-opus-4-7`. AWS confirms data **at rest** stays in source region. **In-transit during cross-region inference, prompts may move between APAC regions** (`ap-southeast-2` Sydney ↔ `ap-southeast-4` Melbourne). Both are in Australia.
+- Crucially, Bedrock-hosted Anthropic models on the AU profile keep inference within AU. AWS's general APAC inference profiles can route to other APAC countries (Tokyo, Mumbai) — **make sure the code uses the `au.` profile, not the broader `apac.` profile.** (CLAUDE.md confirms `au.anthropic.claude-opus-4-7` is in use.)
 - AWS infrastructure operations and support may originate from outside Australia even though customer data is processed in-region. This is the standard AWS disclosure and is covered by the AWS DPA.
 
 ### Minimum to comply

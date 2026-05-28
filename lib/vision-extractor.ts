@@ -35,7 +35,7 @@ import type { MailboxSource } from "./domain/types";
 import { logOperationalError } from "./server/logging";
 
 const REGION = "ap-southeast-2";
-const DEFAULT_MODEL = "au.anthropic.claude-sonnet-4-6";
+const DEFAULT_MODEL = "au.anthropic.claude-opus-4-7";
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 export interface VisionExtractionResult {

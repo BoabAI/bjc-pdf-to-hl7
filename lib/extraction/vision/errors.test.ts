@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { mapBedrockError } from "./errors";
 
-const CONTEXT = { timeoutMs: 30_000, model: "au.anthropic.claude-sonnet-4-6" };
+const CONTEXT = { timeoutMs: 30_000, model: "au.anthropic.claude-opus-4-7" };
 
 describe("mapBedrockError — timeout", () => {
   test("returns a timeout warning for AbortError", () => {

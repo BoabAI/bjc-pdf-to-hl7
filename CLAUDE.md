@@ -22,7 +22,7 @@ bun start        # Start production server
 Vision extraction calls Bedrock at runtime, even in local dev. To run `bun dev` or live test scripts (`scripts/test-vision.ts`, `scripts/test-addressee-scenarios.ts`):
 
 - Export `AWS_PROFILE=<profile>` (or `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`) before starting the dev server
-- Credentials need `bedrock:InvokeModel` on `anthropic.claude-sonnet-4-6` in **both** `ap-southeast-2` and `ap-southeast-4` (AU inference profiles route to Melbourne)
+- Credentials need `bedrock:InvokeModel` on `anthropic.claude-opus-4-7` in **both** `ap-southeast-2` and `ap-southeast-4` (AU inference profiles route to Melbourne)
 - Without credentials, `/api/convert` returns a credential warning instead of crashing — useful for non-Bedrock UI work
 
 ## Testing the API
@@ -116,7 +116,7 @@ on the dashboard.
 - `extractPatientData(pdfBuffer, documentType?, bjcDoctors?)` - Main entry point, optionally passes document type hint and doctor list to Bedrock
 - `formatExtractedData()` - Formats PatientData + ReferralInfo into display-friendly key/value pairs for the UI
 
-**`lib/vision-extractor.ts`** - Sends PDFs to Bedrock Claude Sonnet 4.6 via the Converse API. Constants: region `ap-southeast-2`, model `au.anthropic.claude-sonnet-4-6`, timeout 30s. Returns:
+**`lib/vision-extractor.ts`** - Sends PDFs to Bedrock Claude Opus 4.7 via the Converse API. Constants: region `ap-southeast-2`, model `au.anthropic.claude-opus-4-7`, timeout 30s. Returns:
 - Classified document type
 - Structured patient fields
 - Referral info: sender, addressee, CC names (AI-resolved against BJC doctor list)

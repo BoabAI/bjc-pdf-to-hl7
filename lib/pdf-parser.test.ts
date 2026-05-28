@@ -20,7 +20,7 @@ const baseVisionResult = {
     medicareRef: "3",
   },
   warnings: ["Using Bedrock vision"],
-  model: "au.anthropic.claude-sonnet-4-6",
+  model: "au.anthropic.claude-opus-4-7",
   documentType: "referral" as const,
   classificationConfidence: 100,
   tokensUsed: { input: 123, output: 45 },

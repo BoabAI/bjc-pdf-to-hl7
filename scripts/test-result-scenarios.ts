@@ -2,7 +2,7 @@
 /**
  * Live Bedrock test for pathology / radiology result classification + addressee
  * resolution. Requires AWS credentials with bedrock:InvokeModel for
- * anthropic.claude-sonnet-4-6 in BOTH ap-southeast-2 and ap-southeast-4.
+ * anthropic.claude-opus-4-7 in BOTH ap-southeast-2 and ap-southeast-4.
  *
  * Usage: AWS_PROFILE=your-profile bun scripts/test-result-scenarios.ts
  *
