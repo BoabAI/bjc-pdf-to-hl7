@@ -5,10 +5,10 @@
  * (auto-route) or divert the document to manual review.
  *
  * Order of failure preference (most specific → most generic):
- *   1. `urgent_result`         — a pathology/radiology result the model
- *                                flagged as urgent. Never auto-files — a
- *                                human must phone the doctor. Results-only;
- *                                checked first so it wins the label even when
+ *   1. `urgent_result`         — any document (result, referral, letter, or
+ *                                generic) the model flagged as urgent. Never
+ *                                auto-files — a human must phone the doctor.
+ *                                Checked first so it wins the label even when
  *                                the patient block is unreadable (redacted /
  *                                poor-quality fax) or the doc trips a later check.
  *   2. `extraction_failed`     — Bedrock returned no usable patient data.
@@ -126,12 +126,13 @@ export function evaluateAutoRouteEligibility(
   const strictRequiredFields = input.strictRequiredFields ?? true;
   const checks: EligibilityCheck[] = [];
 
-  // 1. Urgent results never auto-file — they need a human (phone the doctor).
-  //    Results-only. Checked first so an urgent result wins the label even when
-  //    the patient block is unreadable (redacted / poor-quality fax) — the
-  //    model's `isUrgent` signal is reliable independent of patient extraction.
-  const urgentBlocked =
-    isResultDocumentType(extraction.documentType) && extraction.isUrgent === true;
+  // 1. Urgent documents never auto-file — they need a human (phone the doctor).
+  //    Applies to every doc type (results, referrals, letters, generic): BJC
+  //    wants anything stamped/flagged "urgent" held for manual handling.
+  //    Checked first so an urgent doc wins the label even when the patient block
+  //    is unreadable (redacted / poor-quality fax) — the model's `isUrgent`
+  //    signal is reliable independent of patient extraction.
+  const urgentBlocked = extraction.isUrgent === true;
   checks.push({
     name: "urgentResult",
     passed: !urgentBlocked,

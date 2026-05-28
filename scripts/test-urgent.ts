@@ -16,7 +16,7 @@ import { DEFAULT_MIN_CLASSIFICATION_CONFIDENCE } from "../lib/settings";
 
 const pdfPath =
   process.argv[2] ??
-  "docs/test-pdfs/urgent/example-of-urgent-mock.pdf";
+  "docs/test-pdfs/urgent/urgent_pathology_chemistry.pdf";
 
 const settings = {
   minClassificationConfidence: DEFAULT_MIN_CLASSIFICATION_CONFIDENCE,

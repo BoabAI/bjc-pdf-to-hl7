@@ -110,6 +110,8 @@ scripts/video/remotion/public/narration-segments/_archive2/
 
 # BJC test PDFs from Nicole (real PHI — never commit)
 docs/latest/
+docs/urgent test.pdf
+docs/urgent test 2.pdf
 
 # Separate-client strategy brief — keep out of the BJC repo
 docs/strategy/advanced-hearing-solutions-backoffice-automation.md

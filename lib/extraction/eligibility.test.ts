@@ -231,7 +231,7 @@ describe("evaluateAutoRouteEligibility — confidence floor", () => {
   });
 });
 
-describe("evaluateAutoRouteEligibility — urgent results", () => {
+describe("evaluateAutoRouteEligibility — urgent documents", () => {
   test("urgent pathology_result (results mailbox, addressee present) fails as urgent_result", () => {
     const result = evaluateAutoRouteEligibility({
       extraction: makeExtraction({
@@ -292,7 +292,7 @@ describe("evaluateAutoRouteEligibility — urgent results", () => {
     expect(result.reason).toBe("urgent_result");
   });
 
-  test("urgent referral (letters mailbox) is NOT urgent-blocked (results-only)", () => {
+  test("urgent referral (letters mailbox) IS urgent-blocked (all doc types)", () => {
     const result = evaluateAutoRouteEligibility({
       extraction: makeExtraction({
         documentType: "referral",
@@ -301,8 +301,34 @@ describe("evaluateAutoRouteEligibility — urgent results", () => {
       mailboxCategory: "letters",
       settings: baseSettings,
     });
-    expect(result.eligible).toBe(true);
-    expect(result.reason).not.toBe("urgent_result");
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toBe("urgent_result");
+  });
+
+  test("urgent consult_letter IS urgent-blocked", () => {
+    const result = evaluateAutoRouteEligibility({
+      extraction: makeExtraction({
+        documentType: "consult_letter",
+        isUrgent: true,
+      }),
+      mailboxCategory: "letters",
+      settings: baseSettings,
+    });
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toBe("urgent_result");
+  });
+
+  test("urgent generic doc is urgent-blocked before unknown_doc_type (precedence)", () => {
+    const result = evaluateAutoRouteEligibility({
+      extraction: makeExtraction({
+        documentType: "generic",
+        isUrgent: true,
+      }),
+      mailboxCategory: "none",
+      settings: baseSettings,
+    });
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toBe("urgent_result");
   });
 
   test("non-urgent pathology_result with addressee is eligible (regression)", () => {

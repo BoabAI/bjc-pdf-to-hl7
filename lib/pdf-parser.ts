@@ -24,7 +24,7 @@ export interface ExtractionResult {
   classificationConfidence: number;
   /** True when the model flagged the word "urgent" prominently. Omitted (→
    * falsy) on the catch fallback path. Consumed by the eligibility gate to
-   * block urgent result documents from auto-routing. */
+   * block urgent documents (any type) from auto-routing. */
   isUrgent?: boolean;
   referralInfo?: ReferralInfo;
 }

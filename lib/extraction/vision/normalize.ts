@@ -140,7 +140,7 @@ export interface NormalizedVisionInput {
   classificationConfidence: number;
   /** True when the model flagged the word "urgent" anywhere prominent on the
    * document. Defaults to `false` when absent or non-boolean (older fixtures /
-   * bad input). The results-only urgent-blocking policy lives in the gate. */
+   * bad input). The urgent-blocking policy (all doc types) lives in the gate. */
   isUrgent: boolean;
 }
 
