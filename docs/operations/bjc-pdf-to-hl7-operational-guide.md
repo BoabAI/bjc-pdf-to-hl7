@@ -1,6 +1,8 @@
 # BJC PDF-to-HL7 Operational Guide
 
-Plain-English guide to the BJC Health PDF-to-HL7 service — covering the live email automation, the manual web upload path, what gets imported into Genie, and how the audit log works. Built by SMEC AI for BJC Health.
+Plain-English guide to the BJC Health PDF-to-HL7 service — covering the email automation, the manual web upload path, what gets imported into Genie, and how the audit log works. Built by SMEC AI for BJC Health.
+
+> **Status (June 2026):** The email-automation (PAD) path described in this guide is **not yet built** — it is part of the production build. The conversion engine and the manual web-upload path exist. The sections below describe the intended end-state for the PDF-to-HL7 pipeline. (BJC's existing PDF-to-Directory automation for consent forms is a separate, unrelated PAD workflow.)
 
 ---
 
@@ -8,14 +10,14 @@ Plain-English guide to the BJC Health PDF-to-HL7 service — covering the live e
 
 The PDF-to-HL7 service turns scanned and emailed patient PDFs into Genie-compatible HL7 messages so they appear directly in the right doctor's inbox. There are two ways a PDF reaches the service:
 
-1. **Email automation** (live) — A Power Automate Desktop (PAD) flow polls dedicated mailboxes every 15 minutes, sends each PDF attachment to the conversion service, and saves the resulting HL7 file to the Genie import folder. 882 documents have been processed automatically since February 2026.
+1. **Email automation** (planned — not yet built) — A Power Automate Desktop (PAD) flow will poll dedicated mailboxes every 15 minutes, send each PDF attachment to the conversion service, and save the resulting HL7 file to the Genie import folder. This PDF-to-HL7 PAD flow is part of the production build and has not yet been set up.
 2. **Manual web upload** — Staff log into a secure web interface and drag PDFs (one or many) into the browser. The service converts each one and offers the HL7 file as a download.
 
 Both paths use the same conversion engine and write to the same audit log.
 
 ---
 
-## How it works (email automation)
+## How it works (email automation — planned design)
 
 ```
 Email with PDF arrives in shared mailbox
@@ -146,7 +148,7 @@ The dashboard at `/dashboard` surfaces these rows. Patient names, dates of birth
 
 - **No document content is retained.** PDFs are processed in memory and discarded immediately after conversion. The conversion service does not store, log, or retain any patient documents or extracted patient data.
 - **Only metadata and metrics are kept.** The audit log records what's listed above — nothing more.
-- **All processing is in Australian data centres.** The conversion service runs on AWS Sydney; the AI extraction (AWS Bedrock Claude Sonnet 4.6) runs on AWS Australia (Sydney + Melbourne data residency).
+- **All processing is in Australian data centres, in BJC's own AWS account.** The conversion service runs in BJC Health's AWS account in Sydney; the AI extraction (AWS Bedrock Claude Sonnet 4.6) runs on AWS Australia (Sydney + Melbourne data residency). BJC owns the account and is billed by AWS directly.
 - **Encrypted in transit.** All communication uses HTTPS.
 - **Password-protected access.** The web interface and conversion API are protected by a shared password and 7-day session cookies.
 - **AWS Bedrock AI** is hosted in Australia, does not use submitted data for training, and is IRAP PROTECTED assessed.
@@ -154,6 +156,8 @@ The dashboard at `/dashboard` surfaces these rows. Patient names, dates of birth
 ---
 
 ## What Medihost needs to provide
+
+> The PDF-to-HL7 PAD pipeline is not yet built; the statuses below predate the build and should be re-verified with Medihost before go-live.
 
 | Requirement | Why it's needed | Status |
 |-------------|-----------------|--------|
@@ -178,9 +182,9 @@ The dashboard at `/dashboard` surfaces these rows. Patient names, dates of birth
 
 ---
 
-## Code escrow
+## Code ownership
 
-On termination of the SMEC AI engagement, the complete codebase — this repo, the PAD flow, infrastructure-as-code, and operational documentation — is delivered to BJC Health. This commitment lets BJC continue running and maintaining the service independently, or hand it to another vendor, without operational disruption. Specific terms (handover format, support window, dependency lists) are documented in the SMEC AI service proposal.
+BJC Health owns the intellectual property in this automation. SMEC AI builds it under a contractor engagement; the complete codebase — this repository, the PAD flow, the infrastructure-as-code, and the operational documentation — belongs to BJC Health. The system runs in BJC's own AWS account (the converter) and on BJC's own server (the PAD flow), so BJC can continue running, maintaining, or re-vendoring it at any time with no dependency on SMEC AI. Engagement terms are set out in the SMEC AI contractor agreement.
 
 ---
 
@@ -188,11 +192,11 @@ On termination of the SMEC AI engagement, the complete codebase — this repo, t
 
 BJC Health currently has two automations running on the same Windows server:
 
-- **PDF-to-Directory** (live since 2025): Processes **consent forms** from the PD@ mailbox. Renames PDFs and saves them to a network folder for Genie auto-import.
-- **PDF-to-HL7** (this service, live since Feb 2026): Processes **referrals, pathology, and radiology** from three dedicated mailboxes. Converts PDFs to HL7 messages and saves them to the Genie import folder.
+- **PDF-to-Directory** (existing, live): Processes **consent forms** from the PD@ mailbox. Renames PDFs and saves them to a network folder for Genie auto-import. This is BJC's existing PAD automation and is unrelated to the PDF-to-HL7 pipeline.
+- **PDF-to-HL7** (this service — in development): Will process **referrals, pathology, and radiology** from dedicated mailboxes, converting PDFs to HL7 messages saved to the Genie import folder. **The PAD flow for this pipeline has not yet been built** — it is part of the production build.
 
-Both automations run independently and do not interfere with each other. See `docs/engineering/sister-system-pdf-to-directory.md` for reference details on PDF-to-Directory.
+Once built, both automations will run independently and not interfere with each other. See `docs/engineering/sister-system-pdf-to-directory.md` for reference details on PDF-to-Directory.
 
 ---
 
-*Prepared by SMEC AI | Last refreshed April 2026*
+*Prepared by SMEC AI | Last refreshed June 2026*

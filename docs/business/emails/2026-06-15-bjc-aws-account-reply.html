@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BJC AWS-account reply — copy/paste into Outlook</title>
+<style>
+  body { font-family: Aptos, Calibri, "Segoe UI", Arial, sans-serif; font-size: 11pt; color: #201f1e; line-height: 1.5; max-width: 760px; margin: 24px auto; padding: 0 16px; }
+  .copy-region { border: 1px dashed #c8c6c4; padding: 20px 24px; border-radius: 6px; }
+  .note { background: #f3f2f1; border-left: 3px solid #7C3AED; padding: 10px 14px; font-size: 10pt; color: #444; margin-bottom: 20px; }
+  ul { margin: 8px 0 8px 0; padding-left: 22px; }
+  li { margin: 4px 0; }
+  ol { margin: 8px 0; padding-left: 22px; }
+  ol li { margin: 6px 0; }
+  table { border-collapse: collapse; margin: 12px 0; width: 100%; }
+  th, td { border: 1px solid #c8c6c4; padding: 7px 10px; text-align: left; vertical-align: top; font-size: 10.5pt; }
+  th { background: #f3f2f1; }
+  .sig-line { margin: 0; }
+  p { margin: 10px 0; }
+</style>
+</head>
+<body>
+
+<div class="note">
+  <strong>How to use:</strong> click anywhere in the box below &rarr; Select All (&#8984;A) &rarr; Copy (&#8984;C) &rarr; paste into the Outlook Web message body. Bold, lists and the table will carry over. Subject / To / Cc are listed here for reference &mdash; set those in Outlook's own fields.<br>
+  <strong>Subject:</strong> Re: Next steps &mdash; moving to production on a BJC-owned AWS account &nbsp;&middot;&nbsp; <strong>To:</strong> Nicole Pyne &nbsp;&middot;&nbsp; <strong>Cc:</strong> Amy Johnson, Errol Lim
+</div>
+
+<div class="copy-region">
+
+<p>Hi Nicole,</p>
+
+<p>Great question, and the timing's perfect. Moving production onto a BJC-owned AWS account is the right call &mdash; it puts BJC fully in control of the account, the billing, and where the data lives. Here are direct answers to your three questions, with a step-by-step for the account setup so you've got something concrete to action.</p>
+
+<p><strong>1. What AWS account to set up &mdash; and the steps to do it</strong></p>
+
+<p>Just one new, standalone AWS account in BJC's name. Here's the full setup, start to finish &mdash; steps 1&ndash;6 sit with BJC and are quick (your IT, with Medihost helping on the technical bits, can have them done in well under an hour), then I handle everything after that:</p>
+
+<ol>
+  <li><strong>Create the account.</strong> Go to <strong>aws.amazon.com</strong> &rarr; "Create an AWS Account". Use a BJC shared mailbox as the root email (e.g. <strong>aws@bjchealth.com.au</strong> &mdash; not a personal inbox), name it "BJC Health", and set a strong root password stored in BJC's password manager.</li>
+  <li><strong>Add billing.</strong> Enter BJC's payment details &mdash; AWS bills BJC directly for usage (small for this workload, and fully itemised). Choose the free "Basic Support" plan.</li>
+  <li><strong>Secure the root login.</strong> Turn on multi-factor authentication (MFA) for the root user and keep those credentials with BJC. Root is for emergencies only; day-to-day work uses scoped logins.</li>
+  <li><strong>Set the region to Sydney</strong> (Asia Pacific, ap-southeast-2). All your stored data lives here. The AI also uses Melbourne &mdash; both Australian data centres, so nothing leaves the country.</li>
+  <li><strong>Create a deployment role for me.</strong> I'll send a short script that creates a single, scoped, revocable access role I use to build the system inside your account. BJC stays the owner the whole time, and you can revoke my access at any moment.</li>
+  <li><strong>Send me two things:</strong> the account ID and that role's identifier. That's all I need to begin.</li>
+  <li><strong>Set a billing alert</strong> (optional, recommended) so BJC gets a heads-up if AWS spend ever changes &mdash; I can set this up for you.</li>
+</ol>
+
+<p>So from BJC's side it's really just: create the account, add billing, lock down the root login, and grant me the deployment role.</p>
+
+<p><strong>2. Will you set up &amp; configure everything?</strong></p>
+
+<p>Yes &mdash; end to end. Once the account exists and I have the deployment role, I do all of it: switch on the AI, deploy the app + dashboard (serverless &mdash; there's no server to patch or babysit), stand up the database, wire up the automatic outage alert, and configure the Microsoft sign-in and the bjchealth.com.au-only access restriction. The AWS side is all scripted (infrastructure-as-code) and documented for handover. I also <strong>build the Power Automate flow</strong> on your server that pulls PDFs from your mailboxes, sends them to the converter, and drops the finished HL7 files into Genie's import folder. Medihost's role is to provide the server capacity, the Genie import-folder access, the service account, and to confirm Genie's referral (REF) flag is enabled &mdash; the same kind of support they gave for your existing automation.</p>
+
+<p><strong>3. Support structure in production</strong></p>
+
+<p>A clean three-way split:</p>
+
+<table>
+  <thead>
+    <tr><th>Who</th><th>Owns</th><th>Covers</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>SMEC AI</strong></td>
+      <td>The conversion app, AI + the automation flow</td>
+      <td>Builds the converter and the Power Automate flow that feeds it; available to make changes, fix issues, and tune the AI as PDF formats change</td>
+    </tr>
+    <tr>
+      <td><strong>Medihost</strong></td>
+      <td>The BJC server + Genie</td>
+      <td>Windows server capacity, service account, and Genie import folder + referral (REF) routing</td>
+    </tr>
+    <tr>
+      <td><strong>BJC Health</strong></td>
+      <td>The AWS account &amp; system</td>
+      <td>Ownership &amp; billing, plus daily ops: the Review folder for any document that needs a human, and keeping the doctor list current</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>On the SMEC AI side, this ongoing involvement &mdash; changes, fixes, and AI tuning as PDF formats evolve &mdash; is provided on a daily-rate basis, billed only for the time used.</p>
+
+<p>Because it's serverless, the AWS side is effectively hands-off once I've built it.</p>
+
+<p>Happy to jump on a short call with you and Medihost to walk through the account setup if that's easier.</p>
+
+<p>Thanks Nicole &mdash; this is a great step toward production.</p>
+
+<p class="sig-line">Cheers</p>
+<p class="sig-line">&nbsp;</p>
+<p class="sig-line"><strong>Sean O'Reilly</strong></p>
+<p class="sig-line">AI Agent Implementation Lead</p>
+<p class="sig-line">&nbsp;</p>
+<p class="sig-line">M: 0422523258</p>
+<p class="sig-line">E: sean@smecai.au</p>
+<p class="sig-line">W: smecai.au</p>
+<p class="sig-line">&nbsp;</p>
+<p class="sig-line">SMEC AI | 3/45 Wangaratta Street, Richmond | Victoria</p>
+
+</div>
+
+</body>
+</html>
