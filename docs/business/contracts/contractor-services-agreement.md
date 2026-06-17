@@ -273,17 +273,17 @@ the Australian Consumer Law where it applies), all other warranties are excluded
 
 ---
 
-## 11. Insurance
+## 11. Allocation of risk
 
-11.1 SMEC AI will hold and maintain, for the term and for [12] months after:
-- **Professional Indemnity** insurance of at least $[PI amount, e.g. 1,000,000–2,000,000]; and
-- **Public Liability** insurance of at least $[PL amount, e.g. 5,000,000 / 10,000,000].
+11.1 SMEC AI is not required under this Agreement to hold professional indemnity
+or public liability insurance, and carries its own risk in performing the
+Services.
 
-11.2 SMEC AI will provide a Certificate of Currency on request.
-
-> **To confirm:** the cover amounts BJC Health requires, and that SMEC AI's
-> policies are in place before signature. PI cover is the practical backstop for
-> clause 9 (AI accuracy) and clause 12 (liability).
+11.2 BJC Health acknowledges that SMEC AI carries its own risk in performing the
+Services, and that any liability of SMEC AI to BJC Health — and any recovery by
+BJC Health from SMEC AI — for loss arising from or in connection with the
+Services is limited as set out in clause 12 (Limitation of liability), including
+the cap in clause 12.1.
 
 ---
 
