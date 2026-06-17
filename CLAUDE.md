@@ -204,3 +204,17 @@ Locally, create `.env.local`. On Amplify, env vars are set at the app level and 
 Deploy to AWS Amplify with platform set to **WEB_COMPUTE** (required for SSR). The `amplify.yml` is pre-configured. Uses `output: "standalone"` in `next.config.mjs` for Amplify compatibility. Must create `.env.production` during build phase to pass `APP_PASSWORD` to Lambda runtime, and the app must have a compute role with Bedrock permissions attached.
 
 The root layout uses `force-dynamic` and middleware sets `Cache-Control: no-store` on all responses to prevent CloudFront from caching pages and bypassing middleware auth.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs live in the `BoabAI/bjc-pdf-to-hl7` GitHub repo, managed via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical triage roles map 1:1 to GitHub labels (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
