@@ -1,19 +1,18 @@
-# Contractor Services Agreement (Day-Rate) — Template
+# Contractor Services Agreement (Day-Rate)
 
-**Reusable day-rate services agreement. Complete the `[BRACKETS]` and Schedule 1
-per engagement. NOT FOR SIGNATURE until completed.**
+**Between SMEC AI (Contractor) and BJC Health (Client)**
 
-> ⚠️ **Generic, reusable template.** Nothing in the body is client- or
-> project-specific — the Services for a given engagement are described in
-> **Schedule 1**. Complete the placeholders, then have an Australian lawyer review
-> the liability (cl 8) and IP (cl 3) clauses before first use.
+**Draft — June 2026 — for review before signature**
+
+> ⚠️ **Draft.** Day-rate contractor agreement for the PDF-to-HL7 engagement,
+> prepared from SMEC AI's standard template. A few `[BRACKETS]` remain — the
+> parties' ABNs, BJC Health's exact legal entity and registered address, and
+> BJC Health's notice email — for you to confirm. Have an Australian lawyer review
+> the liability (cl 8) and IP (cl 3) clauses before signature.
 >
 > Liability is limited via a **mutual** cap (cl 8) plus contractor-favouring
 > mechanisms (sole remedy, ACL re-supply limit, time-bar, proportionate
-> liability). A one-sided cap risks being void as an unfair contract term in a
-> standard-form small-business contract — which would remove the cap entirely.
->
-> **Not legal advice.**
+> liability). **Not legal advice.**
 
 ---
 
@@ -21,9 +20,9 @@ per engagement. NOT FOR SIGNATURE until completed.**
 
 | | |
 |---|---|
-| **Contractor** | SMEC AI, ABN [ABN] ("the **Contractor**") |
-| **Client** | BJC Health, ABN [ABN], of [address] ("the **Client**") |
-| **Effective date** | [Effective date] |
+| **Contractor** | SMEC AI [confirm registered entity, e.g. SMEC AI Pty Ltd], ABN [SMEC AI ABN] ("the **Contractor**") |
+| **Client** | BJC Health [confirm registered entity], ABN [BJC Health ABN], of [BJC Health registered address] ("the **Client**") |
+| **Effective date** | The date of the last signature below |
 
 ---
 
@@ -47,11 +46,11 @@ is not a cap or a fixed price.
 
 ## 2. Fees and payment
 
-2.1 The Contractor's rate is **$[rate] per day ([n]-hour day), inc GST**, billed
-against time actually worked in whole or part-day blocks.
+2.1 The Contractor's rate is **$1,000 per day (8-hour day), inc GST** (= $125 per
+hour), billed against time actually worked in whole or part-day blocks.
 
 2.2 The Contractor issues tax invoices (showing ABN and GST), payable within
-**[30] days**. The Contractor may pause work on overdue invoices after notice.
+**30 days**. The Contractor may pause work on overdue invoices after notice.
 
 2.3 Any third-party services or infrastructure the Client procures directly (for
 example, cloud hosting, software licences, or the Client's own IT provider) are
@@ -197,9 +196,9 @@ mediation) before commencing proceedings, except for urgent relief.
 10.3 This Agreement, with its Schedule, is the **entire agreement** and supersedes
 prior proposals. Variations must be in writing and signed. If a provision is
 unenforceable it is severed and the rest continues. Notices go to the parties'
-nominated email addresses. This Agreement is governed by the laws of **[State —
-e.g. New South Wales]**, and the parties submit to the non-exclusive jurisdiction
-of its courts.
+nominated email addresses — Contractor: info@smecai.com.au; Client: [BJC Health
+notice email]. This Agreement is governed by the laws of **New South Wales**, and
+the parties submit to the non-exclusive jurisdiction of its courts.
 
 ---
 
@@ -217,16 +216,47 @@ Name: __________________________  Signature: _____________________  Date: ______
 
 ## Schedule 1 — Services and engagement details
 
-Complete per engagement:
+**Services / deliverables.** The Contractor will build, deploy, configure, and
+maintain the PDF-to-HL7 automation (the "System") in the Client's own AWS account,
+comprising:
 
-- **Services / deliverables** — description of the work to be performed.
-- **Day rate** — $[rate] inc GST per [n]-hour day (confirms clause 2.1).
-- **Payment terms** — [30] days (or as agreed).
-- **Data handling** — any specific security, residency, or retention requirements
-  (clause 5.3); whether personal or sensitive information is involved.
-- **Assumptions / dependencies / out of scope** — anything the engagement relies on
-  or excludes.
-- **Estimated effort** — indicative days, if given (non-binding).
+- the conversion service and web dashboard (multi-file upload, audit log, doctor-
+  list management, processing metrics);
+- HL7 v2.4 message generation (Genie-compatible) and doctor-matching configuration;
+- the Power Automate Desktop (PAD) pipeline that retrieves referrals and results
+  from the Client's mailboxes, calls the conversion service, files successes into
+  Genie's import paths (incoming letters / pathology / radiology), and routes
+  failures to manual review;
+- Microsoft single sign-on (Entra), restricted to bjchealth.com.au accounts, and an
+  automated email alert if the converter stops processing documents;
+- testing of referral and results PDFs end-to-end with Genie import verification,
+  documentation, and handover; and
+- ongoing changes, new document formats, and AI tuning as requested by the Client.
+
+**Day rate.** $1,000 inc GST per 8-hour day (clause 2.1).
+
+**Payment terms.** 30 days from invoice (clause 2.2).
+
+**Data handling (clause 5.3).** The System processes patient data. PDFs are
+processed in memory only and are never stored. The audit log holds non-identifying
+metadata only (hashed filename, file size, document type, success/failure, patient
+initials, timestamp, routing). Stored data (audit log and settings) is held in AWS
+Sydney; the AI reading step may run in AWS Melbourne; no patient data leaves
+Australia. The Client is the data controller and owns the AWS account and the
+processing environment.
+
+**Assumptions / dependencies.** The Client provides the AWS account and the
+required mailbox and server access; Medihost provides server access and any
+Genie-side configuration; Microsoft 365 and Power Automate licensing are in place.
+Delays caused by third parties (Medihost, Microsoft, Genie) are outside the
+Contractor's control.
+
+**Out of scope.** Medihost labour (server provisioning, Genie configuration);
+Microsoft 365 / Power Automate licensing; creation of new mailboxes; changes to the
+existing PDF-to-Directory automation.
+
+**Estimated effort.** Production build estimated at ~10 days = ~$10,000 inc GST
+(estimate, not a cap or fixed price); later work billed at the day rate.
 
 ---
 
