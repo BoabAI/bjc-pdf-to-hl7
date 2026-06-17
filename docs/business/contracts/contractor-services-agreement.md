@@ -1,24 +1,19 @@
-# Contractor Services Agreement (Short Form)
+# Contractor Services Agreement (Day-Rate) — Template
 
-**Between SMEC AI (Contractor) and BJC Health (Client)**
+**Reusable day-rate services agreement. Complete the `[BRACKETS]` and Schedule 1
+per engagement. NOT FOR SIGNATURE until completed.**
 
-**Draft v0.2 — June 2026 — NOT FOR SIGNATURE**
-
-> ⚠️ **Draft for review.** Plain-language short-form agreement for the PDF-to-HL7
-> contractor engagement. Simplified from the v0.1 long-form draft (kept in git
-> history). Reflects the v3 contractor model: BJC Health owns the IP, owns and
-> pays for the AWS account, day-rate billing, no insurance requirement.
-> SMEC AI's liability is limited under clause 8.
+> ⚠️ **Generic, reusable template.** Nothing in the body is client- or
+> project-specific — the Services for a given engagement are described in
+> **Schedule 1**. Complete the placeholders, then have an Australian lawyer review
+> the liability (cl 8) and IP (cl 3) clauses before first use.
 >
-> Liability is limited through a **mutual** cap plus SMEC-favouring mechanisms
-> (sole-remedy, ACL re-supply limit, time-bar, proportionate liability), rather
-> than a one-sided cap — a one-sided cap in a standard-form small-business
-> contract risks being struck out as an unfair contract term, which would leave
-> SMEC AI with no cap at all.
+> Liability is limited via a **mutual** cap (cl 8) plus contractor-favouring
+> mechanisms (sole remedy, ACL re-supply limit, time-bar, proportionate
+> liability). A one-sided cap risks being void as an unfair contract term in a
+> standard-form small-business contract — which would remove the cap entirely.
 >
-> **Not legal advice.** The liability (cl 8), ACL (cl 8.3), and IP (cl 3) clauses
-> should be reviewed by an Australian lawyer before signature. `[BRACKETS]` are
-> placeholders to confirm.
+> **Not legal advice.**
 
 ---
 
@@ -26,116 +21,113 @@
 
 | | |
 |---|---|
-| **Contractor** | [SMEC AI legal entity — confirm this is the Pty Ltd], ABN [SMEC ABN] ("**SMEC AI**") |
-| **Client** | [BJC Health legal entity name], ABN [BJC ABN], of [BJC address] ("**BJC Health**") |
+| **Contractor** | [Contractor legal entity — confirm Pty Ltd], ABN [ABN] ("the **Contractor**") |
+| **Client** | [Client legal entity], ABN [ABN], of [address] ("the **Client**") |
 | **Effective date** | [Effective date] |
 
 ---
 
 ## 1. The engagement
 
-1.1 BJC Health engages SMEC AI as an **independent contractor** to build, deploy,
-and maintain the PDF-to-HL7 automation (the "**System**") in BJC Health's own AWS
-account. SMEC AI is not an employee, partner, or agent of BJC Health.
+1.1 The Client engages the Contractor as an **independent contractor** to provide
+the services described in **Schedule 1** (the "**Services**"). The Contractor is
+not an employee, partner, or agent of the Client.
 
-1.2 SMEC AI provides the Services using its own equipment and methods, is free to
-work for others, and is responsible for its own tax, GST, superannuation, and
-insurances. SMEC AI is engaged to deliver agreed outcomes, not to provide labour
-for a fixed period.
+1.2 The Contractor provides the Services using its own equipment and methods, is
+free to work for others, and is responsible for its own tax, GST, superannuation,
+and insurances.
 
-1.3 **Work is agreed in Statements of Work (SOWs).** Each SOW sets the scope,
-deliverables, estimate, and acceptance criteria for a package of work and is
-governed by this Agreement. The first is **SOW #001 — Production Build**. Work
-beyond a SOW is quoted and approved in writing before it starts.
+1.3 **Work is requested and agreed in writing (email is sufficient) and is
+performed on a day-rate basis (clause 2).** There is no fixed-price, milestone, or
+per-unit component unless the parties agree one in writing. The Contractor may give
+a non-binding estimate of the number of days a piece of work will take; an estimate
+is not a cap or a fixed price.
 
 ---
 
 ## 2. Fees and payment
 
-2.1 SMEC AI's rate is **$1,000 per day (8 hours) inc GST** ($125/hour), billed in
-whole or part-day blocks against time worked, unless a SOW sets a fixed price. A
-SOW estimate is an estimate, not a cap; SMEC AI will not exceed it without written
-approval.
+2.1 The Contractor's rate is **$[rate] per day ([n]-hour day), inc GST**, billed
+against time actually worked in whole or part-day blocks.
 
-2.2 SMEC AI issues tax invoices (showing ABN and GST), payable within **30 days**.
-SMEC AI may pause work on overdue invoices after notice.
+2.2 The Contractor issues tax invoices (showing ABN and GST), payable within
+**[30] days**. The Contractor may pause work on overdue invoices after notice.
 
-2.3 **AWS and other third-party costs** (AWS, Microsoft 365 / Power Automate,
-Medihost) are paid by BJC Health directly to those providers. SMEC AI applies no
-markup.
+2.3 Any third-party services or infrastructure the Client procures directly (for
+example, cloud hosting, software licences, or the Client's own IT provider) are
+paid by the Client to those providers. The Contractor adds no markup.
 
 ---
 
 ## 3. Intellectual property
 
-3.1 On payment, SMEC AI assigns to BJC Health all IP in the **deliverables and
-BJC-specific work** (the conversion and HL7 logic as configured for BJC Health,
-the doctor-matching configuration, the dashboard, and the Power Automate
-workflow).
+3.1 On payment, the Contractor assigns to the Client all intellectual property
+rights in the **deliverables and Client-specific work** produced for the Client
+under this Agreement.
 
-3.2 SMEC AI keeps its **pre-existing and general-purpose tooling** ("Background
-IP") and grants BJC Health a perpetual, royalty-free, non-exclusive licence to use
-and maintain any Background IP embedded in the deliverables, including via a
-successor provider.
+3.2 The Contractor retains its **pre-existing and general-purpose materials, tools,
+and know-how** ("Background IP"), and grants the Client a perpetual, royalty-free,
+non-exclusive licence to use and maintain any Background IP embedded in the
+deliverables, including via a successor provider.
 
-3.3 BJC Health owns all patient data at all times.
+3.3 The Client owns its own data at all times.
+
+> Adjust per engagement: some engagements licence the deliverables to the Client
+> rather than assigning them outright.
 
 ---
 
 ## 4. Confidentiality
 
-Each party keeps the other's confidential information (including patient data and
-BJC Health business information) confidential and uses it only for this
-engagement. This does not apply to information that is public, independently
-developed, or required to be disclosed by law. This clause survives termination.
+Each party keeps the other's confidential information confidential and uses it only
+for this engagement. This does not apply to information that is public,
+independently developed, or required to be disclosed by law. This clause survives
+termination.
 
 ---
 
-## 5. Privacy and patient data
+## 5. Data protection
 
-5.1 BJC Health is the **data controller** under the *Privacy Act 1988* (Cth) and,
-because the System runs in BJC Health's own AWS account, owns the processing
-environment. SMEC AI acts as a processor.
+5.1 Where the Contractor processes personal information on the Client's behalf, the
+Client is the data controller and the Contractor acts as processor under the
+*Privacy Act 1988* (Cth) and the Australian Privacy Principles, processing it only
+to provide the Services.
 
-5.2 PDFs are processed in memory only and never stored. The audit log holds
-**non-identifying metadata only** (hashed filename, file size, document type,
-success/failure, patient initials, timestamp, routing) — never full name, DOB,
-Medicare number, address, or content.
+5.2 The Contractor will apply reasonable security measures, will not use the data
+for any other purpose, and will notify the Client without undue delay of any actual
+or suspected data breach affecting it.
 
-5.3 Stored data (audit log, settings) is held in AWS Sydney; AI reading may run in
-AWS Melbourne. No patient data leaves Australia. Access is via BJC Health's
-Microsoft sign-in (so BJC Health's MFA and security policies apply), restricted to
-bjchealth.com.au accounts.
-
-5.4 SMEC AI will notify BJC Health without undue delay of any actual or suspected
-data breach involving patient data.
+5.3 Any specific data-handling, security, residency, or retention requirements for
+an engagement are set out in Schedule 1.
 
 ---
 
-## 6. The System is an assistive tool
+## 6. Automated and AI-assisted outputs
 
-6.1 The System uses AI to extract information from PDFs. **AI extraction is not
-guaranteed to be accurate.** It is an assistive tool for administrative workflow
-only — not medical advice or clinical decision support.
+*(Include where the Services involve automation or AI; otherwise delete.)*
 
-6.2 **BJC Health is responsible for verifying each imported document in Genie
-before acting on it**, and for all clinical decisions. Failed conversions are
-routed to manual review rather than dropped.
+6.1 Where the Services produce automated or AI-generated outputs, those outputs are
+**not guaranteed to be accurate, complete, error-free, or uninterrupted**, and are
+provided as an assistive tool only — not professional, legal, medical, financial,
+or other regulated advice.
+
+6.2 The Client is responsible for reviewing outputs before relying on them, and for
+any decision made using them.
 
 ---
 
 ## 7. Warranties and sole remedy
 
-7.1 To the maximum extent permitted by law, SMEC AI gives **no warranties** about
-the Services or the System beyond those that cannot be excluded under the
-Australian Consumer Law or other applicable law. In particular, SMEC AI does not
-warrant that the System or its AI extraction will be error-free or uninterrupted
-(see clause 6).
+7.1 To the maximum extent permitted by law, the Contractor gives **no warranties**
+about the Services or any deliverable beyond those that cannot be excluded under
+the Australian Consumer Law or other applicable law, and does not warrant that any
+software or automated output will be error-free or uninterrupted.
 
-7.2 **Sole remedy.** Where SMEC AI is liable for Services that do not conform to a
-SOW's acceptance criteria, or for breach of a warranty that cannot be excluded,
-BJC Health's sole and exclusive remedy is, at SMEC AI's election, re-performance of
-the affected Services at no extra cost, or a refund of the Fees paid for them.
+7.2 **Sole remedy.** Where the Contractor is liable for Services that do not conform
+to the requirements agreed for them, or for breach of a warranty that cannot be
+excluded, the Client's sole and exclusive remedy is, at the Contractor's election,
+re-performance of the affected Services at no extra cost, or a refund of the Fees
+paid for them.
 
 ---
 
@@ -143,21 +135,21 @@ the affected Services at no extra cost, or a refund of the Fees paid for them.
 
 8.1 **Cap (mutual).** To the maximum extent permitted by law, each party's total
 aggregate liability under or in connection with this Agreement (whether in
-contract, tort including negligence, under statute, or otherwise) is limited to
-the **total Fees paid by BJC Health to SMEC AI in the 12 months before the event**
-giving rise to the liability. This does not limit BJC Health's obligation to pay
-Fees properly due.
+contract, tort including negligence, under statute, or otherwise) is limited to the
+**total Fees paid by the Client to the Contractor in the 12 months before the
+event** giving rise to the liability. This does not limit the Client's obligation
+to pay Fees properly due.
 
 8.2 **No indirect loss (mutual).** Neither party is liable for loss of profit,
 revenue, anticipated savings, data, goodwill, or business opportunity, or for any
 indirect, special, or consequential loss, whether or not foreseeable.
 
 8.3 **Australian Consumer Law.** Nothing in this Agreement excludes rights under
-the Australian Consumer Law that cannot be excluded. To the extent the Services
-are not of a kind ordinarily acquired for personal, domestic, or household use,
-SMEC AI's liability for breach of a non-excludable consumer guarantee is limited,
-at SMEC AI's election, to **re-supplying the Services or paying the cost of having
-them re-supplied**.
+the Australian Consumer Law that cannot be excluded. To the extent the Services are
+not of a kind ordinarily acquired for personal, domestic, or household use, the
+Contractor's liability for breach of a non-excludable consumer guarantee is
+limited, at the Contractor's election, to **re-supplying the Services or paying the
+cost of having them re-supplied**.
 
 8.4 **Carve-outs.** Clauses 8.1 and 8.2 do not apply to liability that cannot be
 limited at law, fraud or wilful misconduct, breach of confidentiality, or
@@ -170,11 +162,11 @@ giving rise to it.
 8.6 **Proportionate liability.** Nothing in this Agreement excludes, restricts, or
 modifies any proportionate liability regime that applies by statute.
 
-8.7 **BJC Health indemnity.** BJC Health indemnifies SMEC AI against claims, losses,
-or damages arising from (a) use of the System in a manner not contemplated by this
-Agreement; (b) clinical decisions or patient outcomes related to documents
-processed by the System; or (c) failure of BJC Health's or Medihost's environment
-— in each case reduced to the extent SMEC AI caused the loss.
+8.7 **Client indemnity.** The Client indemnifies the Contractor against claims,
+losses, or damages arising from (a) use of the deliverables in a manner not
+contemplated by this Agreement; (b) decisions or outcomes based on the deliverables
+or their outputs; or (c) failure of the Client's or its providers' systems or
+environment — in each case reduced to the extent the Contractor caused the loss.
 
 ---
 
@@ -185,66 +177,57 @@ Either party may terminate for convenience on **30 days'** written notice, or
 immediately for a material breach not remedied within **14 days** of notice, or on
 the other's insolvency.
 
-9.2 On termination, BJC Health pays for Services performed to that date. Because
-BJC Health owns the IP (clause 3) and runs the System in its own AWS account, it
-keeps full operational continuity. On request, SMEC AI will provide a current copy
-of the BJC-specific source code and reasonable handover assistance (handover billed
-at the day rate unless covered by a SOW).
+9.2 On termination, the Client pays for Services performed to that date. On request,
+the Contractor will provide a current copy of the Client-specific deliverables
+(including source code, where applicable) and reasonable handover assistance, billed
+at the day rate.
 
 ---
 
 ## 10. General
 
-10.1 SMEC AI may subcontract with BJC Health's prior written consent (not
+10.1 The Contractor may subcontract with the Client's prior written consent (not
 unreasonably withheld) but remains responsible for the Services. Neither party may
-assign without the other's consent, except BJC Health may assign to a successor
-operator of the System.
+assign without the other's consent, except the Client may assign to a successor
+operator of the deliverables.
 
 10.2 The parties will try in good faith to resolve disputes by discussion (then
 mediation) before commencing proceedings, except for urgent relief.
 
-10.3 This Agreement, with its Schedules and SOWs, is the **entire agreement** and
-supersedes prior proposals — including the v1/v2 hosted-service pricing documents
-and the v0.1 long-form draft. Variations must be in writing and signed. If a
-provision is unenforceable it is severed and the rest continues. Notices go to:
-BJC Health — [BJC notice email]; SMEC AI — info@smecai.com.au. This Agreement is
-governed by the laws of **[New South Wales]**, and the parties submit to the
-non-exclusive jurisdiction of its courts.
+10.3 This Agreement, with its Schedule, is the **entire agreement** and supersedes
+prior proposals. Variations must be in writing and signed. If a provision is
+unenforceable it is severed and the rest continues. Notices go to the parties'
+nominated email addresses. This Agreement is governed by the laws of **[State —
+e.g. New South Wales]**, and the parties submit to the non-exclusive jurisdiction
+of its courts.
 
 ---
 
 ## Execution
 
-**Signed for [SMEC AI legal entity]:**
+**Signed for [Contractor legal entity]:**
 
 Name: __________________________  Signature: _____________________  Date: ________
 
-**Signed for [BJC Health legal entity]:**
+**Signed for [Client legal entity]:**
 
 Name: __________________________  Signature: _____________________  Date: ________
 
 ---
 
-## Schedule 1 — Rate card
+## Schedule 1 — Services and engagement details
 
-| Item | Rate (inc GST) |
-|---|---|
-| Standard day (8 hours) | $1,000 |
-| Hourly | $125 |
-| Production build (SOW #001) | Estimated 10 days = $10,000 (estimate, not a cap) |
+Complete per engagement:
 
-- Billed against time worked. AWS / Microsoft 365 / Medihost costs are paid by BJC
-  Health directly to those providers.
-- Work beyond a SOW is quoted and approved in writing first.
-
----
-
-## Schedule 2 — Statements of Work
-
-Each package of work is a SOW covering: number and title, objective, scope and
-deliverables, out of scope, estimate, acceptance criteria, assumptions and
-dependencies, timeline, and signatures. See **SOW #001 — Production Build**.
+- **Services / deliverables** — description of the work to be performed.
+- **Day rate** — $[rate] inc GST per [n]-hour day (confirms clause 2.1).
+- **Payment terms** — [30] days (or as agreed).
+- **Data handling** — any specific security, residency, or retention requirements
+  (clause 5.3); whether personal or sensitive information is involved.
+- **Assumptions / dependencies / out of scope** — anything the engagement relies on
+  or excludes.
+- **Estimated effort** — indicative days, if given (non-binding).
 
 ---
 
-*Prepared by SMEC AI | Draft v0.2 (short form) June 2026 | Supersedes the v0.1 long-form draft (in git history) and the v1/v2 hosted-service terms*
+*Generic day-rate contractor services agreement template | not legal advice*
