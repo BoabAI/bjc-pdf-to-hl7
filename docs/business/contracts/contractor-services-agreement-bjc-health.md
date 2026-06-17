@@ -5,10 +5,13 @@
 **Draft — June 2026 — for review before signature**
 
 > ⚠️ **Draft.** Day-rate contractor agreement for the PDF-to-HL7 engagement,
-> prepared from SMEC AI's standard template. A few `[BRACKETS]` remain — the
-> parties' ABNs, BJC Health's exact legal entity and registered address, and
-> BJC Health's notice email — for you to confirm. Have an Australian lawyer review
-> the liability (cl 8) and IP (cl 3) clauses before signature.
+> prepared from SMEC AI's standard template. Outstanding `[BRACKETS]` to confirm:
+> the **Contractor's** registered entity and ABN (no "SMEC AI Pty Ltd" was found on
+> the ABR — confirm the entity SMEC trades/contracts through); the **Client's** full
+> registered street address; and the Client's notice email. The Client entity and
+> ABN below are from ABN Lookup — **confirm which BJC Health entity should sign**
+> (see note under Parties). Have an Australian lawyer review the liability (cl 8)
+> and IP (cl 3) clauses before signature.
 >
 > Liability is limited via a **mutual** cap (cl 8) plus contractor-favouring
 > mechanisms (sole remedy, ACL re-supply limit, time-bar, proportionate
@@ -20,9 +23,16 @@
 
 | | |
 |---|---|
-| **Contractor** | SMEC AI [confirm registered entity, e.g. SMEC AI Pty Ltd], ABN [SMEC AI ABN] ("the **Contractor**") |
-| **Client** | BJC Health [confirm registered entity], ABN [BJC Health ABN], of [BJC Health registered address] ("the **Client**") |
+| **Contractor** | SMEC AI [confirm SMEC's registered contracting entity + ABN — no "SMEC AI Pty Ltd" found on the ABR] ("the **Contractor**") |
+| **Client** | The trustee for BJC Health Trust (trading as **BJC Health**), ABN **30 143 927 579**, of [registered street address — Parramatta NSW 2150; confirm] ("the **Client**") |
 | **Effective date** | The date of the last signature below |
+
+> **Client entity — confirm before signing.** Per ABN Lookup, the long-standing
+> operating entity is *The trustee for BJC Health Trust* (ABN 30 143 927 579), which
+> holds the "BJC Health" business name. However, two companies were registered in
+> April–May 2026 — *BJC Health Holdings Pty Ltd* (ABN 63 696 282 194) and *BJC Health
+> Trading Pty Ltd* (ABN 96 697 562 137) — suggesting a restructure. BJC Health should
+> confirm which entity is to contract here (the trust, or the new trading company).
 
 ---
 
