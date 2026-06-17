@@ -126,14 +126,16 @@ routed to manual review rather than dropped.
 
 ## 7. Warranties and sole remedy
 
-7.1 SMEC AI warrants that it will perform the Services with **due care and skill**,
-and that deliverables will materially meet the SOW acceptance criteria on
-acceptance. No other warranties are given except those that cannot be excluded by
-law.
+7.1 To the maximum extent permitted by law, SMEC AI gives **no warranties** about
+the Services or the System beyond those that cannot be excluded under the
+Australian Consumer Law or other applicable law. In particular, SMEC AI does not
+warrant that the System or its AI extraction will be error-free or uninterrupted
+(see clause 6).
 
-7.2 **Sole remedy.** BJC Health's sole and exclusive remedy for a defect is, at
-SMEC AI's election, re-performance of the affected Services at no extra cost, or a
-refund of the Fees paid for them.
+7.2 **Sole remedy.** Where SMEC AI is liable for Services that do not conform to a
+SOW's acceptance criteria, or for breach of a warranty that cannot be excluded,
+BJC Health's sole and exclusive remedy is, at SMEC AI's election, re-performance of
+the affected Services at no extra cost, or a refund of the Fees paid for them.
 
 ---
 
