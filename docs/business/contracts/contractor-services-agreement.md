@@ -298,8 +298,9 @@ consequential loss, including loss of revenue, loss of data, clinical outcomes,
 reputational damage, or business interruption, however caused.
 
 12.3 Nothing in this clause limits liability that cannot be limited at law
-(including under the Australian Consumer Law), or liability for a data breach
-caused by SMEC AI's [negligence / wilful default] — [carve-out to confirm].
+(including under the Australian Consumer Law). Subject only to that, the cap in
+clause 12.1 applies to all liability of SMEC AI under or in connection with this
+Agreement, including liability arising from a data breach.
 
 12.4 **Failure modes and mitigations.** The principal failure modes are: (a)
 incorrect HL7 — a document routed to the wrong patient or doctor; (b) silent
