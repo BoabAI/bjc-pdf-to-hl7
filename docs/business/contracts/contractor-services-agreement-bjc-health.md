@@ -1,17 +1,17 @@
 # Contractor Services Agreement (Day-Rate)
 
-**Between SMEC AI (Contractor) and BJC Health (Client)**
+**Between Boab AI Pty Ltd, trading as SMEC AI (Contractor), and BJC Health (Client)**
 
 **Draft — June 2026 — for review before signature**
 
 > ⚠️ **Draft.** Day-rate contractor agreement for the PDF-to-HL7 engagement,
-> prepared from SMEC AI's standard template. Outstanding `[BRACKETS]` to confirm:
-> the **Contractor's** registered entity and ABN (no "SMEC AI Pty Ltd" was found on
-> the ABR — confirm the entity SMEC trades/contracts through); the **Client's** full
-> registered street address; and the Client's notice email. The Client entity and
-> ABN below are from ABN Lookup — **confirm which BJC Health entity should sign**
-> (see note under Parties). Have an Australian lawyer review the liability (cl 8)
-> and IP (cl 3) clauses before signature.
+> prepared from SMEC AI's standard template. The Contractor is **Boab AI Pty Ltd**
+> (trading as SMEC AI) — note "SMEC AI" is not a registered business name on the
+> ABR, so confirm whether to keep the "trading as" wording. Outstanding `[BRACKETS]`
+> to confirm: both parties' full registered street addresses; the Client's notice
+> email; and **which BJC Health entity should sign** (see note under Parties — the
+> Client entity and ABN are from ABN Lookup). Have an Australian lawyer review the
+> liability (cl 8) and IP (cl 3) clauses before signature.
 >
 > Liability is limited via a **mutual** cap (cl 8) plus contractor-favouring
 > mechanisms (sole remedy, ACL re-supply limit, time-bar, proportionate
@@ -23,7 +23,7 @@
 
 | | |
 |---|---|
-| **Contractor** | SMEC AI [confirm SMEC's registered contracting entity + ABN — no "SMEC AI Pty Ltd" found on the ABR] ("the **Contractor**") |
+| **Contractor** | Boab AI Pty Ltd (trading as **SMEC AI**), ABN **60 640 047 007**, of [registered street address — Richmond VIC 3121; confirm] ("the **Contractor**") |
 | **Client** | The trustee for BJC Health Trust (trading as **BJC Health**), ABN **30 143 927 579**, of [registered street address — Parramatta NSW 2150; confirm] ("the **Client**") |
 | **Effective date** | The date of the last signature below |
 
@@ -214,7 +214,7 @@ the parties submit to the non-exclusive jurisdiction of its courts.
 
 ## Execution
 
-**Signed for SMEC AI:**
+**Signed for Boab AI Pty Ltd (trading as SMEC AI):**
 
 Name: __________________________  Signature: _____________________  Date: ________
 
