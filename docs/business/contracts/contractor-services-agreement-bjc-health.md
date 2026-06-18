@@ -39,8 +39,8 @@
 ## 1. The engagement
 
 1.1 The Client engages the Contractor as an **independent contractor** to provide
-the services described in **Schedule 1** (the "**Services**"). The Contractor is
-not an employee, partner, or agent of the Client.
+the services agreed between the parties in writing from time to time (the
+"**Services**"). The Contractor is not an employee, partner, or agent of the Client.
 
 1.2 The Contractor provides the Services using its own equipment and methods, is
 free to work for others, and is responsible for its own tax, GST, superannuation,
@@ -107,7 +107,7 @@ for any other purpose, and will notify the Client without undue delay of any act
 or suspected data breach affecting it.
 
 5.3 Any specific data-handling, security, residency, or retention requirements for
-an engagement are set out in Schedule 1.
+an engagement are as agreed between the parties in writing.
 
 ---
 
@@ -203,8 +203,7 @@ operator of the deliverables.
 10.2 The parties will try in good faith to resolve disputes by discussion (then
 mediation) before commencing proceedings, except for urgent relief.
 
-10.3 This Agreement, with its Schedule, is the **entire agreement** and supersedes
-prior proposals. Variations must be in writing and signed. If a provision is
+10.3 This Agreement is the **entire agreement** and supersedes prior proposals. Variations must be in writing and signed. If a provision is
 unenforceable it is severed and the rest continues. Notices go to the parties'
 nominated email addresses — Contractor: info@smecai.com.au; Client: [BJC Health
 notice email]. This Agreement is governed by the laws of **New South Wales**, and
@@ -224,50 +223,4 @@ Name: __________________________  Signature: _____________________  Date: ______
 
 ---
 
-## Schedule 1 — Services and engagement details
-
-**Services / deliverables.** The Contractor will build, deploy, configure, and
-maintain the PDF-to-HL7 automation (the "System") in the Client's own AWS account,
-comprising:
-
-- the conversion service and web dashboard (multi-file upload, audit log, doctor-
-  list management, processing metrics);
-- HL7 v2.4 message generation (Genie-compatible) and doctor-matching configuration;
-- the Power Automate Desktop (PAD) pipeline that retrieves referrals and results
-  from the Client's mailboxes, calls the conversion service, files successes into
-  Genie's import paths (incoming letters / pathology / radiology), and routes
-  failures to manual review;
-- Microsoft single sign-on (Entra), restricted to bjchealth.com.au accounts, and an
-  automated email alert if the converter stops processing documents;
-- testing of referral and results PDFs end-to-end with Genie import verification,
-  documentation, and handover; and
-- ongoing changes, new document formats, and AI tuning as requested by the Client.
-
-**Day rate.** $1,000 inc GST per 8-hour day (clause 2.1).
-
-**Payment terms.** 30 days from invoice (clause 2.2).
-
-**Data handling (clause 5.3).** The System processes patient data. PDFs are
-processed in memory only and are never stored. The audit log holds non-identifying
-metadata only (hashed filename, file size, document type, success/failure, patient
-initials, timestamp, routing). Stored data (audit log and settings) is held in AWS
-Sydney; the AI reading step may run in AWS Melbourne; no patient data leaves
-Australia. The Client is the data controller and owns the AWS account and the
-processing environment.
-
-**Assumptions / dependencies.** The Client provides the AWS account and the
-required mailbox and server access; Medihost provides server access and any
-Genie-side configuration; Microsoft 365 and Power Automate licensing are in place.
-Delays caused by third parties (Medihost, Microsoft, Genie) are outside the
-Contractor's control.
-
-**Out of scope.** Medihost labour (server provisioning, Genie configuration);
-Microsoft 365 / Power Automate licensing; creation of new mailboxes; changes to the
-existing PDF-to-Directory automation.
-
-**Estimated effort.** Production build estimated at ~10 days = ~$10,000 inc GST
-(estimate, not a cap or fixed price); later work billed at the day rate.
-
----
-
-*Generic day-rate contractor services agreement template | not legal advice*
+*Day-rate contractor services agreement | not legal advice*
