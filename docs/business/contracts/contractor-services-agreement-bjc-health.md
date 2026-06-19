@@ -2,31 +2,15 @@
 
 **Between Boab AI Pty Ltd, trading as SMEC AI (Contractor), and BJC Health (Client)**
 
-**Draft — June 2026 — for review before signature**
-
-> ⚠️ **Draft — open items to confirm before signing:** both parties' full
-> registered street addresses; the Client's notice email; **which BJC Health
-> entity should sign** (see note under Parties); and whether to keep the "trading
-> as SMEC AI" wording ("SMEC AI" is not a registered business name on the ABR).
-> Have an Australian lawyer review the liability (cl 6) and IP (cl 3) clauses
-> before signature. **Not legal advice.**
-
 ---
 
 ## Parties
 
 | | |
-|---|---|
-| **Contractor** | Boab AI Pty Ltd (trading as **SMEC AI**), ABN **60 640 047 007**, of [registered street address — Richmond VIC 3121; confirm] ("the **Contractor**") |
-| **Client** | The trustee for BJC Health Trust (trading as **BJC Health**), ABN **30 143 927 579**, of [registered street address — Parramatta NSW 2150; confirm] ("the **Client**") |
+| --- | --- |
+| **Contractor** | Boab AI Pty Ltd (trading as **SMEC AI**), ABN **60 640 047 007** ("the **Contractor**") |
+| **Client** | The trustee for BJC Health Trust (trading as **BJC Health**), ABN **30 143 927 579** ("the **Client**") |
 | **Effective date** | The date of the last signature below |
-
-> **Client entity — confirm before signing.** Per ABN Lookup, the long-standing
-> operating entity is *The trustee for BJC Health Trust* (ABN 30 143 927 579), which
-> holds the "BJC Health" business name. However, two companies were registered in
-> April–May 2026 — *BJC Health Holdings Pty Ltd* (ABN 63 696 282 194) and *BJC Health
-> Trading Pty Ltd* (ABN 96 697 562 137) — suggesting a restructure. BJC Health should
-> confirm which entity is to contract here (the trust, or the new trading company).
 
 ---
 
@@ -85,7 +69,7 @@ termination.
 
 4.2 Where the Contractor processes personal information on the Client's behalf, the
 Client is the data controller and the Contractor acts as processor under the
-*Privacy Act 1988* (Cth) and the Australian Privacy Principles, using it only to
+_Privacy Act 1988_ (Cth) and the Australian Privacy Principles, using it only to
 provide the Services. The Contractor will apply reasonable security measures and
 will notify the Client without undue delay of any actual or suspected data breach
 affecting that information.
@@ -187,12 +171,16 @@ non-exclusive jurisdiction of its courts.
 
 **Signed for Boab AI Pty Ltd (trading as SMEC AI):**
 
-Name: __________________________  Signature: _____________________  Date: ________
+| Name | Signature | Date |
+| --- | --- | --- |
+| &nbsp; | &nbsp; | &nbsp; |
 
 **Signed for BJC Health:**
 
-Name: __________________________  Signature: _____________________  Date: ________
+| Name | Signature | Date |
+| --- | --- | --- |
+| &nbsp; | &nbsp; | &nbsp; |
 
 ---
 
-*Day-rate contractor services agreement | not legal advice*
+_Day-rate contractor services agreement | not legal advice_
