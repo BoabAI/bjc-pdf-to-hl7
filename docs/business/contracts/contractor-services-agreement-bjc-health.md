@@ -145,7 +145,7 @@ obligation to pay Fees properly due.
 6.4 **Client indemnity.** The Client indemnifies the Contractor against claims,
 losses, or damages arising from (a) use of the deliverables in a manner not
 contemplated by this Agreement; (b) decisions or outcomes based on the deliverables
-or their outputs; or (c) failure of the Client's or its providers' systems or
+or their outputs; or \(c\) failure of the Client's or its providers' systems or
 environment — in each case reduced to the extent the Contractor caused the loss.
 
 ---
