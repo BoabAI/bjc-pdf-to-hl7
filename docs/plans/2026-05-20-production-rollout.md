@@ -83,20 +83,11 @@ The meeting (`docs/meetings/2026-05-20-bjc-pdf-to-genie-meeting-notes.md`) decid
 
 ---
 
-## Action R5 — Market scan (Digital Health Festival)
-
-**Owner:** Nicole + Sean.
-**Repo impact:** None.
-**Scope:** Awareness only. Capture relevant alternative tooling in `docs/engineering/`.
-
----
-
 ## Sequencing
 
 1. **R1** decides the API contract (today).
 2. **R2** builds the watcher (multi-week external work).
 3. **R3** cuts over to fax-only in staging.
 4. **R4** validates against real volume in Genie.
-5. **R5** runs in parallel, no dependencies.
 
 R3, R4 cannot start until the in-repo prerequisites land (sibling plan: Actions 1, 2, 9). Specifically: Nicole must be able to maintain the doctor list herself before live cutover.
