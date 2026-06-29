@@ -22,8 +22,11 @@ function isDoctor(value: unknown): value is Doctor {
     v.id.length > 0 &&
     typeof v.name === "string" &&
     v.name.length > 0 &&
-    typeof v.providerNumber === "string" &&
-    v.providerNumber.length > 0
+    // Provider number is optional (Doctor.providerNumber may be ""). Require the
+    // key to be a string but allow empty — the write path coalesces a missing
+    // value to "", and requiring length > 0 here would make a single
+    // blank-provider doctor reject the entire reference-data response client-side.
+    typeof v.providerNumber === "string"
   );
 }
 

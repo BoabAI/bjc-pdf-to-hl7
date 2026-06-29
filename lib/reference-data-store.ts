@@ -149,14 +149,16 @@ export async function listCarriers(): Promise<Carrier[]> {
 /** Upsert a single doctor. Throws on DDB failure; caller is responsible for handling. */
 export async function putDoctor(doctor: Doctor): Promise<void> {
   const client = buildDocClient();
-  const item: DoctorRow = { kind: "DOCTOR", updatedAt: nowIso(), ...doctor };
+  // Spread first so caller-supplied fields can never override the partition
+  // key (kind) or updatedAt — defence-in-depth against mass assignment.
+  const item: DoctorRow = { ...doctor, kind: "DOCTOR", updatedAt: nowIso() };
   await client.send(new PutCommand({ TableName: getTableName(), Item: item }));
 }
 
 /** Upsert a single carrier. Throws on DDB failure; caller is responsible for handling. */
 export async function putCarrier(carrier: Carrier): Promise<void> {
   const client = buildDocClient();
-  const item: CarrierRow = { kind: "CARRIER", updatedAt: nowIso(), ...carrier };
+  const item: CarrierRow = { ...carrier, kind: "CARRIER", updatedAt: nowIso() };
   await client.send(new PutCommand({ TableName: getTableName(), Item: item }));
 }
 

@@ -208,6 +208,22 @@ describe("putDoctor / putCarrier", () => {
     expect(typeof input.Item.updatedAt).toBe("string");
   });
 
+  test("putDoctor forces kind=DOCTOR even if the input carries a kind", async () => {
+    sendMock.mockResolvedValue({});
+    // Defence-in-depth: a doctor object must never write itself into the
+    // CARRIER partition by smuggling a `kind`.
+    await putDoctor({
+      id: "x",
+      name: "y",
+      providerNumber: "z",
+      kind: "CARRIER",
+    } as unknown as Doctor);
+
+    const command = sendMock.mock.calls[0][0] as PutCommandMock;
+    const input = command.input as { Item: { kind: string } };
+    expect(input.Item.kind).toBe("DOCTOR");
+  });
+
   test("putCarrier writes a PutCommand with kind=CARRIER", async () => {
     sendMock.mockResolvedValue({});
     const carrier: Carrier = {

@@ -335,6 +335,60 @@ describe("PUT /api/reference-data — input sanitisation & caps", () => {
     expect(putDoctorMock).toHaveBeenCalledWith(doctor);
   });
 
+  test("accepts a fully-valid Medicare provider number", async () => {
+    // 2426621B is a real, check-digit-valid provider number.
+    const doctor = { id: "d1", name: "Dr Smith", providerNumber: "2426621B" };
+    const response = await PUT(
+      makeRequest("", { method: "PUT", body: { kind: "DOCTOR", item: doctor } })
+    );
+    expect(response.status).toBe(200);
+    expect(putDoctorMock).toHaveBeenCalledWith(doctor);
+  });
+
+  test("rejects a Medicare-shaped number with a bad check digit", async () => {
+    // 2426621A is well-formed but the check digit should be B — a likely typo
+    // that would silently misroute a clinical document.
+    const response = await PUT(
+      makeRequest("", {
+        method: "PUT",
+        body: {
+          kind: "DOCTOR",
+          item: { id: "d1", name: "Dr Smith", providerNumber: "2426621A" },
+        },
+      })
+    );
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error).toMatch(/check digit/i);
+    expect(putDoctorMock).not.toHaveBeenCalled();
+  });
+
+  test("strips unexpected attributes from the stored doctor (mass assignment)", async () => {
+    const response = await PUT(
+      makeRequest("", {
+        method: "PUT",
+        body: {
+          kind: "DOCTOR",
+          item: {
+            id: "d1",
+            name: "Dr Smith",
+            providerNumber: "9000001Z",
+            // Hostile extras that must NOT reach the store.
+            kind: "CARRIER",
+            updatedAt: "1999-01-01T00:00:00.000Z",
+            role: "admin",
+          },
+        },
+      })
+    );
+    expect(response.status).toBe(200);
+    expect(putDoctorMock).toHaveBeenCalledWith({
+      id: "d1",
+      name: "Dr Smith",
+      providerNumber: "9000001Z",
+    });
+  });
+
   test("rejects a doctor name over the length cap", async () => {
     const response = await PUT(
       makeRequest("", {

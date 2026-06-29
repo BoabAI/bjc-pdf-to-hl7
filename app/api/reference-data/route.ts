@@ -12,6 +12,7 @@ import type { ReferenceDataResponse } from "@/lib/contracts/reference-data";
 import { auth } from "@/lib/auth";
 import { logOperationalError, logServerEvent } from "@/lib/server/logging";
 import { sanitizeReferenceField } from "@/lib/text-sanitize";
+import { validateProviderNumberForStorage } from "@/lib/provider-number";
 
 export const runtime = "nodejs";
 
@@ -26,7 +27,6 @@ export const runtime = "nodejs";
 // before this was added). The HL7 spec limits some of these fields, but we
 // pick generous human-friendly bounds rather than tight HL7 lengths.
 const MAX_DOCTOR_NAME_LEN = 100;
-const MAX_PROVIDER_NUMBER_LEN = 20;
 const MAX_CARRIER_VALUE_LEN = 20;
 const MAX_CARRIER_LABEL_LEN = 60;
 
@@ -65,11 +65,12 @@ function validateDoctor(value: unknown): ValidatedDoctor {
   if (!name) {
     return { ok: false, error: "Doctor name is required." };
   }
-  if (providerNumber.length > MAX_PROVIDER_NUMBER_LEN) {
-    return {
-      ok: false,
-      error: `Provider number must be ${MAX_PROVIDER_NUMBER_LEN} characters or fewer.`,
-    };
+  // Enforces the length cap AND rejects a fully Medicare-shaped number with a
+  // bad check digit (a typo that would silently misroute a clinical document).
+  // Placeholder/seed (…Z) and legacy spaced/hyphenated numbers pass through.
+  const providerCheck = validateProviderNumberForStorage(providerNumber);
+  if (!providerCheck.ok) {
+    return { ok: false, error: providerCheck.reason };
   }
   if (name.length > MAX_DOCTOR_NAME_LEN) {
     return {
@@ -77,7 +78,9 @@ function validateDoctor(value: unknown): ValidatedDoctor {
       error: `Doctor name must be ${MAX_DOCTOR_NAME_LEN} characters or fewer.`,
     };
   }
-  return { ok: true, value: { ...value, name, providerNumber } };
+  // Build an explicit, allowlisted object — never spread the raw client value,
+  // which could smuggle extra attributes (or a `kind`) into the stored row.
+  return { ok: true, value: { id: value.id, name, providerNumber } };
 }
 
 function isCarrierShape(value: unknown): value is Carrier {
@@ -118,7 +121,17 @@ function validateCarrier(value: unknown): ValidatedCarrier {
       error: `Invalid carrier payload: label must be ${MAX_CARRIER_LABEL_LEN} characters or fewer`,
     };
   }
-  return { ok: true, value: { ...value, value: carrierValue, label } };
+  // Explicit allowlist (mirrors validateDoctor) — preserve isDefault only when
+  // the client actually sent a boolean, and never spread unknown attributes.
+  return {
+    ok: true,
+    value: {
+      id: value.id,
+      value: carrierValue,
+      label,
+      ...(value.isDefault !== undefined ? { isDefault: value.isDefault } : {}),
+    },
+  };
 }
 
 export const GET = auth(async (request) => {

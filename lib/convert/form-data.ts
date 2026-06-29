@@ -4,6 +4,7 @@ import {
   type DocumentTypeOption,
   type MailboxCategory,
 } from "../conversion-config";
+import { cleanProviderNumber } from "../provider-number";
 import type { MailboxSource } from "../domain/types";
 
 export interface ConvertRequest {
@@ -77,7 +78,11 @@ export async function parseConvertFormData(
       detectOnly: formData.get("detectOnly") === "true",
       documentType: parseDocumentTypeOption(formData.get("documentType")),
       autoFile: formData.get("autoFile") !== "false",
-      orderingProvider: optionalString(formData.get("orderingProvider")),
+      // Sanitise the routing provider number the same way extracted ones are:
+      // trim, 20-char cap, and drop HL7-separator/control chars that would
+      // corrupt PV1-9. Invalid input yields undefined (no provider routing)
+      // rather than a corrupt segment.
+      orderingProvider: cleanProviderNumber(formData.get("orderingProvider")),
       carrier: optionalString(formData.get("carrier")),
       bjcDoctors,
     },
