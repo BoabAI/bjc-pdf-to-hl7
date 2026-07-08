@@ -18,6 +18,7 @@ Convert Australian medical PDFs to HL7 v2.4 format (Genie-compatible) using AWS 
 - **`docs/README.md`** — Index/map of the whole docs tree (start here).
 - **`docs/engineering/functional-spec.md`** — Developer / technical reference for this repo (architecture, modules, HL7 generation rules, deployment, testing).
 - **`docs/operations/bjc-pdf-to-hl7-operational-guide.md`** — Plain-English guide for BJC ops staff and Medihost (workflow, what's imported, manual upload path, code escrow).
+- **`docs/operations/bjc-aws-account-access.md`** — Accessing BJC's own AWS account (cross-account role, region layout, STS opt-in region gotcha).
 - **`docs/engineering/sister-system-pdf-to-directory.md`** — Reference for the sister consent-form-to-directory project (different repo).
 
 ## Quick Start
@@ -185,6 +186,10 @@ bun run build
 ```
 
 The root layout uses `force-dynamic` and middleware sets `Cache-Control: no-store` to keep CloudFront from caching pages and bypassing auth.
+
+### Production account (BJC-owned)
+
+Production runs in BJC Health's own AWS account (`375391317635`), deployed to **Sydney (`ap-southeast-2`)** via the cross-account `smec-deployment-role` (`aws --profile bjc`). Melbourne (`ap-southeast-4`) is enabled in that account solely for Bedrock's AU inference-profile routing — no resources deploy there. See [`docs/operations/bjc-aws-account-access.md`](docs/operations/bjc-aws-account-access.md).
 
 ## Tech Stack
 
