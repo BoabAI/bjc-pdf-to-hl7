@@ -1,0 +1,12 @@
+# Amplify custom headers (versioned; overrides console-set headers on deploy).
+# no-store on everything so CloudFront never caches a page past middleware
+# auth. Matches the headers previously set on the app via the console.
+customHeaders:
+  - pattern: '**/*'
+    headers:
+      - key: Cache-Control
+        value: no-store, no-cache, must-revalidate, proxy-revalidate
+      - key: Pragma
+        value: no-cache
+      - key: Expires
+        value: '0'

@@ -3,6 +3,10 @@
 .terraform/
 *.tfstate
 *.tfstate.backup
+
+# Secrets live in terraform.tfvars — never commit them.
+*.tfvars
+!*.tfvars.example
 crash.log
 crash.*.log
 override.tf

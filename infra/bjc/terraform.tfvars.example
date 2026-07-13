@@ -1,0 +1,24 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored — never
+# commit it; the values land in the (also gitignored, local) tfstate.
+
+# GitHub PAT with access to BoabAI/bjc-pdf-to-hl7 (classic: repo + admin:repo_hook,
+# org-authorized for BoabAI; fine-grained: must explicitly include the repo).
+# Used once at app creation to install the Amplify webhook.
+github_access_token = ""
+
+# Fallback password login (AUTH_MODE=both keeps password + SSO).
+app_password = ""
+
+# Generate fresh for this environment: openssl rand -base64 32
+auth_secret = ""
+
+# Existing client secret of Entra app 9ca073d3-a123-46b0-a344-3822e51f36dc
+# (same app registration as the SMEC environment).
+azure_ad_client_secret = ""
+
+# Generate fresh for this environment: openssl rand -hex 32
+# Must match the token configured in the PAD workflow at cutover.
+pad_token = ""
+
+# Pipeline-silence alarm recipients (each must confirm the AWS opt-in email).
+alarm_emails = ["sean@smecai.au"]
