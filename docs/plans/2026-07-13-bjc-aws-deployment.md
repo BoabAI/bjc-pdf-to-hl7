@@ -15,11 +15,11 @@ apply itself, verification, and cutover.
 | Access | `aws --profile bjc` assumes `smec-deployment-role` with **AdministratorAccess** |
 | Region `ap-southeast-4` (Melbourne) | **ENABLED** (required — AU Bedrock inference profiles route there) |
 | Inference profile `au.anthropic.claude-sonnet-4-6` | ACTIVE in ap-southeast-2 |
-| Bedrock model access (Anthropic use-case form + agreement) | Submitted + accepted 2026-07-13 via CLI; was PENDING at time of writing — verify below |
+| Bedrock model access (Anthropic use-case form + agreement) | Submitted + accepted 2026-07-13 via CLI; **live converse test passed same day** |
 | Existing resources | None (no Amplify apps, no DynamoDB tables) — clean slate |
 
-Verify model access has settled (expect `agreementAvailability.status: AVAILABLE`,
-then a real reply from the converse test):
+Re-verify any time (expect `agreementAvailability.status: AVAILABLE` and a
+real reply from the converse test):
 
 ```bash
 aws --profile bjc --region ap-southeast-2 bedrock get-foundation-model-availability \
