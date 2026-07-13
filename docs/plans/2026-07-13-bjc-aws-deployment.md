@@ -8,6 +8,26 @@ Everything AWS-side is codified in **`infra/bjc/`** (Terraform). This runbook
 covers what was verified up front, the values you need before applying, the
 apply itself, verification, and cutover.
 
+## ✅ Executed 2026-07-13
+
+Deployed and verified live the same day this plan was written:
+
+- `terraform apply`: 13 resources, no errors. App ID **`d20i409xquw7x3`**,
+  URL https://prod.d20i409xquw7x3.amplifyapp.com
+- Entra redirect URI registered; no-store headers set via
+  `amplify update-app` (this repo's `customHttp.yml` takes over once merged)
+- Build job #1 SUCCEED; verification battery **7/7 pass**: middleware
+  redirect, public /login, no-store headers, PAD auth gate (requires bearer
+  **and** `X-Source: email`), end-to-end referral → `REF^I12` HL7 via Bedrock
+  (~7 s, addressee resolved), urgent fixture → `manual_review`/no HL7, both
+  audit rows in the BJC table
+- Terraform state + tfvars live at `infra/bjc/` in the working checkout
+  (gitignored, secrets inside — back up accordingly; state is NOT remote)
+
+Still open: SNS email confirmation (sean@smecai.au), first `/reference` visit
+seeds the doctor/carrier defaults, PAD cutover (pipeline still points at the
+SMEC app), custom-domain decision, SMEC decommission timing.
+
 ## Account state (verified 2026-07-13)
 
 | Check | Result |
