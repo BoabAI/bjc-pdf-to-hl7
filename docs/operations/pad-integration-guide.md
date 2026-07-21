@@ -497,13 +497,14 @@ Identical in structure to the existing PDF-to-Directory task.
 | Task name | `BJC PDF-to-HL7` |
 | Program | `C:\Program Files (x86)\Power Automate Desktop\PAD.Console.Host.exe` |
 | Arguments | `/flow "<flow-name>" /run` |
-| Run as | `CORP\demonstration` (same service account as PDF-to-Directory) |
-| Run whether user is logged on | Yes |
+| Run as | `BJC\medihost` (same account as the existing "SMEC AI Power Automate" PDF-to-Directory task; also owns the `BJC-PAD-Token` Credential Manager entry) |
+| Run only when user is logged on | Yes — matches the existing task. PAD desktop flows need the interactive session, so the `medihost` session stays signed in on the server (disconnect the RDP session, don't log off). |
+| Run with highest privileges | Yes (matches the existing task) |
 | Do not start new instance if running | Yes |
 
 **Trigger 1 — scheduled:** Daily, repeat every 15 minutes for 12 hours from 7:00 AM, Monday–Friday, stop if running longer than 30 minutes.
 
-**Trigger 2 — at startup (crash recovery):** 5-minute delay, so network and Outlook initialise first. Combined with mark-as-read semantics, this catches up on anything unprocessed after a restart.
+**Trigger 2 — at startup (crash recovery):** 5-minute delay, so network and Outlook initialise first. Combined with mark-as-read semantics, this catches up on anything unprocessed after a restart. Because the task is "run only when user is logged on", after a server reboot nothing fires until `medihost` signs back in — include that sign-in in the restart runbook (same constraint as the existing PDF-to-Directory task).
 
 **Registry fix (required):** same as PDF-to-Directory —
 
@@ -521,7 +522,7 @@ Same Windows machine already running PAD and PDF-to-Directory.
 | Requirement | Detail | Status |
 |---|---|---|
 | **Server capacity** | Runs alongside PDF-to-Directory; heavy processing is in the cloud | Confirm |
-| **Genie LabRslts folder access** | `CORP\demonstration` needs read/write; provide the full UNC path | Provide path |
+| **Genie LabRslts folder access** | `BJC\medihost` needs read/write; provide the full UNC path | Provide path |
 | **Internet access** | Outbound HTTPS (443) to `*.amplifyapp.com` only; no inbound, no VPN | Confirm |
 | **Mailbox access** | Service account needs full access to each monitored mailbox (Phase 1: the three GoFax fax inboxes) | Verify |
 | **Outlook categories** | Create the review categories in each monitored mailbox (see §4 table plus `Needs review — Invalid file` / `Needs review — Service error`); pick colours with BJC ops | Create |
@@ -605,7 +606,7 @@ Same licence requirements as the existing PDF-to-Directory flow. No additional l
 | Component | Licence | Already in place |
 |---|---|---|
 | Power Automate Desktop | Free with Windows | Yes |
-| Power Automate Premium | Required (assigned to `CORP\demonstration`) | Yes |
+| Power Automate Premium | Required (in place for the existing flow's account, `PAuto@bjchealth.com.au`) | Yes |
 | AI Builder | Not required | N/A |
 | Outlook connection | Office 365 connector | Yes (new connections needed per monitored mailbox) |
 
