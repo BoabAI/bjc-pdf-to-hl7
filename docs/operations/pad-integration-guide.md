@@ -6,6 +6,36 @@ Technical reference for building the Power Automate Desktop flow that connects t
 
 ---
 
+## Rollout Status — as of 21 Jul 2026
+
+Build is underway on the BJC server (MHS-SYD-APP47). Update this table as items complete.
+
+**Done:**
+
+| Item | Detail | Date |
+|---|---|---|
+| ✅ Guide rewritten to shipped API | This document (PR #10) | 21 Jul 2026 |
+| ✅ Production reachable + token verified from BJC server | `curl` from MHS-SYD-APP47: 200 with bearer + `X-Source`, 401 without — proves token, TLS trust, and outbound 443 | 21 Jul 2026 |
+| ✅ Token in Credential Manager | `BJC-PAD-Token` created via `cmdkey` as `BJC\medihost` (matches the account the scheduled task runs as) | 21 Jul 2026 |
+| ✅ Run-as facts verified | Existing "SMEC AI Power Automate" task: `BJC\medihost`, "run only when user is logged on", highest privileges (§10 updated to match) | 21 Jul 2026 |
+| ✅ Setup requests sent to Medihost + BJC | Email to Amol + Nicole: PAuto Full Access to the three fax mailboxes; eight review categories per mailbox (Nicole picks colours) | 21 Jul 2026 |
+
+**Pending:**
+
+| Item | Owner |
+|---|---|
+| ⬜ PAuto Full Access to `fax-pathology@` / `fax-radiology@` / `fax-vascular@` | Amol (Medihost) |
+| ⬜ Eight review categories created in each fax mailbox (exact names, §4 + §11) | Nicole / Amol |
+| ⬜ Genie LabRslts UNC path confirmed | Amol (Medihost) |
+| ⬜ Doctor-list decision (§6) — recommended: `BJC_DOCTORS` in `infra/bjc/main.tf` | Sean + Nicole |
+| ⬜ Carrier decision — PAD cannot send the `carrier` form field (see §4 note), so MSH-3 defaults to `SMECAI`; server-side change needed if BJC wants `EMAIL` | Sean + BJC |
+| ⬜ Build the PAD flow (§7) | Sean |
+| ⬜ Task Scheduler task (§10) | Sean |
+| ⬜ Testing checklist (§13) | Sean |
+| ⬜ Genie REF modifier confirmed — Phase 2 gate (§9) | Medihost |
+
+---
+
 ## 1. Overview
 
 The automation monitors mailboxes for incoming document emails, sends each PDF attachment to the SMEC AI cloud service for AI-powered extraction, and — when the service auto-routes the document — saves the resulting HL7 file to the Genie import folder. When the service diverts a document to manual review, the email **stays in its inbox** and PAD tags it with an Outlook category so staff can triage by colour.
@@ -135,8 +165,14 @@ Form fields:
                                         mailbox category constrain classification.
   autoFile          (string, optional)  "true" (default) -> OBR-25 = F (auto-file),
                                         "false" -> P (queue for review in Genie)
-  carrier           (string, optional)  MSH-3 Sending Application. Default "SMECAI";
-                                        use "EMAIL" for the email pipeline.
+  carrier           (string, optional)  MSH-3 Sending Application. Default "SMECAI".
+                                        NOTE (Jul 2026): PAD's Invoke web service can
+                                        only attach FILES, not text form fields, so the
+                                        PAD flow cannot send this — MSH-3 falls back to
+                                        SMECAI. If BJC wants "EMAIL", the fix is server-
+                                        side (default the carrier off X-Source: email).
+                                        Same limitation applies to bjcDoctors — another
+                                        reason for the env-var route in §6.
   bjcDoctors        (JSON string, opt)  Array of doctor names for addressee resolution — see §6.
   orderingProvider  (string, optional)  Medicare Provider Number for PV1-9 doctor routing.
 ```
@@ -281,7 +317,6 @@ SET MailboxAddress TO 'fax-pathology@bjchealth.com.au'   # this flow's mailbox
 SET GenieLabRsltsFolder TO '\\\\server\\path\\LabRslts'
 SET TempFolder TO 'C:\\SMEC AI\\pdf-to-hl7'
 SET NotifyRecipient TO 'amy.johnson@bjchealth.com.au'
-SET Carrier TO 'EMAIL'
 SET MaxRetries TO 2
 SET RetryDelaySeconds TO 10
 
@@ -354,13 +389,14 @@ LOOP FOREACH Email IN Emails
             BEGIN EXCEPTION HANDLING
                 # One POST per PDF. Timeout 90 s (Bedrock vision variance).
                 # Upload attachments toggle ON; do NOT set Content-Type manually.
+                # Attachments can only carry FILES (no text form fields --
+                # see the carrier note in §4), so the pdf is the only part.
                 WebService.InvokeWebService \
                     Url: '%BaseUrl%/api/convert' \
                     Method: 'POST' \
                     CustomHeaders: PadHeaders \
-                    FormData: \
+                    Attachments: \
                         pdf=@%TempFile% \
-                        carrier=%Carrier% \
                     Timeout: 90 \
                     Response => ConvertResponse \
                     StatusCode => ConvertStatus
@@ -543,7 +579,7 @@ No `Inbox/Review` or `Inbox/Linked` subfolders are needed — the previous versi
 | `GenieLabRsltsFolder` | `\\192.168.47.10\PracticeData\LabRslts` | From Medihost (TBD) |
 | `TempFolder` | `C:\SMEC AI\pdf-to-hl7` | Local temp directory |
 | `NotifyRecipient` | `amy.johnson@bjchealth.com.au` | Failure notifications |
-| `Carrier` | `EMAIL` | MSH-3 Sending Application |
+| ~~`Carrier`~~ | — | Dropped: PAD cannot send text form fields (§4 note); MSH-3 defaults to `SMECAI` server-side |
 | `MaxRetries` | `2` | For 5xx / connection errors only |
 | `RetryDelaySeconds` | `10` | Delay between retries |
 
@@ -569,7 +605,6 @@ curl -X POST \
   -H "X-Source: email" \
   -H "X-Source-Mailbox: fax-pathology@bjchealth.com.au" \
   -F "pdf=@test-result.pdf" \
-  -F "carrier=EMAIL" \
   https://prod.d20i409xquw7x3.amplifyapp.com/api/convert
 ```
 
