@@ -31,6 +31,18 @@ describe("isReferenceDataResponse", () => {
     ).toBe(true);
   });
 
+  test("accepts a doctor with an empty providerNumber (optional field)", () => {
+    // Regression: requiring a non-empty providerNumber here meant a single
+    // blank-provider doctor rejected the entire reference-data response,
+    // breaking the doctor + carrier lists for every user.
+    expect(
+      isReferenceDataResponse({
+        success: true,
+        doctors: [{ id: "d1", name: "Dr X", providerNumber: "" }],
+      })
+    ).toBe(true);
+  });
+
   test("rejects malformed doctor entries", () => {
     expect(
       isReferenceDataResponse({

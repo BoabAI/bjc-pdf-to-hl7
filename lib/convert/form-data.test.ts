@@ -47,6 +47,21 @@ describe("parseConvertFormData", () => {
     ]);
   });
 
+  test("sanitises orderingProvider — drops HL7-separator and over-length values", async () => {
+    const hostile = new FormData();
+    hostile.set("pdf", pdfFile());
+    // A crafted value carrying an HL7 component separator must not reach PV1-9.
+    hostile.set("orderingProvider", "1234567^EVIL");
+    const parsed = await parseConvertFormData(hostile);
+    expect("data" in parsed ? parsed.data.orderingProvider : "x").toBeUndefined();
+
+    const tooLong = new FormData();
+    tooLong.set("pdf", pdfFile());
+    tooLong.set("orderingProvider", "9".repeat(21));
+    const parsedLong = await parseConvertFormData(tooLong);
+    expect("data" in parsedLong ? parsedLong.data.orderingProvider : "x").toBeUndefined();
+  });
+
   test("rejects missing, non-PDF, and oversize files", async () => {
     expect(await parseConvertFormData(new FormData())).toEqual({
       error: "No PDF file provided",
