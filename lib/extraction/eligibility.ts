@@ -23,7 +23,7 @@
  *   6. `low_confidence`        — model confidence below the configured
  *                                floor.
  *
- * Reason → suggested Outlook category mapping lives on the wire shape
+ * Reason → human review label mapping lives on the wire shape
  * (`MANUAL_REVIEW_CATEGORIES` in `lib/contracts/convert.ts`).
  */
 
@@ -59,7 +59,7 @@ export interface EligibilityResult {
   eligible: boolean;
   /** Failing reason — only populated when `eligible === false`. */
   reason?: ManualReviewReason;
-  /** Default Outlook category PAD should apply for `reason`. */
+  /** Human review label for `reason` (dashboard-facing). */
   suggestedCategory?: string;
   /** All checks that ran, in order. Inspectable for debugging / audit. */
   checks: EligibilityCheck[];

@@ -6,8 +6,9 @@
  *
  * Two response actions:
  *   - `auto_routed` — eligibility gate passed; HL7 emitted; existing behaviour.
- *   - `manual_review` — eligibility gate failed; no HL7. PAD must keep the
- *     source email in the inbox and tag it with the suggested Outlook category.
+ *   - `manual_review` — eligibility gate failed; no HL7. PAD leaves the source
+ *     email in the inbox untouched (pilot design, Jul 2026 — no Outlook
+ *     categories; `suggestedCategory` is informational/dashboard-only).
  */
 
 import type { DocumentType } from "../domain/types";
@@ -29,15 +30,15 @@ export interface ConvertExtractedData {
 
 /**
  * Routing decision the API made. `auto_routed` means HL7 was produced and
- * should be filed; `manual_review` means PAD should leave the source email
- * untouched in the inbox and tag it with `suggestedCategory`.
+ * should be filed; `manual_review` means PAD leaves the source email
+ * untouched in the inbox for staff.
  */
 export type RoutingAction = "auto_routed" | "manual_review";
 
 /**
  * Stable machine identifier for why a document was diverted to manual review.
- * Maps 1:1 to an Outlook category that PAD applies to the source email — see
- * `MANUAL_REVIEW_CATEGORIES` below.
+ * Maps 1:1 to a human label in `MANUAL_REVIEW_CATEGORIES` below (shown on the
+ * dashboard; PAD does not apply Outlook categories in the pilot design).
  */
 export type ManualReviewReason =
   | "low_confidence"
@@ -47,9 +48,10 @@ export type ManualReviewReason =
   | "extraction_failed"
   | "urgent_result";
 
-/** Default Outlook category label PAD applies for each reason. Lives in code
- *  so the wire shape is self-contained; BJC ops can override on the PAD side
- *  if they prefer different colour codes / wording. */
+/** Human label for each reason, returned as `suggestedCategory`. Originally
+ *  designed as Outlook category names; the Jul 2026 pilot applies no
+ *  categories, so these now surface on the dashboard and stay on the wire
+ *  for back-compat. */
 export const MANUAL_REVIEW_CATEGORIES: Record<ManualReviewReason, string> = {
   low_confidence: "Needs review — Low confidence",
   missing_fields: "Needs review — Missing fields",
@@ -90,8 +92,8 @@ export interface ConvertResponse {
   mailboxDisagreement?: boolean;
   /** Manual-review reason. Only present when `action === "manual_review"`. */
   reason?: ManualReviewReason;
-  /** Human-readable Outlook category PAD should apply. Only present when
-   *  `action === "manual_review"`. */
+  /** Human-readable review label (informational — PAD applies no categories).
+   *  Only present when `action === "manual_review"`. */
   suggestedCategory?: string;
   error?: string;
 }

@@ -2,7 +2,7 @@
 
 Plain-English guide to the BJC Health PDF-to-HL7 service — covering the email automation, the manual web upload path, what gets imported into Genie, and how the audit log works. Built by SMEC AI for BJC Health.
 
-> **Status (June 2026):** The email-automation (PAD) path described in this guide is **not yet built** — it is part of the production build. The conversion engine and the manual web-upload path exist. The sections below describe the intended end-state for the PDF-to-HL7 pipeline. (BJC's existing PDF-to-Directory automation for consent forms is a separate, unrelated PAD workflow.)
+> **Status (July 2026):** The conversion engine and the manual web-upload path are live in BJC's AWS account. The email-automation (PAD) flow is being built now, piloting on the **Parramatta fax mailbox** (`gofax.par@bjchealth.com.au`) via a dedicated "HL7 Testing" folder before going live on the full inbox and extending to the other fax mailboxes. The design below reflects the pilot agreement with BJC ops (Nicole, 22 Jul 2026). (BJC's existing PDF-to-Directory automation for consent forms is a separate PAD workflow — the email handling here deliberately mirrors it.)
 
 ---
 
@@ -10,20 +10,21 @@ Plain-English guide to the BJC Health PDF-to-HL7 service — covering the email 
 
 The PDF-to-HL7 service turns scanned and emailed patient PDFs into Genie-compatible HL7 messages so they appear directly in the right doctor's inbox. There are two ways a PDF reaches the service:
 
-1. **Email automation** (planned — not yet built) — A Power Automate Desktop (PAD) flow will poll dedicated mailboxes every 15 minutes, send each PDF attachment to the conversion service, and save the resulting HL7 file to the Genie import folder. This PDF-to-HL7 PAD flow is part of the production build and has not yet been set up.
+1. **Email automation** (in build — piloting) — A Power Automate Desktop (PAD) flow polls the fax mailbox every 15 minutes, sends each PDF attachment to the conversion service, and saves the resulting HL7 file to the Genie import folder. Successfully filed emails move to a **Linked** subfolder; everything else stays in the inbox for the team.
 2. **Manual web upload** — Staff log into a secure web interface and drag PDFs (one or many) into the browser. The service converts each one and offers the HL7 file as a download.
 
 Both paths use the same conversion engine and write to the same audit log.
 
 ---
 
-## How it works (email automation — planned design)
+## How it works (email automation — pilot design, agreed 22 Jul 2026)
 
 ```
-Email with PDF arrives in shared mailbox
+Fax email with PDF arrives in gofax.par@bjchealth.com.au
         |
         v
-Automation checks every 15 minutes
+Automation checks the polled folder every 15 minutes
+(pilot: "HL7 Testing" subfolder; go-live: the Inbox)
         |
         v
 PDF sent to SMEC AI conversion service (X-Source: email)
@@ -32,29 +33,27 @@ PDF sent to SMEC AI conversion service (X-Source: email)
 AI classifies document type, extracts patient details
         |
         v
-HL7 file built with original PDF embedded; routed to the right Genie inbox
+Confident + safe -> HL7 file built with original PDF embedded,
+saved to Genie import folder; email moved to the Linked subfolder
+        |
+Not confident / urgent / unreadable -> nothing is filed;
+email stays in the inbox untouched for the team
         |
         v
-HL7 saved to Genie import folder; email moved to Linked / Review folder
-        |
-        v
-One audit row written (metadata only, no patient data)
+One audit row written either way (metadata only, no patient data)
 ```
 
 ### Step by step
 
-1. PDF attachments arrive in the shared mailboxes:
-   - **Referrals mailbox** — specialist letters, GP referrals (~100/week)
-   - **Pathology fax-email mailbox** — Douglass Hanly Moir, Laverty, Sonic results (~150/week)
-   - **Radiology fax-email mailbox** — PRP, I-MED, Lumus reports (~50/week)
-2. Every 15 minutes during business hours, the automation polls each mailbox.
-3. Each PDF attachment is sent to the SMEC AI cloud service. The AI reads the document, classifies it (referral, pathology, radiology, consent form, generic), and extracts the patient details and any sender / addressee / CC names.
+1. Fax PDFs arrive in the Parramatta fax mailbox, `gofax.par@bjchealth.com.au` — a mixed line: ~95% pathology/radiology results, plus correspondence and referrals. (Rollout later extends to the other GoFax location mailboxes.)
+2. Every 15 minutes during business hours, the automation polls the folder and skips emails it has already assessed (it keeps its own processed list on the server — it never marks emails read or changes them in any way).
+3. Each PDF attachment is sent to the SMEC AI cloud service. The AI reads the document, classifies it freely (pathology, radiology, referral, consult letter, correspondence — no restriction by mailbox, per Nicole), and extracts the patient details and any sender / addressee / CC names.
 4. A Genie-compatible HL7 v2.4 message is built with the original PDF attached, plus the OBR-24 routing flag set so it lands in the correct Genie inbox:
-   - Referrals → **Incoming Letters**
+   - Referrals / consult letters → **Incoming Letters**
    - Pathology → **Pathology** inbox
    - Radiology → **Radiology** inbox
-5. The HL7 file is saved directly to the Genie import folder on the server.
-6. The email is moved to the **Linked** folder on success, or **Review** on failure (with a notification email to staff).
+5. The HL7 file is saved directly to the Genie import folder on the server, and the email moves to the **Linked** subfolder — exactly like the PD@ consent-form automation.
+6. If the document is marked **urgent**, can't be read properly, or the AI isn't confident, **nothing is filed**: the email simply stays in the inbox, unchanged, for the team's normal processing. The reason appears on the dashboard (urgent items get a red badge).
 7. One audit row is written to the cloud (metadata only — see "What's recorded" below).
 
 ---
@@ -63,12 +62,12 @@ One audit row written (metadata only, no patient data)
 
 Staff can convert PDFs at any time via the web interface — useful for documents that arrive outside the automation (e.g. a faxed letter, a one-off scan, a document that landed in the wrong inbox).
 
-- Log in with the shared password to receive a 7-day session cookie.
+- Sign in with your BJC Microsoft account (`@bjchealth.com.au`).
 - Drag-and-drop one or many PDFs onto the upload zone, or use Browse.
 - Each PDF is detected (document type identified) in parallel as soon as it lands.
 - Conversion runs sequentially for each file. The HL7 file becomes available to download as each conversion finishes.
 - Override the document type, carrier, or doctor routing per-file before conversion.
-- The **Doctors** tab manages the BJC Health doctor list used for AI addressee resolution (e.g. "Dear Rheumatologist" → "Dr Irwin Lim"). The list lives in browser localStorage and is sent with every conversion.
+- The **Reference data** page (`/reference`) manages the BJC Health doctor list used for AI addressee resolution (e.g. "Dear Rheumatologist" → "Dr Irwin Lim"). Any signed-in user can edit it; the web app sends the list with every conversion.
 - The **Dashboard** (linked from the home page) shows live ops visibility: pie charts of document type / outcome / source, an audit table for the current month, and CSV export.
 
 ### Carrier
@@ -102,10 +101,10 @@ Each message includes:
 
 | Task | When | How |
 |------|------|-----|
-| Check the **Review** folder | Daily | Failed conversions are moved here. Process manually. |
+| Work the **inbox** as normal | Daily | Anything still in the inbox wasn't auto-filed — process it manually, exactly as today. Urgent items show with a red badge on the dashboard. |
 | Nothing for **Linked** emails | Never | Already in Genie. |
-| Update the doctor list | When doctors join or leave BJC Health | Doctors tab in the web app. |
-| Check dashboard metrics | Weekly | Volume, success rate, outcome split per source. |
+| Update the doctor list | When doctors join or leave BJC Health | Reference data page in the web app. |
+| Check dashboard metrics | Weekly | Volume, success rate, outcome split per source, review reasons. |
 | Manual upload | As needed | For one-off PDFs that didn't come through email. |
 
 > **During the warranty period:** Staff should regularly spot-check that emails in the Linked folder have correctly appeared in the right Genie inbox.
@@ -116,9 +115,11 @@ Each message includes:
 
 | Folder | Meaning | Staff action |
 |--------|---------|-------------|
-| `Inbox/Linked` | Processed successfully — HL7 file is in Genie | None |
-| `Inbox/Review` | Could not extract patient details, or another fault | Process manually |
-| `Inbox` | Not yet processed | Will be picked up on the next 15-min run |
+| `Linked` (under the polled folder) | Processed successfully — HL7 file is in Genie | None |
+| Inbox (assessed) | The automation looked at it and would not auto-file it (urgent / unreadable / low confidence) | Process manually — reason is on the dashboard |
+| Inbox (new) | Not yet assessed | Will be picked up on the next 15-min run |
+
+There is no Review folder and no Outlook categories — the automation never changes an email it can't file.
 
 ---
 
@@ -129,7 +130,7 @@ Every conversion — whether from the email automation or the web interface — 
 Each row contains:
 
 - Timestamp (UTC)
-- Document type (`pathology_result`, `referral_letter`, etc.)
+- Document type (`pathology_result`, `referral`, etc.), routing decision, and — for manual review — the reason (urgent, low confidence, unreadable, …)
 - Outcome (`ok` / `fail`)
 - Source (`web` for manual upload / `email` for the PAD pipeline — set via the `X-Source` HTTP header)
 - HL7 message type (`ORU^R01` / `REF^I12`)
@@ -150,7 +151,7 @@ The dashboard at `/dashboard` surfaces these rows. Patient names, dates of birth
 - **Only metadata and metrics are kept.** The audit log records what's listed above — nothing more.
 - **All processing is in Australian data centres, in BJC's own AWS account.** The conversion service runs in BJC Health's AWS account in Sydney; the AI extraction (AWS Bedrock Claude Sonnet 4.6) runs on AWS Australia (Sydney + Melbourne data residency). BJC owns the account and is billed by AWS directly.
 - **Encrypted in transit.** All communication uses HTTPS.
-- **Password-protected access.** The web interface and conversion API are protected by a shared password and 7-day session cookies.
+- **Microsoft sign-in.** The web interface uses BJC's Microsoft (Entra) accounts — only `@bjchealth.com.au` (and SMEC AI support) accounts can sign in. The email automation authenticates separately with a rotating secret token.
 - **AWS Bedrock AI** is hosted in Australia, does not use submitted data for training, and is IRAP PROTECTED assessed.
 
 ---
@@ -164,8 +165,8 @@ The dashboard at `/dashboard` surfaces these rows. Patient names, dates of birth
 | Server capacity confirmation | This automation runs on the same Windows server already running PAD and PDF-to-Directory | Confirmed |
 | Genie import folder access | The automation saves HL7 files directly to Genie's `LabRslts` folder (no Capricorn intermediary) | Confirmed |
 | Internet access from server | The server needs to reach the SMEC AI cloud service (HTTPS only) | Confirmed |
-| Create `Review` folder per mailbox | Failed extractions move here for staff to handle | Pending |
-| Service account permissions | The PAD account needs access to each mailbox and the Genie folder | Pending |
+| `Linked` subfolder in the polled folder | Successfully filed emails move here (no Review folder — unfiled emails stay in the inbox) | Pending |
+| Service account permissions | The PAD account needs Full Access to `gofax.par@bjchealth.com.au` (pilot; other fax mailboxes at rollout) and the Genie folder | Pending |
 | **Confirm Genie REF V8 flag is enabled** | Without REF V8, Genie ignores the OBR-24 routing flag and dumps everything into Pathology / Radiology — referrals will not reach Incoming Letters. **This is the single biggest pre-go-live blocker.** Owned by Steven Hill (Medihost). | Pending |
 
 ---
@@ -174,8 +175,8 @@ The dashboard at `/dashboard` surfaces these rows. Patient names, dates of birth
 
 | Feature | What it does |
 |---------|-------------|
-| Automatic retry | If the cloud service is briefly unavailable, the automation retries twice before failing |
-| Failure notifications | Staff receive an email when a document can't be processed |
+| Automatic retry | If the cloud service is briefly unavailable, the automation retries twice, then leaves the email to be retried on the next run |
+| Review visibility | Documents that weren't auto-filed appear on the dashboard with the reason (urgent = red badge); the email stays in the inbox. A configuration failure (rejected token) emails BJC ops. |
 | Audit log | Every conversion is recorded (metadata only) — viewable on the dashboard |
 | Crash recovery | If the server restarts, the automation resumes within ~10 minutes |
 | Temp file cleanup | Leftover temp files are auto-cleaned on next startup |
@@ -193,10 +194,10 @@ BJC Health owns the intellectual property in this automation. SMEC AI builds it 
 BJC Health currently has two automations running on the same Windows server:
 
 - **PDF-to-Directory** (existing, live): Processes **consent forms** from the PD@ mailbox. Renames PDFs and saves them to a network folder for Genie auto-import. This is BJC's existing PAD automation and is unrelated to the PDF-to-HL7 pipeline.
-- **PDF-to-HL7** (this service — in development): Will process **referrals, pathology, and radiology** from dedicated mailboxes, converting PDFs to HL7 messages saved to the Genie import folder. **The PAD flow for this pipeline has not yet been built** — it is part of the production build.
+- **PDF-to-HL7** (this service — PAD flow in build): Processes **results, referrals, and correspondence** from the GoFax fax mailboxes (pilot: Parramatta, `gofax.par@bjchealth.com.au`), converting PDFs to HL7 messages saved to the Genie import folder. Its email handling deliberately mirrors PDF-to-Directory: filed → `Linked`, everything else stays in the inbox.
 
-Once built, both automations will run independently and not interfere with each other. See `docs/engineering/sister-system-pdf-to-directory.md` for reference details on PDF-to-Directory.
+Both automations run independently and do not interfere with each other. See `docs/engineering/sister-system-pdf-to-directory.md` for reference details on PDF-to-Directory.
 
 ---
 
-*Prepared by SMEC AI | Last refreshed June 2026*
+*Prepared by SMEC AI | Last refreshed July 2026 (pilot design per Nicole, 22 Jul 2026)*

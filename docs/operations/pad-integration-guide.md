@@ -6,7 +6,7 @@ Technical reference for building the Power Automate Desktop flow that connects t
 
 ---
 
-## Rollout Status — as of 21 Jul 2026
+## Rollout Status — as of 22 Jul 2026
 
 Build is underway on the BJC server (MHS-SYD-APP47). Update this table as items complete.
 
@@ -18,37 +18,39 @@ Build is underway on the BJC server (MHS-SYD-APP47). Update this table as items 
 | ✅ Production reachable + token verified from BJC server | `curl` from MHS-SYD-APP47: 200 with bearer + `X-Source`, 401 without — proves token, TLS trust, and outbound 443 | 21 Jul 2026 |
 | ✅ Token in Credential Manager | `BJC-PAD-Token` created via `cmdkey` as `BJC\medihost` (matches the account the scheduled task runs as) | 21 Jul 2026 |
 | ✅ Run-as facts verified | Existing "SMEC AI Power Automate" task: `BJC\medihost`, "run only when user is logged on", highest privileges (§10 updated to match) | 21 Jul 2026 |
-| ✅ Setup requests sent to Medihost + BJC | Email to Amol + Nicole: PAuto Full Access to the three fax mailboxes; eight review categories per mailbox (Nicole picks colours) | 21 Jul 2026 |
+| ✅ Setup requests sent to Medihost + BJC | Initial email to Amol + Nicole (assumed the since-superseded three-mailbox / categories design) | 21 Jul 2026 |
+| ✅ Pilot design agreed with BJC (Nicole) | Pilot mailbox = `gofax.par@bjchealth.com.au` polling subfolder "Inbox/HL7 Testing" (folder created by Nicole); **no mailbox restrictions** (mixed line, ~95% results); **PD@-style folder moves replace Outlook categories**; local processed-ID log replaces mark-as-read. See §1/§5/§7. | 22 Jul 2026 |
 
 **Pending:**
 
 | Item | Owner |
 |---|---|
-| ⬜ PAuto Full Access to `fax-pathology@` / `fax-radiology@` / `fax-vascular@` | Amol (Medihost) |
-| ⬜ Eight review categories created in each fax mailbox (exact names, §4 + §11) | Nicole / Amol |
+| ⬜ PAuto Full Access to `gofax.par@bjchealth.com.au` (pilot mailbox — others wait for rollout) | Amol (Medihost) |
 | ⬜ Genie LabRslts UNC path confirmed | Amol (Medihost) |
+| ⬜ "Linked" subfolder created under "HL7 Testing" (needs mailbox access first) | Sean / Nicole |
 | ⬜ Doctor-list decision (§6) — recommended: `BJC_DOCTORS` in `infra/bjc/main.tf` | Sean + Nicole |
 | ⬜ Carrier decision — PAD cannot send the `carrier` form field (see §4 note), so MSH-3 defaults to `SMECAI`; server-side change needed if BJC wants `EMAIL` | Sean + BJC |
 | ⬜ Build the PAD flow (§7) | Sean |
 | ⬜ Task Scheduler task (§10) | Sean |
 | ⬜ Testing checklist (§13) | Sean |
-| ⬜ Genie REF modifier confirmed — Phase 2 gate (§9) | Medihost |
+| ⬜ Genie REF modifier confirmed — now a **pilot** gate, not just Phase 2: the mixed fax line carries referrals (§9) | Medihost |
 
 ---
 
 ## 1. Overview
 
-The automation monitors mailboxes for incoming document emails, sends each PDF attachment to the SMEC AI cloud service for AI-powered extraction, and — when the service auto-routes the document — saves the resulting HL7 file to the Genie import folder. When the service diverts a document to manual review, the email **stays in its inbox** and PAD tags it with an Outlook category so staff can triage by colour.
+The automation polls a mail folder for fax emails, sends each PDF attachment to the SMEC AI cloud service for AI-powered extraction, and — when the service auto-routes the document — saves the resulting HL7 file to the Genie import folder and **moves the email to a "Linked" subfolder** (mirroring the existing PD@ consent-form flow). Anything the service won't auto-file **stays in the inbox exactly as it arrived** — unread, unflagged, uncategorised — for the team's normal process. Review reasons (including a red **Urgent** badge) are visible per document on the dashboard.
 
 **Operating principle (Sean + Nicole, May 2026): a misroute is worse than no action.** Documents the service is not confident about are never filed to Genie; they stay in the inbox for a human. Target is ≥60% auto-routed, the rest reviewed by staff.
 
-**Rollout phases:**
+**Rollout phases (revised 22 Jul 2026 — BJC's real fax accounts are per-location GoFax mailboxes, not the per-modality addresses assumed earlier):**
 
-- **Phase 1** — the three GoFax fax-to-email inboxes (`fax-pathology@`, `fax-radiology@`, `fax-vascular@bjchealth.com.au`). These carry almost exclusively pathology/radiology results.
+- **Pilot (current)** — `gofax.par@bjchealth.com.au` (Parramatta, highest volume), polling the subfolder **`Inbox/HL7 Testing`**; Nicole moves a sample of live faxes into it.
+- **Live Phase 1** — same mailbox, polled folder flips to `Inbox`; then extend to the other GoFax location mailboxes (each needs PAuto access and a flow entry; optionally a `MAILBOX_CATEGORIES` mapping — see §5).
 - **Phase 2** — `admin@bjchealth.com.au` (referrals and consult letters).
 
 ```
-Monitored mailbox (e.g. fax-pathology@bjchealth.com.au)
+gofax.par@bjchealth.com.au — polled folder: Inbox/HL7 Testing (pilot) -> Inbox (live)
         |
         v
 Windows Task Scheduler (every 15 min, business hours)
@@ -56,9 +58,10 @@ Windows Task Scheduler (every 15 min, business hours)
         v
 Power Automate Desktop (PAD)
         |
-        +-- Retrieve unread emails with PDF attachments (top 10)
+        +-- Retrieve emails with attachments (top 25, read AND unread)
+        +-- Skip emails whose ID is in the local processed log
         |
-        +-- For each email:
+        +-- For each remaining email:
         |     |
         |     +-- For each PDF attachment (ONE POST PER PDF):
         |     |     |
@@ -66,14 +69,16 @@ Power Automate Desktop (PAD)
         |     |     +-- POST /api/convert
         |     |     |     Authorization: Bearer <PAD_TOKEN>
         |     |     |     X-Source: email
-        |     |     |     X-Source-Mailbox: <this mailbox's address>
+        |     |     |     X-Source-Mailbox: gofax.par@bjchealth.com.au
         |     |     |
         |     |     +-- action = "auto_routed"   -> save hl7Content to Genie LabRslts
-        |     |     +-- action = "manual_review" -> remember suggestedCategory
+        |     |     +-- action = "manual_review" -> nothing (email untouched)
         |     |     +-- Delete temp file
         |     |
-        |     +-- Any manual_review: apply Outlook category(s), email STAYS in inbox
-        |     +-- Mark email as read
+        |     +-- ALL PDFs filed -> move email to the Linked subfolder
+        |     +-- otherwise      -> email stays in the inbox as it arrived
+        |     +-- Append email ID to processed log (skipped on service errors,
+        |         so transient outages retry next run)
         |
         v
 Genie LabRslts folder (HL7 auto-import)
@@ -82,7 +87,7 @@ Genie LabRslts folder (HL7 auto-import)
 Genie creates/matches patient record, routes to doctor's inbox
 ```
 
-Emails are never moved to subfolders. Outlook categories are the review mechanism (Nicole's confirmed preference, 4 May 2026); folder-moving remains a future option if categories prove insufficient.
+**Email handling (Nicole, 22 Jul 2026):** mirrors the PD@ flow — filed emails move to `Linked`; everything else stays in the inbox untouched. **No Outlook categories, no read/unread changes, no per-document notification emails** — the dashboard is the visibility layer. This supersedes the May 2026 tag-in-place/categories design described in earlier versions of this guide.
 
 ---
 
@@ -181,8 +186,8 @@ Form fields:
 
 Every conversion outcome — including extraction failure — returns **HTTP 200**. The routing decision is the `action` field:
 
-- `action: "auto_routed"` → HL7 was produced; save it to Genie.
-- `action: "manual_review"` → **no HL7**; tag the source email with `suggestedCategory` and leave it in the inbox.
+- `action: "auto_routed"` → HL7 was produced; save it to Genie (and count towards moving the email to `Linked`).
+- `action: "manual_review"` → **no HL7**; PAD leaves the source email in the inbox untouched (`suggestedCategory` is informational only — see §7).
 
 Note the trap: the extraction-failure variant has `success: false` but is still `action: "manual_review"`. A flow that branches on `success` will mishandle it. Branch on `action`.
 
@@ -244,14 +249,14 @@ Note the trap: the extraction-failure variant has `success: false` but is still 
 
 ### Manual-review reasons
 
-`reason` is the stable machine identifier (used in audit rows and PAD logic); `suggestedCategory` is the human label PAD applies as an Outlook category. The reason→category mapping should live in PAD config so BJC ops can rename labels/colours without a code change — `suggestedCategory` is the default.
+`reason` is the stable machine identifier (used in audit rows and PAD logic). `suggestedCategory` is a human label the server still returns for back-compat and dashboard display, but **the pilot design applies no Outlook categories** (Nicole, 22 Jul 2026) — reasons surface on the dashboard instead, where each row shows the routing decision, reason badge (urgent = red), received time, and patient initials.
 
-| `reason` | `suggestedCategory` | Meaning |
+| `reason` | `suggestedCategory` (informational) | Meaning |
 |---|---|---|
 | `urgent_result` | Needs review — Urgent | Document is marked urgent. **Always** diverted — urgent documents of any type are never auto-filed. |
 | `low_confidence` | Needs review — Low confidence | Classification confidence below the floor set on `/settings` |
 | `missing_fields` | Needs review — Missing fields | Required routing fields missing (e.g. OBR-16 addressee on a result) |
-| `mailbox_mismatch` | Needs review — Wrong inbox | AI classified the doc outside the mailbox's allowed set (e.g. a referral arriving in a fax-results inbox) |
+| `mailbox_mismatch` | Needs review — Wrong inbox | AI classified the doc outside the mailbox's allowed set. Cannot trigger for the unmapped pilot mailbox (§5). |
 | `unknown_doc_type` | Needs review — Unknown type | Could not classify within the allowed set |
 | `extraction_failed` | Needs review — Extraction failed | Vision extraction could not read the document |
 
@@ -268,17 +273,18 @@ Note the trap: the extraction-failure variant has `success: false` but is still 
 
 ## 5. Mailbox → Category Mapping (`X-Source-Mailbox`)
 
-PAD sends the monitored mailbox's full address in `X-Source-Mailbox`. The server maps it to a category that (a) constrains the document types the AI may choose from and (b) powers the `mailbox_mismatch` eligibility check:
+PAD sends the polled mailbox's full address in `X-Source-Mailbox`. If the server has a mapping for that address, it (a) constrains the document types the AI may choose from and (b) powers the `mailbox_mismatch` eligibility check.
 
-| Mailbox | Category | Allowed document types |
+**The pilot mailbox is deliberately unmapped.** `gofax.par@bjchealth.com.au` is a mixed line — ~95% pathology/radiology results, plus correspondence and referrals — and Nicole asked for no content restrictions (22 Jul 2026). An unmapped address resolves to category `none`: free classification across all six document types, no mailbox gate. The safety gates that remain (urgent, low-confidence, missing-fields, extraction-failed) are mailbox-independent and unaffected.
+
+| Mailbox | Category | Effect |
 |---|---|---|
-| `fax-pathology@bjchealth.com.au` | results | `pathology_result`, `radiology_result` |
-| `fax-radiology@bjchealth.com.au` | results | `pathology_result`, `radiology_result` |
-| `fax-vascular@bjchealth.com.au` | results | `pathology_result`, `radiology_result` |
-| `admin@bjchealth.com.au` | letters | `referral`, `consult_letter` |
-| *(missing / unrecognised)* | none | all six types — free classification, no mailbox gate |
+| `gofax.par@bjchealth.com.au` *(pilot)* | *(unmapped)* → none | Free classification — **deliberate**, per Nicole |
+| `admin@bjchealth.com.au` | letters | Phase 2: constrains to `referral` / `consult_letter` |
+| `fax-pathology@` / `fax-radiology@` / `fax-vascular@bjchealth.com.au` | results | **Relics.** These per-modality addresses came from the superseded design and never existed in BJC's tenant. Inert (nothing sends them); slated for cleanup. |
+| *(anything else)* | none | Free classification, no mailbox gate |
 
-An unknown mailbox address is safe (falls back to free classification) but forfeits the misroute protection. The mapping is deliberately in code (`MAILBOX_CATEGORIES` in `lib/conversion-config.ts`) so adding a new GoFax inbox is a one-line, code-reviewed change followed by a deploy — tell SMEC AI before pointing PAD at a new mailbox.
+BJC's real fax accounts are per-location GoFax mailboxes. When rollout extends to another one, decide per mailbox: leave it unmapped (free classification, like the pilot) or add a `MAILBOX_CATEGORIES` entry (`lib/conversion-config.ts`) to constrain it and enable the misroute gate — a one-line, code-reviewed change plus a deploy. Tell SMEC AI before pointing PAD at a new mailbox either way.
 
 ---
 
@@ -301,22 +307,26 @@ The default roster used by the web UI is `DEFAULT_BJC_DOCTORS` in `lib/conversio
 
 ## 7. PAD Workflow Design
 
-Robin pseudocode for the full flow. Same service account, Task Scheduler setup, and conventions as the existing PDF-to-Directory flow. See `docs/engineering/pad-bearer-token-gotchas.md` for the exact `Invoke web service` action shape (multipart toggle, custom-header syntax, 90 s timeout, sensitive variables).
+Robin pseudocode for the full flow. Same service account, Task Scheduler setup, and conventions as the existing PDF-to-Directory flow — including its Linked-folder move on success. See `docs/engineering/pad-bearer-token-gotchas.md` for the exact `Invoke web service` action shape (multipart toggle, custom-header syntax, 90 s timeout, sensitive variables).
 
 ```robin
 # ─────────────────────────────────────────────────────────────────────
-# PDF-to-HL7 Automation
-# Monitors a mailbox for document PDFs, converts via SMEC AI cloud
-# service, saves HL7 to Genie import folder OR tags the email for
-# manual review. Emails never leave the inbox.
+# PDF-to-HL7 Automation (pilot: gofax.par@bjchealth.com.au)
+# Polls a mail folder for fax PDFs, converts via SMEC AI cloud service,
+# saves HL7 to the Genie import folder, and moves fully-filed emails to
+# the "Linked" subfolder. Everything else stays in the inbox untouched;
+# a local processed-ID log prevents re-processing.
 # ─────────────────────────────────────────────────────────────────────
 
 # ── Flow Variables ──────────────────────────────────────────────────
 SET BaseUrl TO 'https://prod.d20i409xquw7x3.amplifyapp.com'
-SET MailboxAddress TO 'fax-pathology@bjchealth.com.au'   # this flow's mailbox
+SET MailboxAddress TO 'gofax.par@bjchealth.com.au'
+SET MailFolder TO 'Inbox/HL7 Testing'      # pilot; switch to 'Inbox' at go-live
+SET LinkedFolder TO '%MailFolder%/Linked'  # successes move here (mirrors PD@)
 SET GenieLabRsltsFolder TO '\\\\server\\path\\LabRslts'
 SET TempFolder TO 'C:\\SMEC AI\\pdf-to-hl7'
-SET NotifyRecipient TO 'amy.johnson@bjchealth.com.au'
+SET ProcessedLog TO '%TempFolder%\\processed.log'
+SET NotifyRecipient TO 'amy.johnson@bjchealth.com.au'   # 401 alerts only
 SET MaxRetries TO 2
 SET RetryDelaySeconds TO 10
 
@@ -331,23 +341,25 @@ SET PadHeaders TO 'Authorization: Bearer %PadToken%
 X-Source: email
 X-Source-Mailbox: %MailboxAddress%'
 
-# ── Phase 1: Startup Cleanup ───────────────────────────────────────
-IF Folder.Exists(TempFolder) THEN
-    Folder.GetFiles TempFolder, '*.pdf', Files
-    LOOP FOREACH File IN Files
-        File.Delete File
-    END
-ELSE
-    Folder.Create TempFolder
+# ── Phase 1: Startup Housekeeping ──────────────────────────────────
+# Delete temp PDFs left by a crashed run; ensure the processed log
+# exists and prune entries older than 30 days.
+# Log format: one line per assessed email -> 'yyyy-MM-dd <message-id>'
+Folder.Create TempFolder                     # no-op if it exists
+Folder.GetFiles TempFolder, '*.pdf', LeftoverPdfs
+LOOP FOREACH File IN LeftoverPdfs
+    File.Delete File
 END
+IF NOT File.Exists(ProcessedLog) THEN
+    File.WriteText ProcessedLog, ''
+END
+# (prune: rewrite ProcessedLog keeping only lines dated within 30 days)
 
 # ── Phase 2: Health + Token Check ──────────────────────────────────
 # GET with the PAD headers verifies reachability AND token validity.
 WebService.InvokeWebService \
-    Url: '%BaseUrl%/api/convert' \
-    Method: 'GET' \
-    CustomHeaders: PadHeaders \
-    Timeout: 15 \
+    Url: '%BaseUrl%/api/convert' Method: 'GET' \
+    CustomHeaders: PadHeaders Timeout: 15 \
     StatusCode => HealthStatus
 
 IF HealthStatus = 401 THEN
@@ -361,25 +373,34 @@ IF HealthStatus <> 200 THEN
 END
 
 # ── Phase 3: Retrieve Emails ──────────────────────────────────────
+# ALL emails with attachments, read or unread -- the automation never
+# changes read state. The processed log is the dedupe mechanism.
 Outlook.RetrieveEmails \
     Account: MailboxAddress \
-    Folder: 'Inbox' \
-    Filter: 'Unread' \
-    Attachments: 'Save' \
-    Top: 10 \
+    Folder: MailFolder \
+    Filter: 'All, with attachments' \
+    Top: 25 \
     Emails => Emails
+
+File.ReadText ProcessedLog => ProcessedIds
 
 # ── Phase 4: Process Each Email ───────────────────────────────────
 LOOP FOREACH Email IN Emails
-    SET ReviewCategories TO []     # Outlook categories to apply to this email
-    SET FailureLines TO ''
+    IF Contains(ProcessedIds, Email.Id) THEN
+        NEXT LOOP                  # Already assessed on a previous run
+    END
+
+    SET PdfCount TO 0
+    SET FiledCount TO 0
+    SET HadServiceError TO False
 
     LOOP FOREACH Attachment IN Email.Attachments
         IF NOT Text.EndsWith(Attachment.Name, '.pdf', IgnoreCase: True) THEN
             NEXT LOOP              # Skip images, signatures, .docx etc.
         END
+        SET PdfCount TO PdfCount + 1
 
-        SET TempFile TO '%TempFolder%\\%Attachment.Name%'
+        SET TempFile TO '%TempFolder%\\temp.pdf'
         File.WriteBytes TempFile, Attachment.Content
 
         SET RetryCount TO 0
@@ -392,33 +413,27 @@ LOOP FOREACH Email IN Emails
                 # Attachments can only carry FILES (no text form fields --
                 # see the carrier note in §4), so the pdf is the only part.
                 WebService.InvokeWebService \
-                    Url: '%BaseUrl%/api/convert' \
-                    Method: 'POST' \
+                    Url: '%BaseUrl%/api/convert' Method: 'POST' \
                     CustomHeaders: PadHeaders \
-                    Attachments: \
-                        pdf=@%TempFile% \
+                    Attachments: pdf=@%TempFile% \
                     Timeout: 90 \
-                    Response => ConvertResponse \
-                    StatusCode => ConvertStatus
+                    Response => ConvertResponse StatusCode => ConvertStatus
 
                 SET ResponseJson TO Json.Parse(ConvertResponse)
 
                 IF ConvertStatus = 200 AND ResponseJson.action = 'auto_routed' THEN
                     File.WriteText '%GenieLabRsltsFolder%\\%ResponseJson.filename%', \
                         ResponseJson.hl7Content, Encoding: 'ASCII'
+                    SET FiledCount TO FiledCount + 1
                     SET Settled TO True
 
                 ELSE IF ConvertStatus = 200 AND ResponseJson.action = 'manual_review' THEN
-                    # No HL7. Tag email; it stays in the inbox for staff.
-                    List.Add ReviewCategories, ResponseJson.suggestedCategory
-                    SET FailureLines TO '%FailureLines%\n- %Attachment.Name%: %ResponseJson.reason%'
+                    # No HL7. Do NOTHING to the email -- the team works the
+                    # inbox; reasons (incl. urgent) are on the dashboard.
                     SET Settled TO True
 
                 ELSE IF ConvertStatus = 400 OR ConvertStatus = 422 THEN
-                    # Validation / strict-mode failure -- no retry
-                    List.Add ReviewCategories, 'Needs review — Invalid file'
-                    SET FailureLines TO '%FailureLines%\n- %Attachment.Name%: %ResponseJson.error%'
-                    SET Settled TO True
+                    SET Settled TO True    # Invalid file -- leave for the team
 
                 ELSE IF ConvertStatus = 401 THEN
                     # Token rejected mid-run: configuration error, stop everything
@@ -434,8 +449,7 @@ LOOP FOREACH Email IN Emails
                     IF RetryCount <= MaxRetries THEN
                         Wait RetryDelaySeconds
                     ELSE
-                        List.Add ReviewCategories, 'Needs review — Service error'
-                        SET FailureLines TO '%FailureLines%\n- %Attachment.Name%: HTTP %ConvertStatus% after retries'
+                        SET HadServiceError TO True
                         SET Settled TO True
                     END
                 END
@@ -446,8 +460,7 @@ LOOP FOREACH Email IN Emails
                 IF RetryCount <= MaxRetries THEN
                     Wait RetryDelaySeconds
                 ELSE
-                    List.Add ReviewCategories, 'Needs review — Service error'
-                    SET FailureLines TO '%FailureLines%\n- %Attachment.Name%: connection failed after retries'
+                    SET HadServiceError TO True
                     SET Settled TO True
                 END
             END
@@ -456,37 +469,44 @@ LOOP FOREACH Email IN Emails
         File.Delete TempFile
     END  # Attachment loop
 
-    # ── Tag + finish. The email NEVER leaves the inbox. ───────────
-    IF List.Count(ReviewCategories) > 0 THEN
-        Outlook.ApplyCategories Email, List.Distinct(ReviewCategories)
-        Email.Send To: NotifyRecipient \
-            Subject: 'PDF-to-HL7: document(s) need review' \
-            Body: 'Email tagged for manual review:\n\nFrom: %Email.From%\nSubject: %Email.Subject%\nMailbox: %MailboxAddress%\n%FailureLines%\n\nThe email remains in the inbox with a review category applied.'
+    # ── Outcome ───────────────────────────────────────────────────
+    # Fully filed -> move to Linked (mirrors PD@). Anything else stays
+    # in the inbox exactly as it arrived: unread, unflagged, untagged.
+    IF PdfCount > 0 AND FiledCount = PdfCount THEN
+        Outlook.MoveEmail Email, LinkedFolder
     END
 
-    Outlook.MarkAsRead Email
+    # Log as assessed UNLESS a service error occurred -- service-error
+    # emails stay unlogged so the next run retries them (failed requests
+    # never reached Bedrock, so retrying costs nothing).
+    IF NOT HadServiceError THEN
+        File.AppendText ProcessedLog, '%CurrentDate% %Email.Id%'
+    END
 END  # Email loop
 ```
 
 Design notes:
 
-- **One flow (or one loop iteration set) per mailbox** — `X-Source-Mailbox` must match the mailbox actually being polled, since it drives classification constraints.
-- **Multi-attachment emails**: `/api/convert` accepts one PDF per POST; PAD splits and posts each attachment separately (confirmed design).
-- **Mark-as-read is the "processed" marker.** Unread = not yet processed; read + no category = auto-filed; read + category = needs human review.
-- The two PAD-side category labels (`Needs review — Invalid file`, `Needs review — Service error`) are local conventions for failures the API can't label; BJC ops may rename them alongside the server-suggested ones.
+- **PD@-mirror decision (Nicole, 22 Jul 2026):** filed → `Linked`; everything else stays in the inbox untouched. No categories, no read-state changes, no per-document notification emails — the dashboard (red **Urgent** badge, reason per row, patient initials, received time) is the visibility layer.
+- **The processed-ID log is the dedupe mechanism.** Without it, every email left in the inbox would be re-sent to Bedrock each 15-minute run (~48 calls/day per lingering fax) and would write duplicate dashboard rows. The log lives on the server; if it's ever lost, each leftover email gets one extra assessment and the log rebuilds — self-healing. Graph message IDs change when an email is manually moved between folders, so an email dragged out of the inbox and back gets one re-assessment; harmless.
+- **Service errors are deliberately NOT logged as processed** — a transient outage or timeout leaves the email eligible for retry next run. Failed requests don't reach Bedrock, so this retry loop is free. Only a 200 (either action) or a 400/422 marks the email assessed.
+- **Multi-attachment emails**: one POST per PDF; the email moves to `Linked` only when **every** PDF auto-filed. A partial success stays in the inbox (the filed PDFs are already in Genie — the dashboard shows which). GoFax emails normally carry exactly one PDF, so this is a rare edge.
+- **One flow (or one loop iteration set) per mailbox** — `X-Source-Mailbox` must match the mailbox actually being polled. For the pilot it resolves to free classification server-side (§5) but is still recorded in the audit log.
 
 ---
 
 ## 8. Error Handling Decision Matrix
 
-| Condition | Detect via | Action | Retry? | Notify? |
+| Condition | Detect via | Action | Retry? | Log as processed? |
 |---|---|---|---|---|
-| Auto-routed | 200 + `action=auto_routed` | Save HL7 to LabRslts | No | No |
-| Manual review (any `reason`, incl. urgent) | 200 + `action=manual_review` | Apply `suggestedCategory`, leave in inbox | No | Yes |
-| Invalid file | 400 (or 422 strict mode) | Apply "Invalid file" category | No | Yes |
-| Token rejected | 401 | **Stop entire flow** | No | Yes — URGENT |
-| Server error | 500 | Retry 2× (10 s apart), then "Service error" category | Yes | Yes (after retries) |
-| Timeout / connection refused | exception (90 s budget) | Same as server error | Yes | Yes (after retries) |
+| Auto-routed (all PDFs in email) | 200 + `action=auto_routed` | Save HL7 to LabRslts; move email to `Linked` | No | Yes |
+| Manual review (any `reason`, incl. urgent) | 200 + `action=manual_review` | **Nothing** — email stays in inbox untouched; reason visible on dashboard | No | Yes |
+| Invalid file | 400 (or 422 strict mode) | Nothing — email stays in inbox for the team | No | Yes |
+| Token rejected | 401 | **Stop entire flow** + URGENT email to `NotifyRecipient` | No | No |
+| Server error | 500 | Retry 2× (10 s apart), then leave in inbox | Yes | **No — retried next run** |
+| Timeout / connection refused | exception (90 s budget) | Same as server error | Yes | **No — retried next run** |
+
+A full-service outage is silent by design (no notification spam): nothing moves to `Linked`, the health check exits early, and PAD run history shows the skips. If BJC wants an alert after N consecutive unreachable runs, add a counter file next to the processed log — noted as a possible follow-up, not built.
 
 ---
 
@@ -520,7 +540,7 @@ The service sets OBR-24 automatically from the document type — this is what pu
 
 ### Important: Genie REF modifier
 
-Genie requires the **REF modifier** to be enabled to handle REF^I12 messages. Without it, referrals land in Pathology/Radiology instead of Incoming Letters. Medihost must confirm this is enabled before Phase 2 (letters) go-live.
+Genie requires the **REF modifier** to be enabled to handle REF^I12 messages. Without it, referrals land in Pathology/Radiology instead of Incoming Letters. **This is now a pilot gate, not just Phase 2:** the pilot fax line is mixed and referrals do arrive on it (~5% per Nicole, 22 Jul 2026), and a confidently-classified faxed referral will auto-route as REF^I12. Medihost must confirm the modifier is enabled before the pilot goes live on the Inbox.
 
 ---
 
@@ -540,7 +560,7 @@ Identical in structure to the existing PDF-to-Directory task.
 
 **Trigger 1 — scheduled:** Daily, repeat every 15 minutes for 12 hours from 7:00 AM, Monday–Friday, stop if running longer than 30 minutes.
 
-**Trigger 2 — at startup (crash recovery):** 5-minute delay, so network and Outlook initialise first. Combined with mark-as-read semantics, this catches up on anything unprocessed after a restart. Because the task is "run only when user is logged on", after a server reboot nothing fires until `medihost` signs back in — include that sign-in in the restart runbook (same constraint as the existing PDF-to-Directory task).
+**Trigger 2 — at startup (crash recovery):** 5-minute delay, so network and Outlook initialise first. Combined with the processed-ID log, this catches up on anything unprocessed after a restart. Because the task is "run only when user is logged on", after a server reboot nothing fires until `medihost` signs back in — include that sign-in in the restart runbook (same constraint as the existing PDF-to-Directory task).
 
 **Registry fix (required):** same as PDF-to-Directory —
 
@@ -560,12 +580,12 @@ Same Windows machine already running PAD and PDF-to-Directory.
 | **Server capacity** | Runs alongside PDF-to-Directory; heavy processing is in the cloud | Confirm |
 | **Genie LabRslts folder access** | `BJC\medihost` needs read/write; provide the full UNC path | Provide path |
 | **Internet access** | Outbound HTTPS (443) to `*.amplifyapp.com` only; no inbound, no VPN | Confirm |
-| **Mailbox access** | Service account needs full access to each monitored mailbox (Phase 1: the three GoFax fax inboxes) | Verify |
-| **Outlook categories** | Create the review categories in each monitored mailbox (see §4 table plus `Needs review — Invalid file` / `Needs review — Service error`); pick colours with BJC ops | Create |
-| **Genie REF modifier** | Required before Phase 2 (letters) go-live | Confirm / Enable |
-| **Local temp folder** | `C:\SMEC AI\pdf-to-hl7\` — created automatically by the flow | Verify no restrictions |
+| **Mailbox access** | `PAuto@bjchealth.com.au` needs Full Access to `gofax.par@bjchealth.com.au` (pilot); other GoFax location mailboxes at rollout | Grant |
+| **Linked subfolder** | `Linked` under the polled folder (`Inbox/HL7 Testing` for the pilot; `Inbox` at go-live) — Sean or Nicole creates it once access exists | Create |
+| **Genie REF modifier** | Required before the pilot goes live (mixed fax line carries referrals — §9) | Confirm / Enable |
+| **Local temp folder** | `C:\SMEC AI\pdf-to-hl7\` — created automatically by the flow; also holds `processed.log` | Verify no restrictions |
 
-No `Inbox/Review` or `Inbox/Linked` subfolders are needed — the previous version of this guide predates the tag-in-place design.
+No Outlook categories and no `Inbox/Review` folder are needed — the July 2026 pilot design (§1) moves successes to `Linked` and leaves everything else untouched, superseding both the March folder-plus-categories design and the May tag-in-place design.
 
 ---
 
@@ -574,16 +594,19 @@ No `Inbox/Review` or `Inbox/Linked` subfolders are needed — the previous versi
 | Variable | Example value | Notes |
 |---|---|---|
 | `BaseUrl` | `https://prod.d20i409xquw7x3.amplifyapp.com` | BJC production app |
-| `MailboxAddress` | `fax-pathology@bjchealth.com.au` | Also sent as `X-Source-Mailbox` — must match the polled mailbox |
+| `MailboxAddress` | `gofax.par@bjchealth.com.au` | Also sent as `X-Source-Mailbox` — must match the polled mailbox |
+| `MailFolder` | `Inbox/HL7 Testing` | The polled folder. Pilot value shown; flip to `Inbox` at go-live |
+| `LinkedFolder` | `%MailFolder%/Linked` | Fully-filed emails move here (mirrors PD@) |
 | `PadToken` | *(from Credential Manager at runtime)* | Never hardcoded in the flow; marked sensitive |
 | `GenieLabRsltsFolder` | `\\192.168.47.10\PracticeData\LabRslts` | From Medihost (TBD) |
 | `TempFolder` | `C:\SMEC AI\pdf-to-hl7` | Local temp directory |
-| `NotifyRecipient` | `amy.johnson@bjchealth.com.au` | Failure notifications |
+| `ProcessedLog` | `C:\SMEC AI\pdf-to-hl7\processed.log` | Assessed-email IDs; the dedupe mechanism (§7) |
+| `NotifyRecipient` | `amy.johnson@bjchealth.com.au` | **401 token alerts only** — no per-document notifications |
 | ~~`Carrier`~~ | — | Dropped: PAD cannot send text form fields (§4 note); MSH-3 defaults to `SMECAI` server-side |
 | `MaxRetries` | `2` | For 5xx / connection errors only |
 | `RetryDelaySeconds` | `10` | Delay between retries |
 
-Values still to be filled in: `GenieLabRsltsFolder` (Medihost), `NotifyRecipient` (BJC), the Credential Manager entry (Sean provides the token from `infra/bjc/terraform.tfvars`), and the doctor-list decision from §6.
+Values still to be filled in: `GenieLabRsltsFolder` (Medihost), `NotifyRecipient` (BJC), and the doctor-list decision from §6. The Credential Manager entry was created 21 Jul 2026.
 
 ---
 
@@ -599,30 +622,32 @@ curl -H "Authorization: Bearer <PAD_TOKEN>" -H "X-Source: email" \
 # No headers -> expect 401 (proves the gate is on)
 curl -i https://prod.d20i409xquw7x3.amplifyapp.com/api/convert
 
-# Convert a test PDF as the pipeline would
+# Convert a test PDF as the pipeline would (expect free classification —
+# gofax.par is deliberately unmapped, see §5)
 curl -X POST \
   -H "Authorization: Bearer <PAD_TOKEN>" \
   -H "X-Source: email" \
-  -H "X-Source-Mailbox: fax-pathology@bjchealth.com.au" \
+  -H "X-Source-Mailbox: gofax.par@bjchealth.com.au" \
   -F "pdf=@test-result.pdf" \
   https://prod.d20i409xquw7x3.amplifyapp.com/api/convert
 ```
 
-### End-to-end (from PAD)
+### End-to-end (from PAD, against the HL7 Testing folder)
 
 - [ ] Health check returns 200 with the flow's headers; 401 triggers the urgent-stop path
-- [ ] Auto-routed result saves `.hl7` to LabRslts with the response filename, ASCII + CR endings
-- [ ] Genie imports the file, matches/creates the patient, routes to the correct inbox per OBR-24
+- [ ] Auto-routed result saves `.hl7` to LabRslts with the response filename, ASCII + CR endings, **and the email moves to `Linked`**
+- [ ] Genie imports the file (it disappears from LabRslts), matches/creates the patient, routes to the correct inbox per OBR-24
 - [ ] PDF is attached to the patient record in Genie
-- [ ] `manual_review` response: **no** file written, correct Outlook category applied, email still in inbox, marked read, notification sent
-- [ ] Urgent fixture (see `docs/test-pdfs/urgent/`) → `reason: urgent_result`, never auto-filed
-- [ ] Referral PDF sent with `X-Source-Mailbox: fax-pathology@...` → `reason: mailbox_mismatch`
+- [ ] `manual_review` response: **no** file written, email still in the polled folder — **unread, no category, no flag, byte-for-byte untouched** — and the dashboard shows the row with the right reason
+- [ ] Urgent fixture (see `docs/test-pdfs/urgent/`) → `reason: urgent_result`, never auto-filed, red **Urgent** badge on the dashboard
+- [ ] Referral PDF via the pilot mailbox → classified freely (no `mailbox_mismatch` — unmapped mailbox); if confident, auto-routes as REF^I12 → **requires the Genie REF modifier (§9)**
 - [ ] Redacted/unreadable PDF → `reason: extraction_failed` (response has `success: false` — confirm the flow still branches on `action`)
-- [ ] Non-PDF attachments are skipped without error; multi-PDF emails produce one POST each
-- [ ] Oversize (>10 MB) PDF → 400 → "Invalid file" category, no retry loop
-- [ ] Retry works: kill connectivity mid-run, flow retries then applies "Service error" category
-- [ ] Crash recovery: restart server, Task Scheduler fires within 5 minutes, unread emails are picked up
-- [ ] Temp folder is cleaned of leftover PDFs on next startup
+- [ ] **Dedupe:** run the flow twice with a manual-review email left in the folder — second run skips it (no new POST, no duplicate dashboard row; `processed.log` contains its ID)
+- [ ] Non-PDF attachments are skipped without error; multi-PDF emails produce one POST each; a partial success (one filed, one not) leaves the email in the folder
+- [ ] Oversize (>10 MB) PDF → 400 → email stays put, no retry loop, ID logged
+- [ ] Retry works: kill connectivity mid-run → flow retries 2×, leaves the email, does **not** log it; next run retries it
+- [ ] Crash recovery: restart server, sign in as `medihost`, Task Scheduler fires within 5 minutes, unassessed emails are picked up
+- [ ] Temp folder is cleaned of leftover PDFs on next startup; `processed.log` prunes entries older than 30 days
 - [ ] Bearer token does not appear in PAD logs (`%LOCALAPPDATA%\Microsoft\Power Automate Desktop\Console\Logs`) — sensitive marking verified
 
 ### Genie verification

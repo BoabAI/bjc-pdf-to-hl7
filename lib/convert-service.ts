@@ -108,9 +108,10 @@ export async function convertPdf(
 
   if (!eligibility.eligible) {
     // Manual-review branch: no HL7, no filename, action=manual_review.
-    // PAD reads `action` and leaves the source email in the inbox tagged with
-    // `suggestedCategory`. The strict-mode missing-fields branch is handled
-    // here too — the API route translates it to HTTP 422.
+    // PAD reads `action` and leaves the source email in the inbox untouched
+    // (`suggestedCategory` is dashboard-facing only). The strict-mode
+    // missing-fields branch is handled here too — the API route translates
+    // it to HTTP 422.
     const baseData = formatExtractedData(
       extraction.data,
       extraction.referralInfo

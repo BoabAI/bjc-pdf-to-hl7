@@ -1,5 +1,7 @@
 # Statement of Advice
 
+> **Note (22 Jul 2026):** The email-automation design below has been revised in part during the pilot build. BJC's fax accounts are per-location GoFax mailboxes (pilot: `gofax.par@bjchealth.com.au`), not the three per-modality mailboxes described here; and per BJC ops (Nicole Pyne), the Linked/**Review**-folder model was replaced — successes still move to `Linked`, but documents that can't be auto-filed now **stay in the inbox untouched** (no Review folder, no Outlook categories), with review reasons visible on the dashboard. The body below is preserved as the original statement of advice; the current design is in `docs/operations/pad-integration-guide.md`.
+
 ## BJC PDF-TO-HL7 AUTOMATED WORKFLOW
 
 Automated processing of patient PDFs — referrals, pathology results, radiology results, and correspondence letters — from email inbox to Genie, with zero manual handling for documents the AI can read. Built by SMEC AI for BJC Health.

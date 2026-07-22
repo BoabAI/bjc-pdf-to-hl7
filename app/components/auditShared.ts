@@ -57,7 +57,7 @@ export interface AuditRow {
     | "unknown_doc_type"
     | "extraction_failed"
     | "urgent_result";
-  /** Suggested Outlook category label PAD would apply to the source email. */
+  /** Human review label for the routing reason (PAD applies no categories). */
   suggestedCategory?: string;
   /** Classifier self-reported confidence (0-100). */
   classificationConfidence?: number;

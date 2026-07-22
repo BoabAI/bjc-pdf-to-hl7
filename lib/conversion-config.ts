@@ -36,10 +36,17 @@ export function isMailboxSource(value: unknown): value is MailboxSource {
 export type MailboxCategory = "results" | "letters" | "none";
 
 /**
- * Production mailbox → category mapping. Lives here (not env / DB) so adding a
- * new GoFax inbox is a one-line code change with code review. The simulated
- * sentinels are what the web UI sends when the user picks "Fax inbox" /
- * "Admin inbox" from the simulation dropdown.
+ * Mailbox → category mapping. Lives here (not env / DB) so adding a GoFax
+ * inbox is a one-line code change with code review. The simulated sentinels
+ * are what the web UI sends when the user picks "Fax inbox" / "Admin inbox"
+ * from the simulation dropdown.
+ *
+ * Jul 2026 reality check: BJC's real fax accounts are per-LOCATION GoFax
+ * mailboxes. The pilot mailbox `gofax.par@bjchealth.com.au` is DELIBERATELY
+ * unmapped (mixed content; Nicole asked for free classification, 22 Jul
+ * 2026). The three `fax-*` entries below came from the superseded
+ * per-modality design and never existed in BJC's tenant — inert, kept only
+ * until the next behaviour-reviewed cleanup.
  */
 export const MAILBOX_CATEGORIES: Record<string, "results" | "letters"> = {
   "fax-pathology@bjchealth.com.au": "results",

@@ -87,8 +87,9 @@ export interface AuditRow {
    */
   routingReason?: string;
   /**
-   * Outlook category PAD should apply to the source email. Mirrors
-   * `routingReason` for ops-side filtering convenience.
+   * Human review label for `routingReason` (dashboard-facing; PAD applies
+   * no Outlook categories in the Jul 2026 pilot design). Kept for ops-side
+   * filtering convenience.
    */
   suggestedCategory?: string;
   /**
