@@ -20,14 +20,14 @@ Build is underway on the BJC server (MHS-SYD-APP47). Update this table as items 
 | ✅ Run-as facts verified | Existing "SMEC AI Power Automate" task: `BJC\medihost`, "run only when user is logged on", highest privileges (§10 updated to match) | 21 Jul 2026 |
 | ✅ Setup requests sent to Medihost + BJC | Initial email to Amol + Nicole (assumed the since-superseded three-mailbox / categories design) | 21 Jul 2026 |
 | ✅ Pilot design agreed with BJC (Nicole) | Pilot mailbox = `gofax.par@bjchealth.com.au` polling subfolder "Inbox/HL7 Testing" (folder created by Nicole); **no mailbox restrictions** (mixed line, ~95% results); **PD@-style folder moves replace Outlook categories**; local processed-ID log replaces mark-as-read. See §1/§5/§7. | 22 Jul 2026 |
+| ✅ PAuto Full Access to `gofax.par@bjchealth.com.au` | Granted — Amol: "permissions have been given already". Verify on first PAD poll of the mailbox. | 22 Jul 2026 |
+| ✅ Genie LabRslts UNC path confirmed | `\\192.168.47.20\Labrslts` (Amol). Note it's a different server to the PD@ scans share (`\\192.168.47.10`). Verify with a test write from MHS-SYD-APP47 as `BJC\medihost`. | 22 Jul 2026 |
 
 **Pending:**
 
 | Item | Owner |
 |---|---|
-| ⬜ PAuto Full Access to `gofax.par@bjchealth.com.au` (pilot mailbox — others wait for rollout) | Amol (Medihost) |
-| ⬜ Genie LabRslts UNC path confirmed | Amol (Medihost) |
-| ⬜ "Linked" subfolder created under "HL7 Testing" (needs mailbox access first) | Sean / Nicole |
+| ⬜ "Linked" subfolder created under "HL7 Testing" (mailbox access granted 22 Jul — ready to create) | Sean / Nicole |
 | ⬜ Doctor-list decision (§6) — recommended: `BJC_DOCTORS` in `infra/bjc/main.tf` | Sean + Nicole |
 | ⬜ Carrier decision — PAD cannot send the `carrier` form field (see §4 note), so MSH-3 defaults to `SMECAI`; server-side change needed if BJC wants `EMAIL` | Sean + BJC |
 | ⬜ Build the PAD flow (§7) | Sean |
@@ -323,7 +323,7 @@ SET BaseUrl TO 'https://prod.d20i409xquw7x3.amplifyapp.com'
 SET MailboxAddress TO 'gofax.par@bjchealth.com.au'
 SET MailFolder TO 'Inbox/HL7 Testing'      # pilot; switch to 'Inbox' at go-live
 SET LinkedFolder TO '%MailFolder%/Linked'  # successes move here (mirrors PD@)
-SET GenieLabRsltsFolder TO '\\\\server\\path\\LabRslts'
+SET GenieLabRsltsFolder TO '\\\\192.168.47.20\\Labrslts'
 SET TempFolder TO 'C:\\SMEC AI\\pdf-to-hl7'
 SET ProcessedLog TO '%TempFolder%\\processed.log'
 SET NotifyRecipient TO 'amy.johnson@bjchealth.com.au'   # 401 alerts only
@@ -578,10 +578,10 @@ Same Windows machine already running PAD and PDF-to-Directory.
 | Requirement | Detail | Status |
 |---|---|---|
 | **Server capacity** | Runs alongside PDF-to-Directory; heavy processing is in the cloud | Confirm |
-| **Genie LabRslts folder access** | `BJC\medihost` needs read/write; provide the full UNC path | Provide path |
+| **Genie LabRslts folder access** | `\\192.168.47.20\Labrslts` — `BJC\medihost` needs read/write. Path + permissions confirmed by Medihost 22 Jul 2026; verify with a test write from MHS-SYD-APP47 | Confirmed |
 | **Internet access** | Outbound HTTPS (443) to `*.amplifyapp.com` only; no inbound, no VPN | Confirm |
-| **Mailbox access** | `PAuto@bjchealth.com.au` needs Full Access to `gofax.par@bjchealth.com.au` (pilot); other GoFax location mailboxes at rollout | Grant |
-| **Linked subfolder** | `Linked` under the polled folder (`Inbox/HL7 Testing` for the pilot; `Inbox` at go-live) — Sean or Nicole creates it once access exists | Create |
+| **Mailbox access** | `PAuto@bjchealth.com.au` Full Access to `gofax.par@bjchealth.com.au` granted 22 Jul 2026; other GoFax location mailboxes at rollout | Granted |
+| **Linked subfolder** | `Linked` under the polled folder (`Inbox/HL7 Testing` for the pilot; `Inbox` at go-live) — access now granted, Sean or Nicole creates it | Create |
 | **Genie REF modifier** | Required before the pilot goes live (mixed fax line carries referrals — §9) | Confirm / Enable |
 | **Local temp folder** | `C:\SMEC AI\pdf-to-hl7\` — created automatically by the flow; also holds `processed.log` | Verify no restrictions |
 
@@ -598,7 +598,7 @@ No Outlook categories and no `Inbox/Review` folder are needed — the July 2026 
 | `MailFolder` | `Inbox/HL7 Testing` | The polled folder. Pilot value shown; flip to `Inbox` at go-live |
 | `LinkedFolder` | `%MailFolder%/Linked` | Fully-filed emails move here (mirrors PD@) |
 | `PadToken` | *(from Credential Manager at runtime)* | Never hardcoded in the flow; marked sensitive |
-| `GenieLabRsltsFolder` | `\\192.168.47.10\PracticeData\LabRslts` | From Medihost (TBD) |
+| `GenieLabRsltsFolder` | `\\192.168.47.20\Labrslts` | Confirmed by Medihost 22 Jul 2026 |
 | `TempFolder` | `C:\SMEC AI\pdf-to-hl7` | Local temp directory |
 | `ProcessedLog` | `C:\SMEC AI\pdf-to-hl7\processed.log` | Assessed-email IDs; the dedupe mechanism (§7) |
 | `NotifyRecipient` | `amy.johnson@bjchealth.com.au` | **401 token alerts only** — no per-document notifications |
@@ -606,7 +606,7 @@ No Outlook categories and no `Inbox/Review` folder are needed — the July 2026 
 | `MaxRetries` | `2` | For 5xx / connection errors only |
 | `RetryDelaySeconds` | `10` | Delay between retries |
 
-Values still to be filled in: `GenieLabRsltsFolder` (Medihost), `NotifyRecipient` (BJC), and the doctor-list decision from §6. The Credential Manager entry was created 21 Jul 2026.
+Values still to be filled in: `NotifyRecipient` (BJC) and the doctor-list decision from §6. The Credential Manager entry was created 21 Jul 2026; `GenieLabRsltsFolder` was confirmed by Medihost 22 Jul 2026.
 
 ---
 
