@@ -25,6 +25,7 @@ Build is underway on the BJC server (MHS-SYD-APP47). Update this table as items 
 | ✅ Cloud pipeline sanity test passed from the server | Fixture pathology PDF → `curl.exe` multipart POST → `auto_routed` → valid 264 KB HL7 written (to a local folder for the test). Proves token decrypt, TLS, multipart upload, Bedrock extraction, and HL7 file write end-to-end. | 24 Jul 2026 |
 | ✅ PAD flow built and verified | 38-action flow in PAD **2.68** (currently named "temp" — rename to `pdf-to-hl7`). Clean run against the empty pilot folder (0 emails) — live-proves PAuto's access to gofax.par and the folder path via the exact production code path. **See §7 "As built"** — the implementation diverges from the original pseudocode. | 24 Jul 2026 |
 | ✅ "HL7 Testing" folder is at the mailbox ROOT | Not under Inbox (initial `Inbox/HL7 Testing` polls returned `NotFound`). Polled folder is `HL7 Testing`; `Linked` goes under it (`HL7 Testing/Linked`). | 24 Jul 2026 |
+| ✅ Pilot-test plan agreed and sent to Nicole + Amol | Three fictional fixtures attached to the update email (pathology, radiology, referral — the referral doubles as the empirical REF-modifier check). Nicole: create `HL7 Testing/Linked`, forward each fixture to the Parramatta address in its own email, drag them into the folder, ping Sean. Sean: run the flow manually, then Nicole verifies the three Genie inboxes and deletes the test patients. **Scheduling is deliberately deferred until this passes.** | 24 Jul 2026 |
 
 **Pending:**
 
@@ -33,9 +34,9 @@ Build is underway on the BJC server (MHS-SYD-APP47). Update this table as items 
 | ⬜ "Linked" subfolder created under the root-level "HL7 Testing" folder (path `HL7 Testing/Linked`) | Sean / Nicole |
 | ⬜ Doctor-list decision (§6) — recommended: `BJC_DOCTORS` in `infra/bjc/main.tf` | Sean + Nicole |
 | ⬜ Carrier decision — PAD cannot send the `carrier` form field (see §4 note), so MSH-3 defaults to `SMECAI`; server-side change needed if BJC wants `EMAIL` | Sean + BJC |
-| ⬜ End-to-end test with live Genie import (flip `$Genie` in convert.ps1 to `\\192.168.47.20\Labrslts`, fixture email into HL7 Testing, coordinate fictional-patient cleanup with Nicole) | Sean + Nicole |
-| ⬜ Task Scheduler task (§10) | Sean |
-| ⬜ Testing checklist (§13) | Sean |
+| ⬜ Pilot test per the 24 Jul email — **before running: flip `$Genie` in convert.ps1 back to `\\192.168.47.20\Labrslts` (still pointing at the local test folder)** and rename the flow from "temp" to `pdf-to-hl7` | Sean + Nicole |
+| ⬜ Task Scheduler task (§10) — deliberately deferred until the pilot test passes | Sean |
+| ⬜ Remaining §13 checklist items (dedupe, urgent, unreadable, oversize, crash recovery) after the pilot test | Sean |
 | ⬜ Genie REF modifier confirmed — now a **pilot** gate, not just Phase 2: the mixed fax line carries referrals (§9) | Medihost |
 
 ---
@@ -712,6 +713,8 @@ Values still to be filled in: `NotifyRecipient` (BJC) and the doctor-list decisi
 
 ## 13. Testing Checklist
 
+> **As-built status (24 Jul 2026):** the API-connectivity block below is fully verified (21 Jul curl checks + 24 Jul end-to-end sanity test through `convert.ps1`, which is now the production code path). The first end-to-end pass is the **Nicole-led pilot test** described in Rollout Status. Checklist items that depend on the v1 gaps listed in §7 "As built" (health-check/401-stop path, retry behaviour, log pruning, sensitive-variable marking) are deferred until those are added — the flow currently has no in-PAD retry (a service error simply leaves the email unlogged for the next run) and the token never enters PAD variables at all (it lives in `token.dat`, decrypted inside convert.ps1).
+
 ### API connectivity (from the BJC server, PowerShell/curl)
 
 ```bash
@@ -735,7 +738,7 @@ curl -X POST \
 ### End-to-end (from PAD, against the HL7 Testing folder)
 
 - [ ] Health check returns 200 with the flow's headers; 401 triggers the urgent-stop path
-- [ ] Auto-routed result saves `.hl7` to LabRslts with the response filename, ASCII + CR endings, **and the email moves to `Linked`**
+- [ ] Auto-routed result saves `.hl7` to LabRslts with the response filename, ISO-8859-1 encoding + CR endings (written by convert.ps1), **and the email moves to `Linked`**
 - [ ] Genie imports the file (it disappears from LabRslts), matches/creates the patient, routes to the correct inbox per OBR-24
 - [ ] PDF is attached to the patient record in Genie
 - [ ] `manual_review` response: **no** file written, email still in the polled folder — **unread, no category, no flag, byte-for-byte untouched** — and the dashboard shows the row with the right reason
