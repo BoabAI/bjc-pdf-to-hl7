@@ -21,16 +21,19 @@ Build is underway on the BJC server (MHS-SYD-APP47). Update this table as items 
 | ✅ Setup requests sent to Medihost + BJC | Initial email to Amol + Nicole (assumed the since-superseded three-mailbox / categories design) | 21 Jul 2026 |
 | ✅ Pilot design agreed with BJC (Nicole) | Pilot mailbox = `gofax.par@bjchealth.com.au` polling subfolder "Inbox/HL7 Testing" (folder created by Nicole); **no mailbox restrictions** (mixed line, ~95% results); **PD@-style folder moves replace Outlook categories**; local processed-ID log replaces mark-as-read. See §1/§5/§7. | 22 Jul 2026 |
 | ✅ PAuto Full Access to `gofax.par@bjchealth.com.au` | Granted — Amol: "permissions have been given already". Verify on first PAD poll of the mailbox. | 22 Jul 2026 |
-| ✅ Genie LabRslts UNC path confirmed | `\\192.168.47.20\Labrslts` (Amol). Note it's a different server to the PD@ scans share (`\\192.168.47.10`). Verify with a test write from MHS-SYD-APP47 as `BJC\medihost`. | 22 Jul 2026 |
+| ✅ Genie LabRslts UNC path confirmed | `\\192.168.47.20\Labrslts` (Amol). Note it's a different server to the PD@ scans share (`\\192.168.47.10`). Write access verified with a test file 24 Jul. | 22 Jul 2026 |
+| ✅ Cloud pipeline sanity test passed from the server | Fixture pathology PDF → `curl.exe` multipart POST → `auto_routed` → valid 264 KB HL7 written (to a local folder for the test). Proves token decrypt, TLS, multipart upload, Bedrock extraction, and HL7 file write end-to-end. | 24 Jul 2026 |
+| ✅ PAD flow built and verified | 38-action flow in PAD **2.68** (currently named "temp" — rename to `pdf-to-hl7`). Clean run against the empty pilot folder (0 emails) — live-proves PAuto's access to gofax.par and the folder path via the exact production code path. **See §7 "As built"** — the implementation diverges from the original pseudocode. | 24 Jul 2026 |
+| ✅ "HL7 Testing" folder is at the mailbox ROOT | Not under Inbox (initial `Inbox/HL7 Testing` polls returned `NotFound`). Polled folder is `HL7 Testing`; `Linked` goes under it (`HL7 Testing/Linked`). | 24 Jul 2026 |
 
 **Pending:**
 
 | Item | Owner |
 |---|---|
-| ⬜ "Linked" subfolder created under "HL7 Testing" (mailbox access granted 22 Jul — ready to create) | Sean / Nicole |
+| ⬜ "Linked" subfolder created under the root-level "HL7 Testing" folder (path `HL7 Testing/Linked`) | Sean / Nicole |
 | ⬜ Doctor-list decision (§6) — recommended: `BJC_DOCTORS` in `infra/bjc/main.tf` | Sean + Nicole |
 | ⬜ Carrier decision — PAD cannot send the `carrier` form field (see §4 note), so MSH-3 defaults to `SMECAI`; server-side change needed if BJC wants `EMAIL` | Sean + BJC |
-| ⬜ Build the PAD flow (§7) | Sean |
+| ⬜ End-to-end test with live Genie import (flip `$Genie` in convert.ps1 to `\\192.168.47.20\Labrslts`, fixture email into HL7 Testing, coordinate fictional-patient cleanup with Nicole) | Sean + Nicole |
 | ⬜ Task Scheduler task (§10) | Sean |
 | ⬜ Testing checklist (§13) | Sean |
 | ⬜ Genie REF modifier confirmed — now a **pilot** gate, not just Phase 2: the mixed fax line carries referrals (§9) | Medihost |
@@ -307,7 +310,102 @@ The default roster used by the web UI is `DEFAULT_BJC_DOCTORS` in `lib/conversio
 
 ## 7. PAD Workflow Design
 
-Robin pseudocode for the full flow. Same service account, Task Scheduler setup, and conventions as the existing PDF-to-Directory flow — including its Linked-folder move on success. See `docs/engineering/pad-bearer-token-gotchas.md` for the exact `Invoke web service` action shape (multipart toggle, custom-header syntax, 90 s timeout, sensitive variables).
+### As built (24 Jul 2026) — READ THIS FIRST
+
+The flow was built on 24 Jul 2026 against **PAD 2.68.237.26118** and diverges from the pseudocode below in two forced ways, discovered on the server:
+
+1. **PAD 2.68's `Invoke web service` action cannot send multipart files** (no "Upload attachments" parameter, despite Microsoft's docs claiming one), and **no PAD version has an action that reads Windows Credential Manager**. The `pad-bearer-token-gotchas.md` doc predates these findings and describes capabilities that don't exist — see the correction banner at its top.
+2. The HTTP call therefore lives in **`C:\SMEC AI\pdf-to-hl7\convert.ps1`**, invoked from a *Run PowerShell script* action. It decrypts the bearer token from **`C:\SMEC AI\pdf-to-hl7\token.dat`** (DPAPI SecureString, readable only by `BJC\medihost` — same security model as Credential Manager; the 21 Jul `cmdkey` entry is unused), POSTs `temp.pdf` to `/api/convert` via `curl.exe -F` with the three PAD headers, on `auto_routed` writes the HL7 to the Genie folder in **ISO-8859-1**, and echoes the server's JSON (or `{"action":"service_error"}`) back to PAD.
+
+PAD keeps everything it's good at: Get emails (V3), dedupe against `processed.log`, base64→`temp.pdf`, `Contains()` branching on the response text, MoveV2 to `Linked`, and the log append. The polled folder is **`HL7 Testing` at the mailbox root** (not under Inbox), and successes move to **`HL7 Testing/Linked`**.
+
+The authoritative as-built flow (paste-ready Robin for PAD 2.68 — note the harvested syntax `Scripting.RunPowershellScript.RunScript Script: $'''…''' ScriptOutput=> Var`):
+
+```robin
+SET Mailbox TO $'''gofax.par@bjchealth.com.au'''
+SET TempPath TO $'''C:\\SMEC AI\\pdf-to-hl7\\'''
+IF (File.IfFile.Exists File: $'''%TempPath%temp.pdf''') THEN
+    File.Delete Files: $'''%TempPath%temp.pdf'''
+END
+Scripting.RunPowershellScript.RunScript Script: $'''Get-Content \"C:\\SMEC AI\\pdf-to-hl7\\processed.log\" -Raw''' ScriptOutput=> ProcessedIds
+@@folderPath: 'HL7 Testing'
+@@connectionDisplayName: 'Office 365 Outlook pdftodirectory-09a24'
+External.InvokeCloudConnector Connection: 'ad6d3c86-98fa-435c-bc66-3759564f18c1' ConnectorId: '/providers/Microsoft.PowerApps/apis/shared_office365' OperationId: 'GetEmailsV3' @folderPath: $'''HL7 Testing''' @fetchOnlyWithAttachment: True @fetchOnlyUnread: False @mailboxAddress: Mailbox @includeAttachments: True @top: 25 @GetEmailsV3Response=> GetEmailsV3Response
+LOOP FOREACH CurrentEmail IN GetEmailsV3Response.value
+    IF NOT Contains(ProcessedIds, CurrentEmail.id, False) THEN
+        SET HasPdf TO $'''no'''
+        SET AllFiled TO $'''yes'''
+        SET Assessed TO $'''yes'''
+        LOOP FOREACH CurrentAttachment IN CurrentEmail.attachments
+            IF Contains(CurrentAttachment.name, $'''pdf''', True) THEN
+                SET HasPdf TO $'''yes'''
+                File.ConvertFromBase64 Base64Text: CurrentAttachment.contentBytes File: $'''%TempPath%temp.pdf''' IfFileExists: File.IfExists.Overwrite
+                Scripting.RunPowershellScript.RunScript Script: $'''& \"C:\\SMEC AI\\pdf-to-hl7\\convert.ps1\"''' ScriptOutput=> ConvertResponse
+                IF Contains(ConvertResponse, $'''auto_routed''', True) THEN
+                    SET LastResult TO $'''filed'''
+                ELSE
+                    SET AllFiled TO $'''no'''
+                    IF NOT Contains(ConvertResponse, $'''manual_review''', True) THEN
+                        SET Assessed TO $'''no'''
+                    END
+                END
+                File.Delete Files: $'''%TempPath%temp.pdf'''
+            END
+        END
+        IF Contains(Assessed, $'''yes''', True) THEN
+            IF Contains(HasPdf, $'''yes''', True) THEN
+                IF Contains(AllFiled, $'''yes''', True) THEN
+                    @@folderPath: 'HL7 Testing/Linked'
+@@connectionDisplayName: 'Office 365 Outlook pdftodirectory-09a24'
+External.InvokeCloudConnector Connection: 'ad6d3c86-98fa-435c-bc66-3759564f18c1' ConnectorId: '/providers/Microsoft.PowerApps/apis/shared_office365' OperationId: 'MoveV2' @messageId: CurrentEmail.id @folderPath: $'''HL7 Testing/Linked''' @mailboxAddress: Mailbox @MoveV2Response=> MoveV2Response
+                END
+            END
+            Scripting.RunPowershellScript.RunScript Script: $'''Add-Content \"C:\\SMEC AI\\pdf-to-hl7\\processed.log\" \"%CurrentEmail.id%\"''' ScriptOutput=> AppendResult
+        END
+    END
+END
+```
+
+And `convert.ps1` as deployed (for a safe dry-run, point `$Genie` at `C:\SMEC AI\pdf-to-hl7` — the HL7 lands locally instead of importing into live Genie):
+
+```powershell
+$ErrorActionPreference = 'Stop'
+$BaseUrl = 'https://prod.d20i409xquw7x3.amplifyapp.com'
+$Mailbox = 'gofax.par@bjchealth.com.au'
+$Dir     = 'C:\SMEC AI\pdf-to-hl7'
+$Genie   = '\\192.168.47.20\Labrslts'
+try {
+    $sec   = Get-Content (Join-Path $Dir 'token.dat') | ConvertTo-SecureString
+    $token = (New-Object System.Net.NetworkCredential('', $sec)).Password
+    $resp  = & curl.exe -s --max-time 90 -X POST "$BaseUrl/api/convert" `
+        -H "Authorization: Bearer $token" `
+        -H "X-Source: email" `
+        -H "X-Source-Mailbox: $Mailbox" `
+        -F "pdf=@$Dir\temp.pdf"
+    if (-not $resp) { Write-Output '{"action":"service_error"}'; exit }
+    $json = $resp | ConvertFrom-Json
+    if ($json.action -eq 'auto_routed' -and $json.filename -and $json.hl7Content) {
+        $enc = [System.Text.Encoding]::GetEncoding(28591)
+        [System.IO.File]::WriteAllText((Join-Path $Genie $json.filename), $json.hl7Content, $enc)
+    }
+    Write-Output $resp
+} catch {
+    Write-Output ('{"action":"service_error","detail":"' + ($_.Exception.Message -replace '"','') + '"}')
+}
+```
+
+To recreate `token.dat` (as `BJC\medihost`; the token comes from `pad_token` in `infra/bjc/terraform.tfvars`):
+
+```powershell
+ConvertTo-SecureString '<paste token>' -AsPlainText -Force | ConvertFrom-SecureString | Set-Content 'C:\SMEC AI\pdf-to-hl7\token.dat'
+Remove-Item (Get-PSReadlineOption).HistorySavePath -ErrorAction SilentlyContinue
+```
+
+Known v1 gaps (deliberate, add before go-live): no 401 alert email, no startup health check, no `processed.log` pruning, and a service error *after* a successful Bedrock call (e.g. Genie share offline during the HL7 write) retries with one extra Bedrock charge.
+
+### Original design (Robin pseudocode — superseded by the as-built section above)
+
+The pseudocode below is kept for design intent and the §8 error matrix it maps to. Where it disagrees with the as-built section (Invoke web service with attachments, Credential Manager token retrieval, `Inbox/HL7 Testing` paths), the as-built section wins.
 
 ```robin
 # ─────────────────────────────────────────────────────────────────────
@@ -590,6 +688,8 @@ No Outlook categories and no `Inbox/Review` folder are needed — the July 2026 
 ---
 
 ## 12. Flow Variables
+
+> **As-built note (24 Jul 2026):** the shipped flow only has two PAD variables — `Mailbox` and `TempPath`. `BaseUrl`, the Genie folder, and the token handling all live in `convert.ps1` / `token.dat` (§7 "As built"); `MailFolder` is the literal `HL7 Testing` (mailbox root) and `LinkedFolder` is `HL7 Testing/Linked`. The table below reflects the original design.
 
 | Variable | Example value | Notes |
 |---|---|---|

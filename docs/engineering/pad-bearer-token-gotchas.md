@@ -1,5 +1,14 @@
 # Power Automate Desktop — Bearer Token + Multipart PDF Upload Gotchas
 
+> **⚠️ CORRECTION (24 Jul 2026, verified on MHS-SYD-APP47, PAD 2.68.237.26118):** two load-bearing assumptions in this doc turned out to be false on real PAD:
+>
+> 1. **`Invoke web service` has no multipart/attachments support.** The "Upload attachments" toggle (Gotchas 1, 9, 10 and the Robin snippet's `IncludeAttachments`/`Attachments` parameters) does not exist in the 2.68 action dialog, and no first-hand report of it working could be found anywhere — Microsoft's own community walkthrough for multipart hand-builds the body instead.
+> 2. **No PAD version has an action that reads Windows Credential Manager.** There is no `Credentials` module at all; `Credentials.GetPasswordFromWindowsCredentials` (the "recommended path" snippet below) fails to paste with "Module 'Credentials' wasn't found". The only PAD-native credential action is *Get credential* (Power Automate secret variables), backed by portal-configured Azure Key Vault/CyberArk — not Credential Manager.
+>
+> **The shipped implementation** (see `docs/operations/pad-integration-guide.md` §7 "As built") uses a *Run PowerShell script* action calling `convert.ps1`, which reads the token from a DPAPI-encrypted `token.dat` (same per-user security model as Credential Manager) and POSTs via `curl.exe -F`. The 2.68 Robin syntax for that action, harvested from the designer, is `Scripting.RunPowershellScript.RunScript Script: $'''…''' ScriptOutput=> Var`.
+>
+> The gotchas below on **headers** (2–5), **DPAPI/per-user credential scoping** (6–7), **sensitive logging** (8), **TLS** (11), and **timeouts** (12) remain valid and were applied to the shipped design. Treat every mention of `Upload attachments`/`IncludeAttachments` and the `Credentials.*` action as historical.
+
 _Generated: 2026-04-30_ — research only, no code changes pending approval.
 
 Audience: a developer adding `Authorization: Bearer <token>` to an existing PAD `Invoke web service` action that already POSTs a PDF as multipart/form-data, running unattended under a Windows service account on a single BJC Health server.
