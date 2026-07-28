@@ -24,14 +24,18 @@ Build is underway on the BJC server (MHS-SYD-APP47). Update this table as items 
 | ✅ Genie LabRslts UNC path confirmed | `\\192.168.47.20\Labrslts` (Amol). Note it's a different server to the PD@ scans share (`\\192.168.47.10`). Write access verified with a test file 24 Jul. | 22 Jul 2026 |
 | ✅ Cloud pipeline sanity test passed from the server | Fixture pathology PDF → `curl.exe` multipart POST → `auto_routed` → valid 264 KB HL7 written (to a local folder for the test). Proves token decrypt, TLS, multipart upload, Bedrock extraction, and HL7 file write end-to-end. | 24 Jul 2026 |
 | ✅ PAD flow built and verified | 38-action flow in PAD **2.68** (currently named "temp" — rename to `pdf-to-hl7`). Clean run against the empty pilot folder (0 emails) — live-proves PAuto's access to gofax.par and the folder path via the exact production code path. **See §7 "As built"** — the implementation diverges from the original pseudocode. | 24 Jul 2026 |
-| ✅ "HL7 Testing" folder is at the mailbox ROOT | Not under Inbox (initial `Inbox/HL7 Testing` polls returned `NotFound`). Polled folder is `HL7 Testing`; `Linked` goes under it (`HL7 Testing/Linked`). | 24 Jul 2026 |
+| ✅ Polled folder is `HL7 Testing` (bare, single-segment) | ⚠️ **Reason corrected 28 Jul:** the initial `Inbox/HL7 Testing` failure was *not* because the folder sits at the mailbox root — it was the **`/`**. The O365 connector rejects slashes in a custom-text folder path. Bare single-segment names resolve fine at any depth, which is why `HL7 Testing` works. The value landed on is right; the original reasoning was wrong. Go-live's flip to bare `Inbox` is unaffected. | 24 Jul 2026 |
+| ✅ Pilot conversion phase passed | All three fax-rendered fixtures converted correctly in one batch: referral → `consult_letter`/`REF^I12`/PHY/auto_routed/95%, radiology → ORU/RAD/97%, pathology → ORU/LAB/98%. **Fax-quality input extracts fine.** | 28 Jul 2026 |
+| 🔴 **Incident — 269 duplicate imports into live Genie** | Schedule enabled on 28 Jul before dedupe was genuinely verified. `processed.log` was never written (append sat downstream of the failing `MoveV2`), so all three fixtures were re-converted every 12 min for ~18 hours: **271 conversions, 269 HL7 files imported** across three fictional patients and all three Genie inboxes. Stopped 08:14 on 29 Jul when Nicole moved the email out of the polled folder. **Fix + full write-up in §7.** | 28–29 Jul 2026 |
 | ✅ Pilot-test plan agreed and sent to Nicole + Amol | Three fictional fixtures attached to the update email (pathology, radiology, referral — the referral doubles as the empirical REF-modifier check). Nicole: create `HL7 Testing/Linked`, forward each fixture to the Parramatta address in its own email, drag them into the folder, ping Sean. Sean: run the flow manually, then Nicole verifies the three Genie inboxes and deletes the test patients. **Scheduling is deliberately deferred until this passes.** | 24 Jul 2026 |
 
 **Pending:**
 
 | Item | Owner |
 |---|---|
-| ⬜ "Linked" subfolder created under the root-level "HL7 Testing" folder (path `HL7 Testing/Linked`) | Sean / Nicole |
+| 🔴 **Disable the `SMEC AI BJC PDF-to-HL7` scheduled task until the §7 ordering fix is applied in PAD** — the loop is currently dormant only because the emails were moved out by hand; anything landing in `HL7 Testing` restarts it | Sean |
+| 🔴 Clean up the 269 duplicate imports in Genie (90 Pathology, 90 Incoming Letters, 89 Radiology) + delete the 3 fictional test patients | Nicole |
+| ⬜ `MoveV2` → `Linked` still broken (slash *and* bare name both `NotFound`) — next probe is `HL7 Testing` itself; if that fails too it's the shared-mailbox write path → Graph `HttpRequest` (§7) | Sean |
 | ⬜ Doctor-list decision (§6) — recommended: `BJC_DOCTORS` in `infra/bjc/main.tf` | Sean + Nicole |
 | ⬜ Carrier decision — PAD cannot send the `carrier` form field (see §4 note), so MSH-3 defaults to `SMECAI`; server-side change needed if BJC wants `EMAIL` | Sean + BJC |
 | ⬜ Pilot test per the 24 Jul email — **before running: flip `$Genie` in convert.ps1 back to `\\192.168.47.20\Labrslts` (still pointing at the local test folder)** and rename the flow from "temp" to `pdf-to-hl7` | Sean + Nicole |
@@ -79,10 +83,12 @@ Power Automate Desktop (PAD)
         |     |     +-- action = "manual_review" -> nothing (email untouched)
         |     |     +-- Delete temp file
         |     |
+        |     +-- Append email ID to processed log FIRST (skipped on service
+        |         errors, so transient outages retry next run -- but never
+        |         made conditional on the move below; see the 28-29 Jul
+        |         incident in section 7)
         |     +-- ALL PDFs filed -> move email to the Linked subfolder
         |     +-- otherwise      -> email stays in the inbox as it arrived
-        |     +-- Append email ID to processed log (skipped on service errors,
-        |         so transient outages retry next run)
         |
         v
 Genie LabRslts folder (HL7 auto-import)
@@ -354,6 +360,7 @@ LOOP FOREACH CurrentEmail IN GetEmailsV3Response.value
             END
         END
         IF Contains(Assessed, $'''yes''', True) THEN
+            Scripting.RunPowershellScript.RunScript Script: $'''Add-Content \"C:\\SMEC AI\\pdf-to-hl7\\processed.log\" \"%CurrentEmail.id%\"''' ScriptOutput=> AppendResult
             IF Contains(HasPdf, $'''yes''', True) THEN
                 IF Contains(AllFiled, $'''yes''', True) THEN
                     @@folderPath: 'HL7 Testing/Linked'
@@ -361,11 +368,48 @@ LOOP FOREACH CurrentEmail IN GetEmailsV3Response.value
 External.InvokeCloudConnector Connection: 'ad6d3c86-98fa-435c-bc66-3759564f18c1' ConnectorId: '/providers/Microsoft.PowerApps/apis/shared_office365' OperationId: 'MoveV2' @messageId: CurrentEmail.id @folderPath: $'''HL7 Testing/Linked''' @mailboxAddress: Mailbox @MoveV2Response=> MoveV2Response
                 END
             END
-            Scripting.RunPowershellScript.RunScript Script: $'''Add-Content \"C:\\SMEC AI\\pdf-to-hl7\\processed.log\" \"%CurrentEmail.id%\"''' ScriptOutput=> AppendResult
         END
     END
 END
 ```
+
+> ⚠️ **The `Add-Content` to `processed.log` MUST come before the `MoveV2`, and must
+> never be nested inside the `AllFiled` branch.** The log records *"this email has
+> been assessed"* — it does not record *"this email was moved"*. Any ordering that
+> makes the append reachable only when the move succeeds turns a cosmetic
+> folder-move failure into an infinite reprocessing loop. This is not theoretical:
+> it caused the 28–29 Jul 2026 incident below.
+
+#### Incident: 269 duplicate imports, 28–29 Jul 2026
+
+Between 14:38 on 28 Jul and 08:14 on 29 Jul (Sydney) the scheduled flow re-converted
+the same three pilot fixtures on **every** 12-minute run — **90 batches, 271 conversions,
+269 HL7 files written into live Genie** (90 × pathology → Pathology, 90 × consult letter →
+Incoming Letters, 89 × radiology → Radiology, across three fictional patients). Nicole
+spotted it in Incoming Letters on the morning of the 29th and stopped it by moving the
+email out of the polled folder by hand.
+
+**Root cause — the ordering fixed above, not the move itself.** `MoveV2` to
+`HL7 Testing/Linked` has never worked (the O365 connector rejects slashes in a custom
+folder path; bare `Linked` also returns `NotFound`). On 28 Jul that failure was papered
+over by setting **On-error → continue** on the `MoveV2` action. The sub-option in effect
+skipped the remainder of the loop iteration, so the `Add-Content` — which sat *after*
+`MoveV2` in the same block — never ran. `processed.log` stayed empty, so every run saw
+all three emails as new. The convert step runs *before* the move, so each email was still
+fully converted and filed on every pass: maximum cost, zero dedupe.
+
+**Why it looked fine at first:** the 28 Jul verification checked for repeat rows minutes
+after the 14:32 batch and saw none. The next scheduled run was at 14:38 and it *did*
+repeat. A dedupe check must span at least two scheduled runs before it means anything.
+
+**Lessons folded into this guide:**
+
+1. The append is now unconditional on the move (fixed above).
+2. `MoveV2` remains broken — see §7 "Known v1 gaps". Until the folder-move path is
+   resolved, emails stay in `HL7 Testing` and the processed log is the *only* thing
+   preventing reprocessing. It is load-bearing, not a nicety.
+3. Never leave a schedule enabled against a flow whose dedupe has not been observed
+   across two consecutive runs.
 
 And `convert.ps1` as deployed (for a safe dry-run, point `$Genie` at `C:\SMEC AI\pdf-to-hl7` — the HL7 lands locally instead of importing into live Genie):
 
@@ -403,6 +447,15 @@ Remove-Item (Get-PSReadlineOption).HistorySavePath -ErrorAction SilentlyContinue
 ```
 
 Known v1 gaps (deliberate, add before go-live): no 401 alert email, no startup health check, no `processed.log` pruning, and a service error *after* a successful Bedrock call (e.g. Genie share offline during the HL7 write) retries with one extra Bedrock charge.
+
+**Open defect — `MoveV2` to `Linked` does not work.** The O365 connector rejects a
+custom folder path containing `/` (`HL7 Testing/Linked` → `NotFound`), and bare `Linked`
+also returns `NotFound`. It currently runs with On-error → continue, so filed emails stay
+in `HL7 Testing` instead of moving. That is cosmetic **provided** `processed.log` is being
+written (see the incident note above). Next diagnostic step: point the `Folder` parameter
+at `HL7 Testing` itself — if that also returns `NotFound`, the problem is the
+shared-mailbox write path rather than the path syntax, and the fix is Graph via the
+connector's `HttpRequest` operation. Do not chase `MoveV3`; it does not exist.
 
 ### Original design (Robin pseudocode — superseded by the as-built section above)
 
@@ -588,6 +641,14 @@ Design notes:
 
 - **PD@-mirror decision (Nicole, 22 Jul 2026):** filed → `Linked`; everything else stays in the inbox untouched. No categories, no read-state changes, no per-document notification emails — the dashboard (red **Urgent** badge, reason per row, patient initials, received time) is the visibility layer.
 - **The processed-ID log is the dedupe mechanism.** Without it, every email left in the inbox would be re-sent to Bedrock each 15-minute run (~48 calls/day per lingering fax) and would write duplicate dashboard rows. The log lives on the server; if it's ever lost, each leftover email gets one extra assessment and the log rebuilds — self-healing. Graph message IDs change when an email is manually moved between folders, so an email dragged out of the inbox and back gets one re-assessment; harmless.
+  - **It is the *only* guard, and it is unconditional.** Because the `Linked` move is
+    currently broken (§7), filed emails stay in the polled folder forever — so the log is
+    the sole thing standing between a filed document and unbounded re-import into Genie.
+    The append must therefore never be nested inside, or sequenced after, any action that
+    can fail. On 28–29 Jul 2026 it was sequenced after the failing move and the pilot
+    re-imported 269 documents. Estimated real-world exposure at go-live volumes: every
+    email left in the polled folder costs one Bedrock call and one Genie import per run,
+    ~120/day each at a 12-minute cadence.
 - **Service errors are deliberately NOT logged as processed** — a transient outage or timeout leaves the email eligible for retry next run. Failed requests don't reach Bedrock, so this retry loop is free. Only a 200 (either action) or a 400/422 marks the email assessed.
 - **Multi-attachment emails**: one POST per PDF; the email moves to `Linked` only when **every** PDF auto-filed. A partial success stays in the inbox (the filed PDFs are already in Genie — the dashboard shows which). GoFax emails normally carry exactly one PDF, so this is a rare edge.
 - **One flow (or one loop iteration set) per mailbox** — `X-Source-Mailbox` must match the mailbox actually being polled. For the pilot it resolves to free classification server-side (§5) but is still recorded in the audit log.
@@ -745,7 +806,13 @@ curl -X POST \
 - [ ] Urgent fixture (see `docs/test-pdfs/urgent/`) → `reason: urgent_result`, never auto-filed, red **Urgent** badge on the dashboard
 - [ ] Referral PDF via the pilot mailbox → classified freely (no `mailbox_mismatch` — unmapped mailbox); if confident, auto-routes as REF^I12 → **requires the Genie REF modifier (§9)**
 - [ ] Redacted/unreadable PDF → `reason: extraction_failed` (response has `success: false` — confirm the flow still branches on `action`)
-- [ ] **Dedupe:** run the flow twice with a manual-review email left in the folder — second run skips it (no new POST, no duplicate dashboard row; `processed.log` contains its ID)
+- [ ] **Dedupe — manual_review:** run the flow twice with a manual-review email left in the folder — second run skips it (no new POST, no duplicate dashboard row; `processed.log` contains its ID)
+- [ ] **Dedupe — auto_routed (the case that caused the 28–29 Jul incident):** leave a
+      *successfully filed* email in the folder and let **two consecutive scheduled runs**
+      elapse. No new audit rows, no second `.hl7` in LabRslts, and its ID is in
+      `processed.log`. Check this *after* the second scheduled run, not minutes after the
+      first — the failure mode is invisible inside one interval. This must pass before
+      any schedule is enabled.
 - [ ] Non-PDF attachments are skipped without error; multi-PDF emails produce one POST each; a partial success (one filed, one not) leaves the email in the folder
 - [ ] Oversize (>10 MB) PDF → 400 → email stays put, no retry loop, ID logged
 - [ ] Retry works: kill connectivity mid-run → flow retries 2×, leaves the email, does **not** log it; next run retries it
