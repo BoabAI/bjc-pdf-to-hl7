@@ -40,6 +40,42 @@ Server sessions are TeamViewer to **MHS-SYD-APP47** as **`BJC\medihost`**
 - [ ] **Send Nicole the reply** (draft prepared 29 Jul). It states the automation
       is off — only true after the first box is ticked.
 
+## Root cause — corrected 29 Jul after live debugging
+
+The ordering fault below was real, but it was **not** the whole story, and on its own
+it would not have caused the incident. There were **two independent faults, either of
+which alone breaks dedupe**:
+
+**Fault 1 — ordering.** The `processed.log` append sat after the always-failing
+`MoveV2`, inside the same block. Latent; bites whenever the move fails.
+
+**Fault 2 — file permissions (the actual cause).** `C:\SMEC AI\pdf-to-hl7\processed.log`
+inherited an ACL granting `BUILTIN\Users` only `ReadAndExecute`. The flow runs as
+`BJC\medihost`, a plain domain user, **non-elevated** — so every `Add-Content` to that
+file failed with access-denied. It looked fine because **PAD's *Run PowerShell script*
+action silently swallows non-terminating PowerShell errors**: the action reported
+success, the flow carried on, and nothing was ever written. That is why the log stayed
+empty through 90 consecutive batches with no error anywhere.
+
+Diagnosing this was confusing because an *elevated* PowerShell window writes the file
+fine (it matches the `Administrators` FullControl entry), so manual testing appeared to
+prove the path and permissions were good. The split-token difference between an admin
+console and the non-elevated PAD process is the whole gap.
+
+**Consequences for how this flow should be built:**
+
+1. **Do not use `Run PowerShell script` for anything whose failure matters.** It cannot
+   be trusted to surface errors. Use PAD's native `File` actions — they raise real,
+   visible errors (that is how the permission fault was finally found).
+2. **Write the log as UTF-8, not `Unicode`** (PAD's `Unicode` is UTF-16). A UTF-16 ID
+   appended to a plain-text file cannot be substring-matched on read, so dedupe fails
+   even when the write succeeds.
+3. **Grant `BJC\medihost` modify rights on the working folder**, so files created there
+   inherit them:
+   `icacls "C:\SMEC AI\pdf-to-hl7" /grant "BJC\medihost:(OI)(CI)M"`
+   Re-grant on the file itself after recreating it from an elevated session, otherwise
+   it picks the restrictive inherited ACL straight back up.
+
 ## Phase 1 — Fix the flow in PAD (~10 minutes)
 
 - [ ] Open the PAD console → flow **`desktop-pdf-to-hl7`** → Edit.
@@ -57,9 +93,34 @@ Server sessions are TeamViewer to **MHS-SYD-APP47** as **`BJC\medihost`**
       Go to next action**. Whatever sub-option was active on the 28th skipped the
       rest of the loop iteration — that is what starved the log. The reordering
       makes this harmless, but set it correctly anyway.
+- [ ] **Replace the PowerShell `Add-Content` with the native `File → Write text to
+      file`** action: path `C:\SMEC AI\pdf-to-hl7\processed.log`, *If file exists*
+      **Append**, *Append new line* **Yes**, Encoding **UTF-8** (⚠️ *not* `Unicode` —
+      that is UTF-16 and breaks the substring match on read).
+      Text to write: `%CurrentDateTime% %EmailId%`.
+- [ ] The message ID must be lifted into a plain variable first — `%CurrentEmail.id%`
+      is unreliable inside an action's text field. Add `SET EmailId TO CurrentEmail.id`
+      immediately before the write.
+- [ ] `%CurrentDateTime%` is **not** a built-in. Add `Date time → Get current date and
+      time` once near the top of the flow, outside the email loop. The date prefix is
+      optional today but cannot be retrofitted — undated entries can never be pruned
+      by age (see Phase 4 note on pruning).
+- [ ] **Replace the PowerShell `Get-Content` read with the native `File → Read text
+      from file`**: same path, Encoding **UTF-8**, *Store content as* **single text
+      value**, into `ProcessedIds`. Both ends must be native and both UTF-8, or the
+      write and the read disagree.
 - [ ] Save the flow.
-- [ ] Confirm `C:\SMEC AI\pdf-to-hl7\processed.log` exists (it should — it is
-      just empty; the flow's first action reads it and errors if it is missing).
+- [ ] Recreate the log clean so no UTF-16 fragments survive, and re-grant rights
+      (a file created from an elevated session inherits the restrictive ACL):
+
+      $log = "C:\SMEC AI\pdf-to-hl7\processed.log"
+      Remove-Item $log -Force
+      New-Item $log -ItemType File | Out-Null
+      icacls $log /grant "BJC\medihost:(M)"
+
+- [ ] Confirm the file exists afterwards — the flow's first action reads it and errors
+      if it is missing (the as-built flow dropped the original design's create-if-missing
+      guard).
 
 ## Phase 2 — Prove it (~30 minutes, no Genie pollution)
 
@@ -138,6 +199,30 @@ with body `{"destinationId": "<folder id>"}`. This bypasses the `Folder` paramet
 and its slash handling entirely.
 
 - [ ] Do not chase `MoveV3` — it does not exist in the connector.
+
+### Everything tried against the `Folder` parameter (29 Jul) — all failed
+
+| Attempt | Result |
+|---|---|
+| `HL7 Testing/Linked` (path with slash) | `NotFound` — connector rejects `/` in custom text |
+| `Linked` (bare display name) | `NotFound` |
+| Folder ID from the OWA URL (`AAMk…`) | Action runs, email does not move |
+| Folder picker dropdown | *"Failed to retrieve the available data"* — cannot enumerate |
+| Graph via connector `HttpRequest` | Blocked: `Argument 'Body' must be binary` — the JSON body needs writing to a file → Base64 → binary data, three extra actions |
+
+The picker failing to enumerate is the significant one: it suggests the connection cannot
+list folders in the shared mailbox at design time at all, which is why no value we supply
+by hand is accepted either. Before the Graph route, confirm **Original Mailbox Address**
+holds the *literal* `gofax.par@bjchealth.com.au` (not `%Mailbox%` — the design-time picker
+cannot resolve a variable) and that the Folder field is **empty** when the dropdown is
+opened.
+
+**This is a genuine go-live blocker, but not a pilot blocker.** With dedupe working,
+emails accumulating in `HL7 Testing` is cosmetic *at pilot volume only*. At production
+volume it is not: `GetEmailsV3` uses `@top: 25`, so once more than 25 emails accumulate
+the flow only ever sees a 25-email window and newly arrived faxes may never be converted
+— silently, with no error. Either the move works or `top` is raised before this points at
+a real inbox.
 
 ## Phase 5 — Paperwork
 
