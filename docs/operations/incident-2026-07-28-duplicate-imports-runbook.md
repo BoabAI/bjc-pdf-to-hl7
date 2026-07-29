@@ -200,6 +200,32 @@ and its slash handling entirely.
 
 - [ ] Do not chase `MoveV3` — it does not exist in the connector.
 
+### ✅ RESOLVED 29 Jul — the destination must hang off a well-known root
+
+`MoveV2` resolves a multi-segment folder path **only from a well-known root** (`Inbox`,
+`Archive`, `Deleted Items`, …). A custom top-level folder cannot be used as the root of a
+path, which is why `HL7 Testing/Linked` was unreachable by every value we tried — the
+folder existed, but the connector had no way to address it.
+
+**Working layout (gofax.par):**
+
+```
+gofax.par@bjchealth.com.au
+├── Inbox
+│   └── HL7_linked        <- move destination:  Inbox/HL7_linked
+└── HL7_testing           <- polled folder (root level, single segment)
+```
+
+The polled folder works as a bare single segment (`HL7_testing`) because single-segment
+names resolve by display name anywhere. The *destination* needs the `Inbox/` prefix.
+This matches the PD@ flow exactly (`Inbox/Linked`), which is why that one always worked.
+
+⚠️ **Folder names now use underscores** (`HL7_testing`, `HL7_linked`) — not the
+`HL7 Testing` / `Linked` names used throughout the earlier design docs. Both the
+`GetEmailsV3` and `MoveV2` folder paths must match the real names exactly; a wrong folder
+name and an empty folder are indistinguishable at runtime. Nicole drags mail into the
+polled folder by hand, so she needs to know the names changed.
+
 ### ⚠️ The slash is NOT the problem — corrected 29 Jul from the working PD@ flow
 
 The sibling flow `SMEC AI BJC PDF-to-directory` performs this move **successfully**, on

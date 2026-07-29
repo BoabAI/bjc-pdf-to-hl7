@@ -35,7 +35,7 @@ Build is underway on the BJC server (MHS-SYD-APP47). Update this table as items 
 |---|---|
 | 🔴 **Disable the `SMEC AI BJC PDF-to-HL7` scheduled task until the §7 ordering fix is applied in PAD** — the loop is currently dormant only because the emails were moved out by hand; anything landing in `HL7 Testing` restarts it | Sean |
 | 🔴 Clean up the 269 duplicate imports in Genie (90 Pathology, 90 Incoming Letters, 89 Radiology) + delete the 3 fictional test patients | Nicole |
-| ⬜ `MoveV2` → `Linked` still broken. **Slashes are NOT the cause** — the PD@ flow moves to `Inbox/Linked` on the same connection. `Linked` is simply not where we assumed: not under `HL7 Testing`, not at the root. **Try `Inbox/Linked` first.** Also: every attempt so far ran with On-error→continue, so the real error has never been read (§7) | Sean |
+| ✅ **`MoveV2` FIXED 29 Jul** — the destination path must hang off a **well-known root**. A custom top-level folder cannot root a path, so `HL7 Testing/Linked` was unreachable by any value. Working layout: polled folder `HL7_testing` (root, single segment), destination **`Inbox/HL7_linked`** — same shape as the PD@ flow. Note folders were renamed to underscores; both paths must match exactly | Sean |
 | ⬜ Doctor-list decision (§6) — recommended: `BJC_DOCTORS` in `infra/bjc/main.tf` | Sean + Nicole |
 | ⬜ Carrier decision — PAD cannot send the `carrier` form field (see §4 note), so MSH-3 defaults to `SMECAI`; server-side change needed if BJC wants `EMAIL` | Sean + BJC |
 | ⬜ Pilot test per the 24 Jul email — **before running: flip `$Genie` in convert.ps1 back to `\\192.168.47.20\Labrslts` (still pointing at the local test folder)** and rename the flow from "temp" to `pdf-to-hl7` | Sean + Nicole |
