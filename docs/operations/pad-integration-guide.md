@@ -452,10 +452,28 @@ Known v1 gaps (deliberate, add before go-live): no 401 alert email, no startup h
 custom folder path containing `/` (`HL7 Testing/Linked` → `NotFound`), and bare `Linked`
 also returns `NotFound`. It currently runs with On-error → continue, so filed emails stay
 in `HL7 Testing` instead of moving. That is cosmetic **provided** `processed.log` is being
-written (see the incident note above). Next diagnostic step: point the `Folder` parameter
-at `HL7 Testing` itself — if that also returns `NotFound`, the problem is the
-shared-mailbox write path rather than the path syntax, and the fix is Graph via the
-connector's `HttpRequest` operation. Do not chase `MoveV3`; it does not exist.
+written (see the incident note above). Do not chase `MoveV3`; it does not exist.
+
+**Fix to try (folder ID, 29 Jul).** The connector's own known-issues note gives the
+workaround: *"Forward slash symbol `/` isn't supported for folder names in case of custom
+input value for `Folder` parameter. As a workaround, use file picker, or provide `folder
+Id` value."* The picker is unusable here — it binds to the signed-in user's own mailbox
+unless `Original Mailbox Address` holds a *literal* shared address, and ours is the PAD
+variable `%Mailbox%` — so the ID it is. Harvested from the OWA URL of `Linked` in
+`gofax.par@bjchealth.com.au`:
+
+```
+AAMkADJmZDQwMGVmLThhYTUtNDY1Ni05ODhjLTQzNTZmYjA2NzYyNwAuAAAAAABBTiEqEfpcQIx1ZkdLVa9NAQAv0aRqlVw8TKT9Alf/v6ybAAhlMDN4AAA=
+```
+
+Substitute it for `HL7 Testing/Linked` in the `@folderPath` argument of the `MoveV2` line.
+⚠️ The ID itself contains a `/` (base64's alphabet includes one), so if the connector's
+slash-rejection is a naive string check rather than real path parsing, this may fail the
+same way — try the base64url variant (`/`→`_`, `+`→`-`) once, then fall back to Graph via
+the connector's `HttpRequest` operation
+(`POST /users/gofax.par@bjchealth.com.au/messages/{id}/move`, body
+`{"destinationId": "<folder id>"}`), which bypasses the `Folder` parameter entirely.
+Full steps: [incident runbook, Phase 4](incident-2026-07-28-duplicate-imports-runbook.md).
 
 ### Original design (Robin pseudocode — superseded by the as-built section above)
 

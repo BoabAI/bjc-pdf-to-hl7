@@ -96,17 +96,47 @@ Server sessions are TeamViewer to **MHS-SYD-APP47** as **`BJC\medihost`**
 
 ## Phase 4 — MoveV2 defect (separate track, NOT a restart blocker)
 
-With dedupe fixed, filed emails staying in `HL7 Testing` is harmless. When next on
-the server:
+With dedupe fixed, filed emails staying in `HL7 Testing` is harmless — this is a
+quality-of-life fix, not a restart blocker.
 
-- [ ] Point MoveV2's folder at **`HL7 Testing` itself** (definitely exists, no
-      slash — the connector rejects `/` in custom-text folder paths, and bare
-      `Linked` also returned `NotFound`).
-- [ ] If that **succeeds** → the defect is display-name resolution at depth → use
-      `Linked`'s **folder ID** instead of its name.
-- [ ] If that **also fails** → the shared-mailbox write path is the problem →
-      switch to Graph via the connector's `HttpRequest` operation
-      (`POST /users/gofax.par@bjchealth.com.au/messages/{id}/move`).
+**We now have the folder ID**, which is the workaround Microsoft's own connector
+documentation prescribes for this exact bug: *"Forward slash symbol `/` isn't
+supported for folder names in case of custom input value for `Folder` parameter.
+As a workaround, use file picker, or provide `folder Id` value."* Harvested from the
+OWA URL of the `Linked` folder in `gofax.par@bjchealth.com.au` (29 Jul):
+
+```
+AAMkADJmZDQwMGVmLThhYTUtNDY1Ni05ODhjLTQzNTZmYjA2NzYyNwAuAAAAAABBTiEqEfpcQIx1ZkdLVa9NAQAv0aRqlVw8TKT9Alf/v6ybAAhlMDN4AAA=
+```
+
+(That is the URL-decoded form — the raw URL has `%2F` for `/` and `%3D` for the
+trailing `=`. Use the decoded string above.)
+
+- [ ] **Confirm the folder is the right one.** The ID came from a URL, so it is
+      definitely in the `gofax.par` mailbox, but the ID alone does not reveal where
+      the folder sits. Check the breadcrumb in OWA: is this `Linked` under
+      `HL7 Testing`, under `Inbox`, or at the mailbox root? Worth knowing regardless —
+      it also settles whether `HL7 Testing` is at the root, which the guide got wrong.
+- [ ] **Swap the ID into MoveV2's `Folder` parameter**, replacing the
+      `HL7 Testing/Linked` path. In the Robin script that is the `@folderPath`
+      argument on the `MoveV2` line:
+
+      @folderPath: $'''AAMkADJmZDQwMGVmLThhYTUtNDY1Ni05ODhjLTQzNTZmYjA2NzYyNwAuAAAAAABBTiEqEfpcQIx1ZkdLVa9NAQAv0aRqlVw8TKT9Alf/v6ybAAhlMDN4AAA='''
+
+- [ ] **Test with one email** and confirm it lands in `Linked`.
+
+> ⚠️ **Known risk with this specific ID:** it contains a `/` of its own (`…Alf/v6yb…`)
+> because standard base64 uses `/` in its alphabet. If the connector's slash-rejection
+> is a naive string check rather than genuine path parsing, this ID may fail exactly
+> the way the path did. That would be a connector bug, not a mistake on our side.
+> If it fails, try the base64url variant (`/` → `_`, `+` → `-`) once, then stop
+> guessing and go to the Graph fallback below.
+
+**Fallback if the ID is rejected:** use the connector's `HttpRequest` operation and
+call Graph directly — `POST /users/gofax.par@bjchealth.com.au/messages/{id}/move`
+with body `{"destinationId": "<folder id>"}`. This bypasses the `Folder` parameter
+and its slash handling entirely.
+
 - [ ] Do not chase `MoveV3` — it does not exist in the connector.
 
 ## Phase 5 — Paperwork
