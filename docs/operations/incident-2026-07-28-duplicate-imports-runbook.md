@@ -200,22 +200,48 @@ and its slash handling entirely.
 
 - [ ] Do not chase `MoveV3` — it does not exist in the connector.
 
-### Everything tried against the `Folder` parameter (29 Jul) — all failed
+### ⚠️ The slash is NOT the problem — corrected 29 Jul from the working PD@ flow
+
+The sibling flow `SMEC AI BJC PDF-to-directory` performs this move **successfully**, on
+the **same connection** (`ad6d3c86-98fa-435c-bc66-3759564f18c1`), against a **shared
+mailbox**, with a **slash in the path**:
+
+```
+OperationId: 'MoveV2' @messageId: CurrentEmail.id
+             @folderPath: $'''Inbox/Linked''' @mailboxAddress: PD@bjchealth.com.au
+```
+
+So the connector's documented *"forward slash isn't supported for folder names in case of
+custom input value"* limitation **does not apply here**, and every conclusion drawn from
+it was wrong — including the 28 Jul retro-correction that claimed `Inbox/HL7 Testing`
+failed because of the slash. With slashes ruled out, the deduction runs:
+
+| Evidence | Conclusion |
+|---|---|
+| `Inbox/HL7 Testing` → `NotFound`, slashes work | `HL7 Testing` **is** at the mailbox root — the *original* 24 Jul conclusion was right |
+| `HL7 Testing/Linked` → `NotFound` | `Linked` is **not** under `HL7 Testing` — not created where the plan assumed |
+| bare `Linked` → `NotFound` | `Linked` is **not** at the mailbox root either |
+| PD@ flow proves `Inbox/Linked` resolves | **`Linked` is most likely under `Inbox`** — mirroring the PD@ layout Nicole would have copied |
+
+**Fix to try first: set the `Folder` parameter to `Inbox/Linked`.** Confirm the folder's
+actual location in OWA before assuming.
+
+### Everything tried against the `Folder` parameter (29 Jul)
 
 | Attempt | Result |
 |---|---|
-| `HL7 Testing/Linked` (path with slash) | `NotFound` — connector rejects `/` in custom text |
-| `Linked` (bare display name) | `NotFound` |
-| Folder ID from the OWA URL (`AAMk…`) | Action runs, email does not move |
-| Folder picker dropdown | *"Failed to retrieve the available data"* — cannot enumerate |
-| Graph via connector `HttpRequest` | Blocked: `Argument 'Body' must be binary` — the JSON body needs writing to a file → Base64 → binary data, three extra actions |
+| `HL7 Testing/Linked` | `NotFound` — folder does not exist at that path |
+| `Linked` (bare display name) | `NotFound` — not a root-level folder |
+| Folder ID from the OWA URL (`AAMk…`) | Action runs, email does not move (OWA and Graph use different folder-ID encodings) |
+| Folder picker dropdown | *"Failed to retrieve the available data"* — cannot enumerate the shared mailbox at design time |
+| Graph via connector `HttpRequest` | Blocked: `Argument 'Body' must be binary` — JSON body needs file → Base64 → binary data, three extra actions |
+| `Inbox/Linked` | ⬜ **untested — try this first** (proven working in the PD@ flow) |
 
-The picker failing to enumerate is the significant one: it suggests the connection cannot
-list folders in the shared mailbox at design time at all, which is why no value we supply
-by hand is accepted either. Before the Graph route, confirm **Original Mailbox Address**
-holds the *literal* `gofax.par@bjchealth.com.au` (not `%Mailbox%` — the design-time picker
-cannot resolve a variable) and that the Folder field is **empty** when the dropdown is
-opened.
+> **Diagnostic debt:** every attempt above was run with `ON ERROR → continue` on the
+> MoveV2 action, so **the actual error message has never been read**. Before further
+> guesswork, remove the error handler for one run and record what the connector actually
+> returns — `403`, `404 ErrorItemNotFound` and a folder `NotFound` each point at a
+> different fix.
 
 **This is a genuine go-live blocker, but not a pilot blocker.** With dedupe working,
 emails accumulating in `HL7 Testing` is cosmetic *at pilot volume only*. At production
