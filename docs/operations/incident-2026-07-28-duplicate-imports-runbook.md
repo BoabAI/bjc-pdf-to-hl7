@@ -136,6 +136,27 @@ console and the non-elevated PAD process is the whole gap.
       the email's ID is now in it. That single line is the whole fix.
 - [ ] **Run B (manual):** run again immediately. Expect **zero** conversions and a
       clean finish (no new audit row).
+
+> ⚠️ **Do not drag the email between folders between runs — the test will lie to you.**
+> Exchange does not relocate a moved message: it copies it to the destination and deletes
+> the original, and the copy receives a **brand-new Graph message ID**. So an email
+> dragged out of `HL7_linked` and back into `HL7_testing` returns as a genuinely different
+> message, is correctly treated as new, and is correctly re-converted. That looks
+> identical to broken dedupe and is not.
+>
+> This was mistaken for a dedupe failure on 29 Jul. The giveaway is in `processed.log`:
+> the logged IDs were identical except for their final characters (`…AAkjvi2BAAA=`,
+> `…2CAAA=`, `…2DAAA=`) — same conversation, incrementing item counter, one per drag.
+>
+> To test properly: drag the email in **once**, **disable the `MoveV2` action** so it
+> stays put and keeps its ID, then run twice without touching Outlook. That reproduces a
+> real `manual_review` email, which is the only case dedupe actually has to handle now
+> that the move works.
+
+**Production impact of the ID change: none.** `auto_routed` emails are moved out of the
+polled folder and never seen again, so their new ID is irrelevant. `manual_review` emails
+stay put and keep a stable ID, so dedupe holds. Only a human manually moving mail back
+into the polled folder causes a single extra assessment — documented and harmless.
 - [ ] **Re-enable the scheduled task** and let **two full scheduled cycles**
       (~25 min) pass with the email still in the folder. Expect zero new audit
       rows. This is the ≥2-consecutive-scheduled-runs bar from §13 of the
