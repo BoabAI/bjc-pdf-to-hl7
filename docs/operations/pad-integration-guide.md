@@ -331,13 +331,14 @@ The authoritative as-built flow (paste-ready Robin for PAD 2.68 — note the har
 ```robin
 SET Mailbox TO $'''gofax.par@bjchealth.com.au'''
 SET TempPath TO $'''C:\\SMEC AI\\pdf-to-hl7\\'''
+DateTime.GetCurrentDateTime.Local DateTimeFormat: DateTime.DateTimeFormat.DateAndTime CurrentDateTime=> CurrentDateTime
 IF (File.IfFile.Exists File: $'''%TempPath%temp.pdf''') THEN
     File.Delete Files: $'''%TempPath%temp.pdf'''
 END
-Scripting.RunPowershellScript.RunScript Script: $'''Get-Content \"C:\\SMEC AI\\pdf-to-hl7\\processed.log\" -Raw''' ScriptOutput=> ProcessedIds
-@@folderPath: 'HL7 Testing'
+File.ReadTextFromFile.ReadText File: $'''C:\\SMEC AI\\pdf-to-hl7\\processed.log''' Encoding: File.TextFileEncoding.UTF8 Content=> ProcessedIds
+@@folderPath: 'HL7_Testing'
 @@connectionDisplayName: 'Office 365 Outlook pdftodirectory-09a24'
-External.InvokeCloudConnector Connection: 'ad6d3c86-98fa-435c-bc66-3759564f18c1' ConnectorId: '/providers/Microsoft.PowerApps/apis/shared_office365' OperationId: 'GetEmailsV3' @folderPath: $'''HL7 Testing''' @fetchOnlyWithAttachment: True @fetchOnlyUnread: False @mailboxAddress: Mailbox @includeAttachments: True @top: 25 @GetEmailsV3Response=> GetEmailsV3Response
+External.InvokeCloudConnector Connection: 'ad6d3c86-98fa-435c-bc66-3759564f18c1' ConnectorId: '/providers/Microsoft.PowerApps/apis/shared_office365' OperationId: 'GetEmailsV3' @folderPath: $'''HL7_Testing''' @fetchOnlyWithAttachment: True @fetchOnlyUnread: False @mailboxAddress: Mailbox @includeAttachments: True @top: 25 @GetEmailsV3Response=> GetEmailsV3Response
 LOOP FOREACH CurrentEmail IN GetEmailsV3Response.value
     IF NOT Contains(ProcessedIds, CurrentEmail.id, False) THEN
         SET HasPdf TO $'''no'''
@@ -360,12 +361,16 @@ LOOP FOREACH CurrentEmail IN GetEmailsV3Response.value
             END
         END
         IF Contains(Assessed, $'''yes''', True) THEN
-            Scripting.RunPowershellScript.RunScript Script: $'''Add-Content \"C:\\SMEC AI\\pdf-to-hl7\\processed.log\" \"%CurrentEmail.id%\"''' ScriptOutput=> AppendResult
+            SET EmailId TO CurrentEmail.id
+            File.WriteText File: $'''C:\\SMEC AI\\pdf-to-hl7\\processed.log''' TextToWrite: $'''%CurrentDateTime% %EmailId%''' AppendNewLine: True IfFileExists: File.IfFileExists.Append Encoding: File.FileEncoding.UTF8
             IF Contains(HasPdf, $'''yes''', True) THEN
                 IF Contains(AllFiled, $'''yes''', True) THEN
-                    @@folderPath: 'HL7 Testing/Linked'
+                    @@folderPath: 'Inbox/HL7_linked'
 @@connectionDisplayName: 'Office 365 Outlook pdftodirectory-09a24'
-External.InvokeCloudConnector Connection: 'ad6d3c86-98fa-435c-bc66-3759564f18c1' ConnectorId: '/providers/Microsoft.PowerApps/apis/shared_office365' OperationId: 'MoveV2' @messageId: CurrentEmail.id @folderPath: $'''HL7 Testing/Linked''' @mailboxAddress: Mailbox @MoveV2Response=> MoveV2Response
+External.InvokeCloudConnector Connection: 'ad6d3c86-98fa-435c-bc66-3759564f18c1' ConnectorId: '/providers/Microsoft.PowerApps/apis/shared_office365' OperationId: 'MoveV2' timeout: 1000 @messageId: CurrentEmail.id @folderPath: $'''Inbox/HL7_linked''' @mailboxAddress: Mailbox @MoveV2Response=> MoveV2Response
+                    ON ERROR
+
+                    END
                 END
             END
         END
