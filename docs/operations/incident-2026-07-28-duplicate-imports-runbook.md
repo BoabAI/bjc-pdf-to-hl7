@@ -153,10 +153,21 @@ console and the non-elevated PAD process is the whole gap.
 > real `manual_review` email, which is the only case dedupe actually has to handle now
 > that the move works.
 
-**Production impact of the ID change: none.** `auto_routed` emails are moved out of the
-polled folder and never seen again, so their new ID is irrelevant. `manual_review` emails
-stay put and keep a stable ID, so dedupe holds. Only a human manually moving mail back
-into the polled folder causes a single extra assessment — documented and harmless.
+> ✅ **SUPERSEDED 31 Jul — the dedupe key is now `internetMessageId`.** The same
+> confusion recurred on 31 Jul (two more drag-back re-conversions, IDs `…k93VjAAA=` →
+> `…k93VkAAA=`), so the key was switched from the move-fragile Graph `id` to
+> `internetMessageId` — the RFC Message-ID stamped at send time, which survives every
+> folder move. The workaround test above (disable MoveV2 to hold the ID stable) is no
+> longer needed: the plain drag-back test is now valid, and it **passed** on 31 Jul —
+> a filed email dragged back from `HL7_linked` was skipped on the next run, no
+> conversion, no audit row. `MoveV2` still uses `CurrentEmail.id` deliberately (the
+> move API needs the current handle). See guide §7 "As built" for the final flow.
+
+**Production impact of the ID change: none — and since 31 Jul, none even with human
+re-filing.** `auto_routed` emails are moved out of the polled folder and never seen
+again. `manual_review` emails stay put. And with `internetMessageId` as the key, even
+mail manually dragged out of the polled folder and back is still recognised — the
+single-extra-assessment caveat below no longer applies.
 - [ ] **Re-enable the scheduled task** and let **two full scheduled cycles**
       (~25 min) pass with the email still in the folder. Expect zero new audit
       rows. This is the ≥2-consecutive-scheduled-runs bar from §13 of the
@@ -317,6 +328,6 @@ a real inbox.
 | PAD flow | `desktop-pdf-to-hl7` (PAD 2.68.237.26118) |
 | Working dir | `C:\SMEC AI\pdf-to-hl7\` (`convert.ps1`, `token.dat`, `processed.log`, `temp.pdf`) |
 | Genie import share | `\\192.168.47.20\Labrslts` (`$Genie` in convert.ps1) |
-| Polled folder | `HL7 Testing` (mailbox root of `gofax.par@bjchealth.com.au`); successes → `HL7 Testing/Linked` (move currently broken) |
+| Polled folder | `HL7_Testing` (mailbox root of `gofax.par@bjchealth.com.au`); successes → `Inbox/HL7_linked` (move working since 29 Jul; folders renamed to underscore form) |
 | Audit table | `bjc-pdf-to-hl7-audit`, `ap-southeast-2`, BJC account 375391317635 (`aws --profile bjc`) |
 | Dashboard | https://prod.d20i409xquw7x3.amplifyapp.com/dashboard |

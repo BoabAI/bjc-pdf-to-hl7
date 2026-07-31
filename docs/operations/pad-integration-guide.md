@@ -28,17 +28,18 @@ Build is underway on the BJC server (MHS-SYD-APP47). Update this table as items 
 | ✅ Pilot conversion phase passed | All three fax-rendered fixtures converted correctly in one batch: referral → `consult_letter`/`REF^I12`/PHY/auto_routed/95%, radiology → ORU/RAD/97%, pathology → ORU/LAB/98%. **Fax-quality input extracts fine.** | 28 Jul 2026 |
 | 🔴 **Incident — 269 duplicate imports into live Genie** | Schedule enabled on 28 Jul before dedupe was genuinely verified. `processed.log` was never written (append sat downstream of the failing `MoveV2`), so all three fixtures were re-converted every 12 min for ~18 hours: **271 conversions, 269 HL7 files imported** across three fictional patients and all three Genie inboxes. Stopped 08:14 on 29 Jul when Nicole moved the email out of the polled folder. **Fix + full write-up in §7.** | 28–29 Jul 2026 |
 | ✅ Pilot-test plan agreed and sent to Nicole + Amol | Three fictional fixtures attached to the update email (pathology, radiology, referral — the referral doubles as the empirical REF-modifier check). Nicole: create `HL7 Testing/Linked`, forward each fixture to the Parramatta address in its own email, drag them into the folder, ping Sean. Sean: run the flow manually, then Nicole verifies the three Genie inboxes and deletes the test patients. **Scheduling is deliberately deferred until this passes.** | 24 Jul 2026 |
+| ✅ **Dedupe proven — key switched to `internetMessageId`** | Graph message `id` changes on **every** folder move (a move is copy-then-delete), so a dragged-back email always looked new and re-converted — the 29 & 31 Jul "dedupe not working" reports were both this. The flow now dedupes on `internetMessageId` (RFC Message-ID: survives moves, unique per email); `MoveV2` still uses `id` (the current folder-scoped handle — deliberate). Proven live 31 Jul: a filed email dragged back from `HL7_linked` was skipped on the next run — no conversion, no audit row. See §7 "As built". | 31 Jul 2026 |
 
 **Pending:**
 
 | Item | Owner |
 |---|---|
-| 🔴 **Disable the `SMEC AI BJC PDF-to-HL7` scheduled task until the §7 ordering fix is applied in PAD** — the loop is currently dormant only because the emails were moved out by hand; anything landing in `HL7 Testing` restarts it | Sean |
+| 🔴 Scheduled task `SMEC AI BJC PDF-to-HL7` stays **disabled** until the §13 dedupe check passes across **two consecutive scheduled runs** — the server flow now carries the ordering fix and `internetMessageId` dedupe (proven manually 31 Jul), but the two-scheduled-runs bar has not been met yet | Sean |
 | 🔴 Clean up the 269 duplicate imports in Genie (90 Pathology, 90 Incoming Letters, 89 Radiology) + delete the 3 fictional test patients | Nicole |
 | ✅ **`MoveV2` FIXED 29 Jul** — the destination path must hang off a **well-known root**. A custom top-level folder cannot root a path, so `HL7 Testing/Linked` was unreachable by any value. Working layout: polled folder `HL7_testing` (root, single segment), destination **`Inbox/HL7_linked`** — same shape as the PD@ flow. Note folders were renamed to underscores; both paths must match exactly | Sean |
 | ⬜ Doctor-list decision (§6) — recommended: `BJC_DOCTORS` in `infra/bjc/main.tf` | Sean + Nicole |
 | ⬜ Carrier decision — PAD cannot send the `carrier` form field (see §4 note), so MSH-3 defaults to `SMECAI`; server-side change needed if BJC wants `EMAIL` | Sean + BJC |
-| ⬜ Pilot test per the 24 Jul email — **before running: flip `$Genie` in convert.ps1 back to `\\192.168.47.20\Labrslts` (still pointing at the local test folder)** and rename the flow from "temp" to `pdf-to-hl7` | Sean + Nicole |
+| ⬜ Pilot Genie-side verification — conversion phase passed 28 Jul; still to verify in Genie: imports/inbox routing/patient match/REF modifier. **Before any further live run: confirm `$Genie` in convert.ps1 points at `\\192.168.47.20\Labrslts`** (it was flipped to the local test folder during fix-testing, and 31 Jul's re-test conversions landed wherever it pointed — check and clean up). Flow renamed to `desktop-pdf-to-hl7` 28 Jul. | Sean + Nicole |
 | ⬜ Task Scheduler task (§10) — deliberately deferred until the pilot test passes | Sean |
 | ⬜ Remaining §13 checklist items (dedupe, urgent, unreadable, oversize, crash recovery) after the pilot test | Sean |
 | ⬜ Genie REF modifier confirmed — now a **pilot** gate, not just Phase 2: the mixed fax line carries referrals (§9) | Medihost |
@@ -324,7 +325,7 @@ The flow was built on 24 Jul 2026 against **PAD 2.68.237.26118** and diverges fr
 1. **PAD 2.68's `Invoke web service` action cannot send multipart files** (no "Upload attachments" parameter, despite Microsoft's docs claiming one), and **no PAD version has an action that reads Windows Credential Manager**. The `pad-bearer-token-gotchas.md` doc predates these findings and describes capabilities that don't exist — see the correction banner at its top.
 2. The HTTP call therefore lives in **`C:\SMEC AI\pdf-to-hl7\convert.ps1`**, invoked from a *Run PowerShell script* action. It decrypts the bearer token from **`C:\SMEC AI\pdf-to-hl7\token.dat`** (DPAPI SecureString, readable only by `BJC\medihost` — same security model as Credential Manager; the 21 Jul `cmdkey` entry is unused), POSTs `temp.pdf` to `/api/convert` via `curl.exe -F` with the three PAD headers, on `auto_routed` writes the HL7 to the Genie folder in **ISO-8859-1**, and echoes the server's JSON (or `{"action":"service_error"}`) back to PAD.
 
-PAD keeps everything it's good at: Get emails (V3), dedupe against `processed.log`, base64→`temp.pdf`, `Contains()` branching on the response text, MoveV2 to `Linked`, and the log append. The polled folder is **`HL7 Testing` at the mailbox root** (not under Inbox), and successes move to **`HL7 Testing/Linked`**.
+PAD keeps everything it's good at: Get emails (V3), dedupe against `processed.log`, base64→`temp.pdf`, `Contains()` branching on the response text, MoveV2, and the log append. The polled folder is **`HL7_Testing` at the mailbox root** (a single-segment name resolves by display name anywhere), and successes move to **`Inbox/HL7_linked`** (a multi-segment destination must hang off a well-known root — see the incident runbook). Folders were renamed to underscore form on 29 Jul; both connector values must match exactly.
 
 The authoritative as-built flow (paste-ready Robin for PAD 2.68 — note the harvested syntax `Scripting.RunPowershellScript.RunScript Script: $'''…''' ScriptOutput=> Var`):
 
@@ -340,7 +341,7 @@ File.ReadTextFromFile.ReadText File: $'''C:\\SMEC AI\\pdf-to-hl7\\processed.log'
 @@connectionDisplayName: 'Office 365 Outlook pdftodirectory-09a24'
 External.InvokeCloudConnector Connection: 'ad6d3c86-98fa-435c-bc66-3759564f18c1' ConnectorId: '/providers/Microsoft.PowerApps/apis/shared_office365' OperationId: 'GetEmailsV3' @folderPath: $'''HL7_Testing''' @fetchOnlyWithAttachment: True @fetchOnlyUnread: False @mailboxAddress: Mailbox @includeAttachments: True @top: 25 @GetEmailsV3Response=> GetEmailsV3Response
 LOOP FOREACH CurrentEmail IN GetEmailsV3Response.value
-    IF NOT Contains(ProcessedIds, CurrentEmail.id, False) THEN
+    IF (NOT Contains(ProcessedIds, CurrentEmail.internetMessageId, False)) = True THEN
         SET HasPdf TO $'''no'''
         SET AllFiled TO $'''yes'''
         SET Assessed TO $'''yes'''
@@ -361,7 +362,7 @@ LOOP FOREACH CurrentEmail IN GetEmailsV3Response.value
             END
         END
         IF Contains(Assessed, $'''yes''', True) THEN
-            SET EmailId TO CurrentEmail.id
+            SET EmailId TO CurrentEmail.internetMessageId
             File.WriteText File: $'''C:\\SMEC AI\\pdf-to-hl7\\processed.log''' TextToWrite: $'''%CurrentDateTime% %EmailId%''' AppendNewLine: True IfFileExists: File.IfFileExists.Append Encoding: File.FileEncoding.UTF8
             IF Contains(HasPdf, $'''yes''', True) THEN
                 IF Contains(AllFiled, $'''yes''', True) THEN
@@ -378,12 +379,25 @@ External.InvokeCloudConnector Connection: 'ad6d3c86-98fa-435c-bc66-3759564f18c1'
 END
 ```
 
-> ⚠️ **The `Add-Content` to `processed.log` MUST come before the `MoveV2`, and must
+> ⚠️ **The log append MUST come before the `MoveV2`, and must
 > never be nested inside the `AllFiled` branch.** The log records *"this email has
 > been assessed"* — it does not record *"this email was moved"*. Any ordering that
 > makes the append reachable only when the move succeeds turns a cosmetic
 > folder-move failure into an infinite reprocessing loop. This is not theoretical:
 > it caused the 28–29 Jul 2026 incident below.
+
+> 🔑 **The dedupe key is `internetMessageId`, not the message `id` (switched 31 Jul 2026).**
+> Exchange implements a folder move as copy-then-delete, so a message's Graph `id`
+> changes on **every** move — an email dragged back into the polled folder (a re-test,
+> or a team member re-filing at go-live) arrives with a brand-new `id`, looks unseen,
+> and re-converts. `internetMessageId` is the RFC 5322 Message-ID stamped when the
+> email was sent: it survives any number of moves and is unique per email (a fresh
+> forward is genuinely new mail and *should* convert). The `MoveV2` action still uses
+> `CurrentEmail.id` **deliberately** — the move API needs the current folder-scoped
+> handle; do not "fix" that to match. Proven 31 Jul: a filed email dragged back from
+> `HL7_linked` was skipped on the next run — no conversion, no audit row. One-time
+> cost of the switch: any email already in the folder when the key changed was logged
+> under its old folder `id` and re-converts once.
 
 #### Incident: 269 duplicate imports, 28–29 Jul 2026
 
@@ -395,8 +409,8 @@ spotted it in Incoming Letters on the morning of the 29th and stopped it by movi
 email out of the polled folder by hand.
 
 **Root cause — the ordering fixed above, not the move itself.** `MoveV2` to
-`HL7 Testing/Linked` has never worked (the O365 connector rejects slashes in a custom
-folder path; bare `Linked` also returns `NotFound`). On 28 Jul that failure was papered
+`HL7 Testing/Linked` had never worked (a multi-segment destination resolves only from a
+well-known root — fixed later on 29 Jul, see below). On 28 Jul that failure was papered
 over by setting **On-error → continue** on the `MoveV2` action. The sub-option in effect
 skipped the remainder of the loop iteration, so the `Add-Content` — which sat *after*
 `MoveV2` in the same block — never ran. `processed.log` stayed empty, so every run saw
@@ -410,9 +424,10 @@ repeat. A dedupe check must span at least two scheduled runs before it means any
 **Lessons folded into this guide:**
 
 1. The append is now unconditional on the move (fixed above).
-2. `MoveV2` remains broken — see §7 "Known v1 gaps". Until the folder-move path is
-   resolved, emails stay in `HL7 Testing` and the processed log is the *only* thing
-   preventing reprocessing. It is load-bearing, not a nicety.
+2. `MoveV2` was fixed later on 29 Jul (destination `Inbox/HL7_linked` — see below).
+   While it was broken, the processed log was the *only* thing preventing
+   reprocessing. It is load-bearing, not a nicety — which is why the move keeps its
+   On-error → continue and the append stays upstream of it.
 3. Never leave a schedule enabled against a flow whose dedupe has not been observed
    across two consecutive runs.
 
@@ -453,32 +468,18 @@ Remove-Item (Get-PSReadlineOption).HistorySavePath -ErrorAction SilentlyContinue
 
 Known v1 gaps (deliberate, add before go-live): no 401 alert email, no startup health check, no `processed.log` pruning, and a service error *after* a successful Bedrock call (e.g. Genie share offline during the HL7 write) retries with one extra Bedrock charge.
 
-**Open defect — `MoveV2` to `Linked` does not work.** The O365 connector rejects a
-custom folder path containing `/` (`HL7 Testing/Linked` → `NotFound`), and bare `Linked`
-also returns `NotFound`. It currently runs with On-error → continue, so filed emails stay
-in `HL7 Testing` instead of moving. That is cosmetic **provided** `processed.log` is being
-written (see the incident note above). Do not chase `MoveV3`; it does not exist.
-
-**Fix to try (folder ID, 29 Jul).** The connector's own known-issues note gives the
-workaround: *"Forward slash symbol `/` isn't supported for folder names in case of custom
-input value for `Folder` parameter. As a workaround, use file picker, or provide `folder
-Id` value."* The picker is unusable here — it binds to the signed-in user's own mailbox
-unless `Original Mailbox Address` holds a *literal* shared address, and ours is the PAD
-variable `%Mailbox%` — so the ID it is. Harvested from the OWA URL of `Linked` in
-`gofax.par@bjchealth.com.au`:
-
-```
-AAMkADJmZDQwMGVmLThhYTUtNDY1Ni05ODhjLTQzNTZmYjA2NzYyNwAuAAAAAABBTiEqEfpcQIx1ZkdLVa9NAQAv0aRqlVw8TKT9Alf/v6ybAAhlMDN4AAA=
-```
-
-Substitute it for `HL7 Testing/Linked` in the `@folderPath` argument of the `MoveV2` line.
-⚠️ The ID itself contains a `/` (base64's alphabet includes one), so if the connector's
-slash-rejection is a naive string check rather than real path parsing, this may fail the
-same way — try the base64url variant (`/`→`_`, `+`→`-`) once, then fall back to Graph via
-the connector's `HttpRequest` operation
-(`POST /users/gofax.par@bjchealth.com.au/messages/{id}/move`, body
-`{"destinationId": "<folder id>"}`), which bypasses the `Folder` parameter entirely.
-Full steps: [incident runbook, Phase 4](incident-2026-07-28-duplicate-imports-runbook.md).
+**✅ `MoveV2` resolved 29 Jul — destination `Inbox/HL7_linked`.** The connector resolves
+a multi-segment folder path **only from a well-known root** (Inbox, Archive, …); a custom
+top-level folder cannot root a path, which is why `HL7 Testing/Linked` was unreachable by
+path, bare name, OWA folder ID, and picker alike. The connector's documented *"forward
+slash isn't supported"* limitation is a red herring — the sibling PD@ flow has moved mail
+to `Inbox/Linked` (slash, shared mailbox, same connection) daily for months. Single-segment
+names resolve by display name anywhere, which is why the *polled* root-level folder works
+bare. Folders were renamed to underscore form (`HL7_Testing`, `HL7_linked`); the
+GetEmailsV3 and MoveV2 values must match exactly — a wrong folder name and an empty folder
+are indistinguishable at runtime. The action keeps On-error → continue: a failed move is
+cosmetic *because* the log append precedes it. Do not chase `MoveV3`; it does not exist.
+Full debugging history: [incident runbook, Phase 4](incident-2026-07-28-duplicate-imports-runbook.md).
 
 ### Original design (Robin pseudocode — superseded by the as-built section above)
 
@@ -663,7 +664,7 @@ END  # Email loop
 Design notes:
 
 - **PD@-mirror decision (Nicole, 22 Jul 2026):** filed → `Linked`; everything else stays in the inbox untouched. No categories, no read-state changes, no per-document notification emails — the dashboard (red **Urgent** badge, reason per row, patient initials, received time) is the visibility layer.
-- **The processed-ID log is the dedupe mechanism.** Without it, every email left in the inbox would be re-sent to Bedrock each 15-minute run (~48 calls/day per lingering fax) and would write duplicate dashboard rows. The log lives on the server; if it's ever lost, each leftover email gets one extra assessment and the log rebuilds — self-healing. Graph message IDs change when an email is manually moved between folders, so an email dragged out of the inbox and back gets one re-assessment; harmless.
+- **The processed-ID log is the dedupe mechanism.** Without it, every email left in the inbox would be re-sent to Bedrock each 15-minute run (~48 calls/day per lingering fax) and would write duplicate dashboard rows. The log lives on the server; if it's ever lost, each leftover email gets one extra assessment and the log rebuilds — self-healing. The log keys on `internetMessageId`, which survives folder moves — an email dragged out of the inbox and back is still recognised. (The Graph message `id` would not be: it changes on every move, which is exactly why it was dropped as the key on 31 Jul.)
   - **It is the *only* guard, and it is unconditional.** Because the `Linked` move is
     currently broken (§7), filed emails stay in the polled folder forever — so the log is
     the sole thing standing between a filed document and unbounded re-import into Genie.
