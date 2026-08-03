@@ -30,9 +30,9 @@ Build is underway on the BJC server (MHS-SYD-APP47). Update this table as items 
 | ⬜ "Linked" subfolder created under "HL7 Testing" (mailbox access granted 22 Jul — ready to create) | Sean / Nicole |
 | ⬜ Doctor-list decision (§6) — recommended: `BJC_DOCTORS` in `infra/bjc/main.tf` | Sean + Nicole |
 | ⬜ Carrier decision — PAD cannot send the `carrier` form field (see §4 note), so MSH-3 defaults to `SMECAI`; server-side change needed if BJC wants `EMAIL` | Sean + BJC |
-| ⬜ Build the PAD flow (§7) | Sean |
-| ⬜ Task Scheduler task (§10) | Sean |
-| ⬜ Testing checklist (§13) | Sean |
+| ✅ Build the PAD flow (§7) — live since 28 Jul 2026 (see incident history below and in `docs/operations/bjc-pdf-to-directory.md`) | Sean |
+| ✅ Task Scheduler task (§10) — live; schedule corrected 3 Aug 2026 to fix contention with PD@ | Sean |
+| ⬜ Testing checklist (§13) — dedupe fix verified 31 Jul 2026; full checklist not yet re-run end-to-end since | Sean |
 | ⬜ Genie REF modifier confirmed — now a **pilot** gate, not just Phase 2: the mixed fax line carries referrals (§9) | Medihost |
 
 ---
@@ -546,21 +546,27 @@ Genie requires the **REF modifier** to be enabled to handle REF^I12 messages. Wi
 
 ## 10. Task Scheduler Configuration
 
-Identical in structure to the existing PDF-to-Directory task.
+Identical in structure to the existing PDF-to-Directory task (renamed `SMEC AI BJC PDF-to-directory` — see `docs/operations/bjc-pdf-to-directory.md`).
 
 | Setting | Value |
 |---|---|
-| Task name | `BJC PDF-to-HL7` |
+| Task name | `SMEC AI BJC PDF-to-HL7` (confirmed live 3 Aug 2026 — not the placeholder `BJC PDF-to-HL7` this section originally specified) |
 | Program | `C:\Program Files (x86)\Power Automate Desktop\PAD.Console.Host.exe` |
-| Arguments | `/flow "<flow-name>" /run` |
-| Run as | `BJC\medihost` (same account as the existing "SMEC AI Power Automate" PDF-to-Directory task; also owns the `BJC-PAD-Token` Credential Manager entry) |
+| Arguments | `ms-powerautomate:/console/flow/run?...` URL syntax (confirmed as-built 28 Jul 2026) — **not** `/flow "<flow-name>" /run`, which does not work |
+| Run as | `BJC\medihost` (same account as the existing `SMEC AI BJC PDF-to-directory` task; also owns the `BJC-PAD-Token` Credential Manager entry) |
 | Run only when user is logged on | Yes — matches the existing task. PAD desktop flows need the interactive session, so the `medihost` session stays signed in on the server (disconnect the RDP session, don't log off). |
 | Run with highest privileges | Yes (matches the existing task) |
 | Do not start new instance if running | Yes |
 
-**Trigger 1 — scheduled:** Daily, repeat every 15 minutes for 12 hours from 7:00 AM, Monday–Friday, stop if running longer than 30 minutes.
+**As configured live on MHS-SYD-APP47 (confirmed 3 Aug 2026 — supersedes the original 15-min/7 AM design further below):**
 
-**Trigger 2 — at startup (crash recovery):** 5-minute delay, so network and Outlook initialise first. Combined with the processed-ID log, this catches up on anything unprocessed after a restart. Because the task is "run only when user is logged on", after a server reboot nothing fires until `medihost` signs back in — include that sign-in in the restart runbook (same constraint as the existing PDF-to-Directory task).
+**Trigger 1 — Daily:** starts **12:50 PM**, repeats every **10 minutes**, for a duration of 1 day, stop if running longer than 30 minutes.
+
+**Trigger 2 — at startup (crash recovery):** **5-minute delay**, then repeats every 10 minutes for 1 day — so network and Outlook initialise first. Combined with the processed-ID log, this catches up on anything unprocessed after a restart. Because the task is "run only when user is logged on", after a server reboot nothing fires until `medihost` signs back in — include that sign-in in the restart runbook (same constraint as the existing PDF-to-Directory task).
+
+⚠️ **These exact values are load-bearing, not arbitrary.** `SMEC AI BJC PDF-to-HL7` was originally cloned from PDF-to-Directory's own Task Scheduler XML (28 Jul 2026) and ended up on a near-identical cadence to it — both tasks run on the same server and authenticate through the same shared O365 connection (`PAuto@bjchealth.com.au`). On 3 Aug 2026 Nicole reported PDF-to-Directory ("PD@") had silently stopped filing since the previous Friday; Task Scheduler still showed `(0x0)` success on every run, but the two flows were contending for the shared connection. Fix: **PD@'s Daily trigger is 12:45 PM / 10-min repeat (unchanged, the anchor); this task's is offset 5 minutes later (12:50 PM) on the matching 10-min period, and its At-startup trigger carries the same 5-minute delay** (PD@'s startup trigger has none). If either task's schedule is ever touched, re-verify this offset still holds — see `docs/operations/bjc-pdf-to-directory.md` ("Shared-Server Scheduling" section) for the full incident writeup.
+
+Original design (superseded, kept for context): Daily, repeat every 15 minutes for 12 hours from 7:00 AM, Monday–Friday.
 
 **Registry fix (required):** same as PDF-to-Directory —
 
