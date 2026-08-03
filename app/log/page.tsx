@@ -19,6 +19,7 @@ import {
 } from "../components/auditShared";
 import { AuditDateRangeHeader } from "../components/audit/AuditDateRangeHeader";
 import { AuditPageState } from "../components/audit/AuditPageState";
+import { AUDIT_LOG_RANGE_KEY } from "../components/audit/dateRangeStorage";
 
 type SortKey =
   | "ts"
@@ -106,7 +107,8 @@ export default function LogPage(): JSX.Element {
   const today = currentSydneyDate();
   const { from, to, setFrom, setTo, rows, loading, error } = useAuditDataRange(
     firstOfCurrentSydneyMonth(),
-    today
+    today,
+    { persistKey: AUDIT_LOG_RANGE_KEY }
   );
 
   const [sortKey, setSortKey] = useState<SortKey>("ts");
