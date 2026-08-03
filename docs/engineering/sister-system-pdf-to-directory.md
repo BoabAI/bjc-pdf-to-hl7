@@ -53,6 +53,8 @@ Network Folder: \\192.168.47.10\PracticeData\Genie Scans\PD
 Genie auto-imports from this folder
 ```
 
+> **Observed 3 Aug 2026, not yet confirmed with Medihost:** imported files are archived into a dated `PD\Processed\YYYYMMDD\` subfolder (dated by import time, not creation time). `Medical-Objects Capricorn`, seen running on `MHS-SYD-APP47`, is the likely component doing this — its own import cadence appeared to stall independently of PAD during the 3 Aug 2026 incident. Full writeup in `docs/operations/bjc-pdf-to-directory.md` ("Genie Import Mechanism").
+
 ---
 
 ## Filename Convention
@@ -122,13 +124,13 @@ The regex matches the BJC Health Patient Information and Consent Form layout whe
 
 | Component | Detail |
 |-----------|--------|
-| **Host** | Windows server (`WSAMZN-TA1F82A8`) |
+| **Host** | Windows server `MHS-SYD-APP47` (confirmed live 3 Aug 2026 — corrects a stale hostname; this box also runs PDF-to-HL7) |
 | **Service account** | `CORP\demonstration` / `PAuto@bjchealth.com.au` |
 | **Mailbox** | `PD@bjchealth.com.au` (shared) |
 | **Network folder** | `\\192.168.47.10\PracticeData\Genie Scans\PD` |
 | **Temp folder** | `C:\SMEC AI\` (local) |
 | **PAD connection** | Office 365 Outlook (`pdftodirectory-09a24`) |
-| **Schedule** | Every 15 min during business hours + on startup |
+| **Schedule** | Daily, starts 12:45 PM, repeat every 10 minutes; At-startup, no delay (confirmed live 3 Aug 2026 — corrects a stale "every 15 min" figure). Must stay offset 5 minutes from PDF-to-HL7's schedule — both flows share this server and O365 connection; see `docs/operations/bjc-pdf-to-directory.md` ("Shared-Server Scheduling") for the full incident writeup. |
 | **Registry fix** | `DisableExternalFlowConfirmationDialog = 1` (HKCU) |
 
 ### Licensing

@@ -120,13 +120,13 @@ The regex matches the BJC Health Patient Information and Consent Form layout whe
 
 | Component | Detail |
 |-----------|--------|
-| **Host** | Windows server (`WSAMZN-TA1F82A8`) |
+| **Host** | Windows server `MHS-SYD-APP47` (confirmed live 3 Aug 2026 — corrects a stale hostname previously recorded here; this box also runs PDF-to-HL7) |
 | **Service account** | `CORP\demonstration` / `PAuto@bjchealth.com.au` |
 | **Mailbox** | `PD@bjchealth.com.au` (shared) |
 | **Network folder** | `\\192.168.47.10\PracticeData\Genie Scans\PD` |
 | **Temp folder** | `C:\SMEC AI\` (local) |
 | **PAD connection** | Office 365 Outlook (`pdftodirectory-09a24`) |
-| **Schedule** | Every 15 min during business hours + on startup |
+| **Schedule** | Daily, starts 12:45 PM, repeat every 10 minutes; At-startup trigger, no delay (confirmed live 3 Aug 2026 — corrects a stale "every 15 min" figure previously recorded here). Must stay offset 5 minutes from PDF-to-HL7's schedule — see "Shared-Server Scheduling" below. |
 | **Registry fix** | `DisableExternalFlowConfirmationDialog = 1` (HKCU) |
 
 ### Licensing
@@ -148,6 +148,30 @@ Five fixes applied after the 19 Feb 2026 outage:
 3. **Empty result protection** — skips unreadable PDFs instead of failing
 4. **Unattended execution fix** — registry key bypasses confirmation dialog
 5. **Server restart recovery** — startup trigger catches up on missed runs
+
+---
+
+## Shared-Server Scheduling (added 3 Aug 2026)
+
+PDF-to-Directory and PDF-to-HL7 run on the same Windows server (`MHS-SYD-APP47`) and authenticate through the same shared O365 connection (`PAuto@bjchealth.com.au`). Their Task Scheduler triggers must be kept offset from each other or they contend for that connection.
+
+**Incident:** `SMEC AI BJC PDF-to-HL7` was cloned from this task's own Task Scheduler XML on 28 Jul 2026 and ended up on a near-identical schedule. On 3 Aug 2026 Nicole reported PD@ had silently stopped filing consent forms since the previous Friday — Task Scheduler still showed `(0x0)` success on every run, which hid the real cause: the two flows contending for the shared connection.
+
+**Fix (live 3 Aug 2026):**
+- `SMEC AI BJC PDF-to-directory` (this task): Daily trigger 12:45 PM start, repeat every 10 minutes (unchanged — this is the anchor). At-startup trigger: no delay.
+- `SMEC AI BJC PDF-to-HL7`: Daily trigger 12:50 PM start, repeat every 10 minutes (offset 5 minutes on a matching period). At-startup trigger: 5-minute delay added — startup triggers fire at the same instant on both tasks with no time-of-day to offset, so they need their own delay setting, not just the Daily trigger's start-time offset.
+
+If either task's schedule is edited in future, re-verify this 5-minute offset still holds on **both** the Daily and At-startup triggers.
+
+---
+
+## Genie Import Mechanism (observed 3 Aug 2026 — not yet confirmed with Medihost)
+
+The Architecture diagram above ends at "Genie auto-imports from this folder" — investigating the 3 Aug 2026 incident surfaced more detail, though it hasn't been formally confirmed with Medihost:
+
+- Files are removed from `\\192.168.47.10\PracticeData\Genie Scans\PD` and archived into a dated subfolder, `PD\Processed\YYYYMMDD\`, once imported — the archive date reflects when Genie processed the file, not when PAD created it (a file sitting unprocessed for days gets archived under the date it's finally picked up).
+- `Medical-Objects Capricorn` was observed running on `MHS-SYD-APP47` and is the likely component performing this import/archive step, though this hasn't been verified directly (e.g. via its own logs or a Medihost confirmation).
+- During the 3 Aug 2026 investigation, this import step appeared to have its own independent stall, separate from the PAD scheduling issue above — a multi-day backlog was processed in a burst between roughly 9:45–11:46 AM, then nothing for 3+ hours despite new files continuing to land. If consent forms are ever reported missing from Genie again despite PD@ writing files correctly to the network folder, check Capricorn's service status/logs before assuming it's a PAD problem.
 
 ---
 
