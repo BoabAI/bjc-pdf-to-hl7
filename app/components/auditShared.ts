@@ -1,11 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   currentSydneyMonth,
   monthsInRange,
   sydneyDateOnly,
 } from "@/lib/dates/sydney";
+import {
+  loadPersistedDateRange,
+  persistDateRangeField,
+  resolveRestoredRange,
+} from "./audit/dateRangeStorage";
 
 // Re-export Sydney date helpers from the shared module so existing imports
 // from `auditShared` keep working without churn.
@@ -184,18 +189,57 @@ interface UseAuditDataRangeResult {
  * calendar dates, `YYYY-MM-DD`). Fans out to `/api/logs?month=` for every
  * month-partition the range touches, then filters returned rows to those
  * whose Sydney date falls inside the range.
+ *
+ * Pass `options.persistKey` to retain the range in localStorage: fields the
+ * user changes are saved per-field and restored after mount (post-hydration,
+ * so SSR markup stays deterministic). Untouched fields keep following their
+ * defaults — see dateRangeStorage.ts for why `to` must not be pinned.
  */
 export function useAuditDataRange(
   initialFrom: string,
-  initialTo: string
+  initialTo: string,
+  options?: { persistKey?: string }
 ): UseAuditDataRangeResult {
-  const [from, setFrom] = useState<string>(initialFrom);
-  const [to, setTo] = useState<string>(initialTo);
+  const persistKey = options?.persistKey;
+  const [from, setFromState] = useState<string>(initialFrom);
+  const [to, setToState] = useState<string>(initialTo);
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  // Gates the fetch until the persisted range has been restored, so we don't
+  // query the default range and immediately re-query the saved one.
+  const [restored, setRestored] = useState<boolean>(!persistKey);
 
   useEffect(() => {
+    if (!persistKey) return;
+    const range = resolveRestoredRange(
+      loadPersistedDateRange(persistKey),
+      initialFrom,
+      initialTo
+    );
+    setFromState(range.from);
+    setToState(range.to);
+    setRestored(true);
+  }, [persistKey, initialFrom, initialTo]);
+
+  const setFrom = useCallback(
+    (d: string) => {
+      setFromState(d);
+      if (persistKey) persistDateRangeField(persistKey, "from", d);
+    },
+    [persistKey]
+  );
+
+  const setTo = useCallback(
+    (d: string) => {
+      setToState(d);
+      if (persistKey) persistDateRangeField(persistKey, "to", d);
+    },
+    [persistKey]
+  );
+
+  useEffect(() => {
+    if (!restored) return;
     if (!from || !to || from > to) {
       setRows([]);
       return;
@@ -241,7 +285,7 @@ export function useAuditDataRange(
     return () => {
       cancelled = true;
     };
-  }, [from, to]);
+  }, [from, to, restored]);
 
   return { from, to, setFrom, setTo, rows, loading, error };
 }
