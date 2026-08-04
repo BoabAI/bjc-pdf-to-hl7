@@ -29,7 +29,7 @@ Build is underway on the BJC server (MHS-SYD-APP47). Update this table as items 
 |---|---|
 | ⬜ "Linked" subfolder created under "HL7 Testing" (mailbox access granted 22 Jul — ready to create) | Sean / Nicole |
 | ⬜ Doctor-list decision (§6) — recommended: `BJC_DOCTORS` in `infra/bjc/main.tf` | Sean + Nicole |
-| ⬜ Carrier decision — PAD cannot send the `carrier` form field (see §4 note), so MSH-3 defaults to `SMECAI`; server-side change needed if BJC wants `EMAIL` | Sean + BJC |
+| 🔴 Carrier decision — **now a live defect, not a preference.** PAD cannot send the `carrier` form field (see §4 note), so MSH-3 goes out as `SMECAI` and Genie attributes the document to the wrong carrier (Nicole, 4 Aug 2026: showed as "CAS and IRG Imaging", should be BJCHealth). See §9 "Carrier attribution". | Sean + Medihost |
 | ✅ Build the PAD flow (§7) — live since 28 Jul 2026 (see incident history below and in `docs/operations/bjc-pdf-to-directory.md`) | Sean |
 | ✅ Task Scheduler task (§10) — live; schedule corrected 3 Aug 2026 to fix contention with PD@ | Sean |
 | ⬜ Testing checklist (§13) — dedupe fix verified 31 Jul 2026; full checklist not yet re-run end-to-end since | Sean |
@@ -174,8 +174,11 @@ Form fields:
                                         NOTE (Jul 2026): PAD's Invoke web service can
                                         only attach FILES, not text form fields, so the
                                         PAD flow cannot send this — MSH-3 falls back to
-                                        SMECAI. If BJC wants "EMAIL", the fix is server-
-                                        side (default the carrier off X-Source: email).
+                                        SMECAI — which Genie mis-attributes (open
+                                        defect, see §9 "Carrier attribution"). The fix
+                                        is server-side (default the carrier off
+                                        X-Source: email), pending Medihost confirming
+                                        the code Genie expects.
                                         Same limitation applies to bjcDoctors — another
                                         reason for the env-var route in §6.
   bjcDoctors        (JSON string, opt)  Array of doctor names for addressee resolution — see §6.
@@ -537,6 +540,45 @@ The service sets OBR-24 automatically from the document type — this is what pu
 | `pathology_result` | ORU^R01 | `LAB` | Pathology |
 | `radiology_result` | ORU^R01 | `RAD` | Radiology |
 | `consent_form`, `generic` | ORU^R01 | *(empty)* | Genie default routing |
+
+### Carrier attribution (MSH-3) — open defect, 4 Aug 2026
+
+Genie shows a **Carrier** against every imported document. PAD-sourced documents
+currently land under the wrong one.
+
+**What we send.** The service has no `carrier` override on the PAD path (PAD's
+`Invoke web service` can only attach files, not text form fields — §4), so it
+falls back to the built-in default:
+
+```
+MSH-3 (Sending Application): SMECAI      <-- what Genie appears to key on
+MSH-4 (Sending Facility):    BJCHEALTH   <-- already correct, evidently ignored
+```
+
+**What Nicole saw** (4 Aug 2026, 12:43pm, `Rachidi_Jannah_20260804023033.hl7`,
+consult letter, Dr Priya Acharya → Dr Irwin Lim): Genie listed the carrier as
+**"CAS and IRG Imaging"**. Both PAD conversions that day (audit rows
+`2026-08-04T01:00:23Z` and `2026-08-04T02:30:17Z`, both `source: email`,
+`userEmail: service:pad-pipeline`) went out with the same `SMECAI` in MSH-3.
+
+Since MSH-4 is already `BJCHEALTH` and Genie still mis-attributed the document,
+Genie is matching on **MSH-3**, and `SMECAI` matches nothing in BJC's Genie
+carrier list — so it falls through to some other record.
+
+**Fix — needs both halves, and Medihost owns the first:**
+
+1. **Confirm with Medihost** which MSH field Genie matches on and the exact
+   carrier code that resolves to "BJCHealth" in BJC's Genie carrier list. A
+   carrier record has to exist for whatever we send; changing MSH-3 to a string
+   Genie doesn't know just moves the mis-match.
+2. **Set the server-side default off `X-Source: email`** — one change in
+   `lib/convert-service.ts` (the `request.carrier` fallback feeding
+   `sendingApplication`), plus the `DEFAULT_CARRIER` note in
+   `lib/conversion-config.ts`. Do **not** guess the value ahead of step 1.
+
+Until then, every auto-routed PAD document is filed under the wrong carrier.
+Clinical content, patient matching, and inbox routing (OBR-24) are unaffected —
+this is an attribution/reporting defect only.
 
 ### Important: Genie REF modifier
 
