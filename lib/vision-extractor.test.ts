@@ -452,6 +452,9 @@ describe("CC extraction and BJC doctor list", () => {
     expect(userPrompt).toContain("Dr Maundrell");
     expect(userPrompt).toContain("Dr Ong");
     expect(userPrompt).toContain("Dr Swaraj");
+    // Output-format + CC-override rules travel with the injected list.
+    expect(userPrompt).toContain("VERBATIM");
+    expect(userPrompt).toContain("overrides a non-BJC primary recipient");
   });
 
   test("normalizes pathology_result document type from Bedrock", async () => {

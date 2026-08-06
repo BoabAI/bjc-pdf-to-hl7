@@ -8,34 +8,39 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 import { extractPatientDataWithVision } from "../lib/vision-extractor";
+import { snapAddressee } from "../lib/extraction/addressee-snap";
 
 const ADDRESSEE_DIR = join(import.meta.dir, "..", "docs", "test-pdfs", "addressees");
 
+// Genie-format names, mirroring the production reference data — the model is
+// asked to return the list entry verbatim and snapAddressee enforces it.
 const BJC_DOCTORS = [
-  "Dr Irwin Lim",
-  "Dr Adam Maundrell",
-  "Dr Ilana Ginges",
-  "Dr Anne Chung",
-  "Dr Herman Lau",
+  "Dr I Lim",
+  "Dr A Maundrell",
+  "Dr I Ginges",
+  "Dr A Chung",
+  "Dr H Lau",
 ];
 
 const SCENARIOS = [
   {
     file: "addressee_1_bjc_primary.pdf",
     description: "BJC doctor as primary (no CC)",
-    expectedAddressee: "Maundrell",
+    // Exact final (post-snap) addressee — substring checks can't catch
+    // format drift like "Dr Adam Maundrell" vs "Dr A Maundrell".
+    expectedAddressee: "Dr A Maundrell",
     expectedCC: null,
   },
   {
     file: "addressee_2_bjc_in_cc.pdf",
     description: "External primary, BJC doctor in CC",
-    expectedAddressee: "Lim",
+    expectedAddressee: "Dr I Lim",
     expectedCC: "Lim",
   },
   {
     file: "addressee_3_both_bjc.pdf",
     description: "Both primary and CC are BJC",
-    expectedAddressee: "Ginges",
+    expectedAddressee: "Dr I Ginges",
     expectedCC: "Chung",
   },
 ];
@@ -61,19 +66,25 @@ for (const scenario of SCENARIOS) {
   });
   const elapsed = Date.now() - start;
 
+  const snap = snapAddressee(result.referralInfo, BJC_DOCTORS);
+  const addressee = snap.referralInfo?.addresseeName || "";
+
   console.log(`  Time: ${elapsed}ms`);
   console.log(`  Patient: ${result.data.firstName} ${result.data.lastName}`);
-  console.log(`  Addressee: ${result.referralInfo?.addresseeName || "N/A"} (${result.referralInfo?.addresseeClinic || "N/A"})`);
+  console.log(`  Addressee (raw): ${result.referralInfo?.addresseeName || "N/A"} (${result.referralInfo?.addresseeClinic || "N/A"})`);
+  console.log(`  Addressee (snapped): ${addressee || "N/A"}`);
   console.log(`  CC: ${result.referralInfo?.ccNames?.join(", ") || "(none)"}`);
   console.log(`  Sender: ${result.referralInfo?.senderName || "N/A"}`);
 
   if (result.warnings.length) {
     console.log(`  Warnings: ${result.warnings.join(", ")}`);
   }
+  if (snap.warnings.length) {
+    console.log(`  Snap warnings: ${snap.warnings.join(", ")}`);
+  }
 
-  // Verify addressee contains expected name
-  const addressee = result.referralInfo?.addresseeName || "";
-  const addresseeOk = addressee.toLowerCase().includes(scenario.expectedAddressee.toLowerCase());
+  // The final (post-snap) addressee must equal the Genie-format roster entry.
+  const addresseeOk = addressee === scenario.expectedAddressee;
 
   // Verify CC extraction
   const ccNames = result.referralInfo?.ccNames || [];
@@ -88,7 +99,7 @@ for (const scenario of SCENARIOS) {
   if (status === "PASS") passed++;
   else failed++;
 
-  console.log(`  Addressee check: ${addresseeOk ? "PASS" : "FAIL"} (expected "${scenario.expectedAddressee}" in "${addressee}")`);
+  console.log(`  Addressee check: ${addresseeOk ? "PASS" : "FAIL"} (expected exactly "${scenario.expectedAddressee}", got "${addressee}")`);
   console.log(`  CC check: ${ccOk ? "PASS" : "FAIL"} (expected ${scenario.expectedCC ? `"${scenario.expectedCC}"` : "none"}, got [${ccNames.join(", ")}])`);
   console.log(`  Result: ${status}`);
 }

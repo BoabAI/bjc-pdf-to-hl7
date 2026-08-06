@@ -28,7 +28,7 @@ Build is underway on the BJC server (MHS-SYD-APP47). Update this table as items 
 | Item | Owner |
 |---|---|
 | ⬜ "Linked" subfolder created under "HL7 Testing" (mailbox access granted 22 Jul — ready to create) | Sean / Nicole |
-| ⬜ Doctor-list decision (§6) — recommended: `BJC_DOCTORS` in `infra/bjc/main.tf` | Sean + Nicole |
+| ✅ Doctor-list decision (§6) — server reads the DynamoDB roster automatically (Aug 2026); keep `/reference` names in Genie format | Sean + Nicole |
 | ⬜ Carrier decision — PAD cannot send the `carrier` form field (see §4 note), so MSH-3 defaults to `SMECAI`; server-side change needed if BJC wants `EMAIL` | Sean + BJC |
 | ✅ Build the PAD flow (§7) — live since 28 Jul 2026 (see incident history below and in `docs/operations/bjc-pdf-to-directory.md`) | Sean |
 | ✅ Task Scheduler task (§10) — live; schedule corrected 3 Aug 2026 to fix contention with PD@ | Sean |
@@ -288,20 +288,18 @@ BJC's real fax accounts are per-location GoFax mailboxes. When rollout extends t
 
 ---
 
-## 6. Doctor List for Addressee Resolution — decide before go-live
+## 6. Doctor List for Addressee Resolution — resolved (Aug 2026)
 
-The AI resolves the addressee ("Dear Rheumatologist", "Reported to: Dr I Lim") against a list of BJC doctors. On the PAD path the server looks for that list in this order:
+The AI resolves the addressee ("Dear Rheumatologist", "Reported to: Dr I Lim") against a list of BJC doctors. The server resolves that list in this order:
 
 1. `bjcDoctors` form field (JSON array of names) sent with the request
-2. `BJC_DOCTORS` env var on the Amplify app (comma-separated names)
-3. Nothing — addressee resolution runs without a BJC list (weaker matching)
+2. `BJC_DOCTORS` env var on the Amplify app (comma-separated names) — legacy override, unset in production
+3. **The DynamoDB doctor reference data** (managed on the `/reference` page) — this is what the PAD path uses, since PAD sends only the PDF
+4. `DEFAULT_BJC_DOCTORS` in `lib/conversion-config.ts` (only if DynamoDB is unreachable)
 
-**Current state: neither is configured for the PAD path.** The web UI sends its own list, and the doctor reference data in DynamoDB (`/reference` page) is *not* read by the conversion endpoint. Two options:
+PAD needs no configuration: the conversion endpoint reads the roster server-side on every request, so roster changes made on `/reference` take effect immediately with no PAD change, redeploy, or `terraform apply`.
 
-- **Recommended:** set `BJC_DOCTORS` in `infra/bjc/main.tf` (one source of truth, roster changes need no PAD redeploy — just `terraform apply` + an Amplify build).
-- Alternative: maintain a `DoctorListJson` flow variable in PAD and send it as `bjcDoctors` on every POST.
-
-The default roster used by the web UI is `DEFAULT_BJC_DOCTORS` in `lib/conversion-config.ts` — use it as the starting list. The old `/api/doctors` endpoint described in the previous version of this guide does not exist; PAD cannot fetch a list at runtime.
+**The roster names must be the exact Genie address-book strings** ("Dr I Lim", not "Dr Irwin Lim") — the imported addressee is matched by Genie as a plain string, and the converter snaps extracted names (e.g. "Dr Irwin Geok San Lim" from a letterhead) onto the roster entry. A BJC doctor found on a CC line is promoted over an external primary recipient. The old `/api/doctors` endpoint described in the previous version of this guide does not exist; PAD cannot and need not fetch a list at runtime.
 
 ---
 
@@ -661,7 +659,7 @@ curl -X POST \
 - [ ] ORU^R01 pathology/radiology results land in Pathology / Radiology respectively
 - [ ] REF^I12 (Phase 2) routes to Incoming Letters — REF modifier confirmed
 - [ ] Patient matching works for existing patients (name + DOB + Medicare); new patient created when no match
-- [ ] Addressee/provider routing puts the document in the correct doctor's inbox (requires §6 resolved)
+- [ ] Addressee/provider routing puts the document in the correct doctor's inbox (§6 shipped Aug 2026 — verify the imported addressee links to Genie's doctor record, e.g. "Dr I Lim")
 
 ---
 

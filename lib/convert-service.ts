@@ -23,6 +23,8 @@ import {
   evaluateAutoRouteEligibility,
   type EligibilityResult,
 } from "./extraction/eligibility";
+import { snapAddressee } from "./extraction/addressee-snap";
+import { loadConversionRoster } from "./convert/doctor-roster";
 import { getSettings, type RuntimeSettings } from "./settings";
 
 /**
@@ -41,6 +43,9 @@ export interface ConvertPdfOptions {
   /** Override the runtime settings (test seam). Production callers omit this
    *  and let the function fetch from DynamoDB once. */
   settings?: RuntimeSettings;
+  /** Override the doctor roster (test seam). Production callers omit this
+   *  and let the function resolve request names → DynamoDB → defaults. */
+  doctors?: string[];
 }
 
 export async function convertPdf(
@@ -49,10 +54,15 @@ export async function convertPdf(
 ): Promise<ConvertResult> {
   const mailboxCategory: MailboxCategory = request.mailboxCategory ?? "none";
 
+  // Doctor roster: request-supplied names win; otherwise the DynamoDB
+  // reference data (what the PAD path uses — it can only send the PDF).
+  const roster =
+    options?.doctors ?? (await loadConversionRoster(request.bjcDoctors));
+
   const extraction = await extractPatientData(
     request.pdfBuffer,
     request.documentType,
-    request.bjcDoctors,
+    roster,
     request.mailboxHint
   );
 
@@ -97,10 +107,21 @@ export async function convertPdf(
     };
   }
 
+  // Deterministic addressee backstop: snap the extracted addressee onto the
+  // roster (Genie-format names) or promote a roster doctor found on the CC
+  // line. Runs before eligibility so a promoted addressee satisfies the
+  // result-doc required-fields check.
+  const snapped = snapAddressee(extraction.referralInfo, roster);
+  const resolved =
+    snapped.referralInfo === extraction.referralInfo
+      ? extraction
+      : { ...extraction, referralInfo: snapped.referralInfo };
+  const warningsResolved = [...warningsWithMailbox, ...snapped.warnings];
+
   const settings = options?.settings ?? (await getSettings());
   const strictRequiredFields = isStrictRequiredFields();
   const eligibility: EligibilityResult = evaluateAutoRouteEligibility({
-    extraction,
+    extraction: resolved,
     mailboxCategory,
     settings,
     strictRequiredFields,
@@ -113,22 +134,22 @@ export async function convertPdf(
     // missing-fields branch is handled here too — the API route translates
     // it to HTTP 422.
     const baseData = formatExtractedData(
-      extraction.data,
-      extraction.referralInfo
+      resolved.data,
+      resolved.referralInfo
     );
     return {
       success: true,
       action: "manual_review",
       reason: eligibility.reason,
       suggestedCategory: eligibility.suggestedCategory,
-      documentType: extraction.documentType,
-      classificationConfidence: extraction.classificationConfidence,
+      documentType: resolved.documentType,
+      classificationConfidence: resolved.classificationConfidence,
       extractedData: {
         ...baseData,
         date: formatDisplayDate(new Date()),
         carrier: request.carrier || DEFAULT_CARRIER,
       },
-      warnings: warningsWithMailbox,
+      warnings: warningsResolved,
       extractionMethod: extraction.extractionMethod,
       ...(mailboxDisagreement ? { mailboxDisagreement: true } : {}),
     };
@@ -136,20 +157,20 @@ export async function convertPdf(
 
   // Auto-route branch: build HL7 and return the full envelope.
   const messageType: MessageType = messageTypeForDocumentType(
-    extraction.documentType
+    resolved.documentType
   );
   const diagnosticServiceSection = diagnosticServiceSectionFor(
-    extraction.documentType
+    resolved.documentType
   );
 
-  const hl7Content = buildHL7Message(extraction.data, request.pdfBuffer, {
-    documentTitle: documentTypeLabel(extraction.documentType),
-    documentType: extraction.documentType,
+  const hl7Content = buildHL7Message(resolved.data, request.pdfBuffer, {
+    documentTitle: documentTypeLabel(resolved.documentType),
+    documentType: resolved.documentType,
     resultStatus: request.autoFile ? "F" : "P",
     orderingProvider: request.orderingProvider,
     ...(request.carrier ? { sendingApplication: request.carrier } : {}),
     messageType,
-    referralInfo: extraction.referralInfo,
+    referralInfo: resolved.referralInfo,
     ...(diagnosticServiceSection ? { diagnosticServiceSection } : {}),
   });
 
@@ -157,18 +178,18 @@ export async function convertPdf(
   // without strict mode and is missing the addressee that feeds OBR-16, append
   // a warning so ops can chase the gap without losing the conversion.
   const obr16Missing =
-    isResultDocumentType(extraction.documentType) &&
-    !extraction.referralInfo?.addresseeName?.trim();
+    isResultDocumentType(resolved.documentType) &&
+    !resolved.referralInfo?.addresseeName?.trim();
   const warnings = obr16Missing
-    ? [...warningsWithMailbox, obr16MissingWarning(extraction.documentType)]
-    : warningsWithMailbox;
+    ? [...warningsResolved, obr16MissingWarning(resolved.documentType)]
+    : warningsResolved;
 
-  const baseData = formatExtractedData(extraction.data, extraction.referralInfo);
+  const baseData = formatExtractedData(resolved.data, resolved.referralInfo);
 
   return {
     success: true,
     action: "auto_routed",
-    filename: generateHL7Filename(extraction.data),
+    filename: generateHL7Filename(resolved.data),
     hl7Content,
     extractedData: {
       ...baseData,
@@ -177,9 +198,9 @@ export async function convertPdf(
       carrier: request.carrier || DEFAULT_CARRIER,
     },
     warnings,
-    extractionMethod: extraction.extractionMethod,
-    documentType: extraction.documentType,
-    classificationConfidence: extraction.classificationConfidence,
+    extractionMethod: resolved.extractionMethod,
+    documentType: resolved.documentType,
+    classificationConfidence: resolved.classificationConfidence,
     ...(mailboxDisagreement ? { mailboxDisagreement: true } : {}),
   };
 }

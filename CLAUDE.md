@@ -145,7 +145,7 @@ on the dashboard.
 - `autoFile` (default true): Sets OBR-25 to F (Final/auto-file) or P (Preliminary/queue for review)
 - `orderingProvider`: Medicare Provider Number placed in PV1-9 to route document to a specific doctor's inbox
 - `carrier`: Overrides MSH-3 Sending Application (default "SMECAI")
-- `bjcDoctors`: JSON array of doctor names for AI-driven addressee resolution (falls back to `BJC_DOCTORS` env var)
+- `bjcDoctors`: JSON array of doctor names for AI-driven addressee resolution (falls back to `BJC_DOCTORS` env var, then the DynamoDB reference-data roster)
 
 #### OBR-24 routing matrix
 
@@ -170,7 +170,9 @@ OBR-24 (Diagnostic Service Section) drives which Genie inbox the document lands 
 
 ### Addressee Resolution
 
-The vision extractor uses AI to identify sender, addressee, and CC recipients from referral letters. When a `bjcDoctors` list is provided, the model resolves the addressee to the best-matching doctor from that list (e.g., "Dear Rheumatologist" → "Dr Irwin Lim"). The UI pre-populates a default BJC Health doctor list from `lib/conversion-config.ts`.
+The vision extractor uses AI to identify sender, addressee, and CC recipients from referral letters and results. The doctor roster is resolved server-side by `lib/convert/doctor-roster.ts`: request `bjcDoctors` → `BJC_DOCTORS` env → DynamoDB reference data (`/reference` page — what the PAD path uses) → `DEFAULT_BJC_DOCTORS`. Roster names are the exact Genie address-book strings ("Dr I Lim"); the model is instructed to return the matching list entry verbatim, and a BJC doctor on a CC line overrides an external primary recipient.
+
+`lib/extraction/addressee-snap.ts` is the deterministic backstop: after extraction, `convertPdf` snaps the addressee onto the roster by surname + given-initial match ("Dr Irwin Geok San Lim" → "Dr I Lim"), promotes a roster doctor found on a CC line (tolerating trailing address/phone text), and appends a digit-free advisory warning when nothing matches. It runs before the eligibility gate so a promoted addressee satisfies the result-doc OBR-16 requirement.
 
 ### Bedrock Runtime Notes
 
@@ -184,7 +186,7 @@ The vision extractor uses AI to identify sender, addressee, and CC recipients fr
 | Variable | Required | Purpose |
 |----------|----------|---------|
 | `APP_PASSWORD` | Yes | Password for login authentication |
-| `BJC_DOCTORS` | No | Comma-separated doctor names (fallback when UI doesn't send `bjcDoctors`) |
+| `BJC_DOCTORS` | No | Comma-separated doctor names — legacy override; when unset the server loads the roster from the DynamoDB reference data |
 | `DYNAMODB_TABLE` | No | Override the audit table name (defaults to `bjc-pdf-to-hl7-audit`). Used by `lib/audit.ts`. |
 
 Locally, create `.env.local`. On Amplify, env vars are set at the app level and written to `.env.production` during build (see `amplify.yml`).
