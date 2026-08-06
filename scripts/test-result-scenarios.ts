@@ -13,25 +13,29 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 import { extractPatientDataWithVision } from "../lib/vision-extractor";
+import { snapAddressee } from "../lib/extraction/addressee-snap";
 
 const RESULTS_DIR = join(import.meta.dir, "..", "docs", "test-pdfs", "results");
 
+// Genie-format names, mirroring the production reference data — the model is
+// asked to return the list entry verbatim and snapAddressee enforces it.
 const BJC_DOCTORS = [
-  "Dr Irwin Lim",
-  "Dr Adam Maundrell",
-  "Dr Ilana Ginges",
-  "Dr Anne Chung",
-  "Dr Herman Lau",
-  "Dr Kate Celkys",
-  "Dr Elaine Ng",
-  "Dr Pauline Habib",
-  "Dr Vincent Wong",
+  "Dr I Lim",
+  "Dr A Maundrell",
+  "Dr I Ginges",
+  "Dr A Chung",
+  "Dr H Lau",
+  "Dr K Celkys",
+  "Dr E Ng",
+  "Dr P Habib",
+  "Dr V Wong",
 ];
 
 interface Scenario {
   file: string;
   description: string;
   expectedDocumentType: "pathology_result" | "radiology_result";
+  /** Exact final (post-snap) addressee — must equal the roster entry. */
   expectedAddressee: string;
   /** Optional: substring that must appear in at least one ccNames entry. */
   expectedCc?: string;
@@ -42,58 +46,61 @@ const SCENARIOS: Scenario[] = [
     file: "result_1_pathology_chemistry.pdf",
     description: "Pathology — U&E + LFT panel (DHM)",
     expectedDocumentType: "pathology_result",
-    expectedAddressee: "Lim",
+    expectedAddressee: "Dr I Lim",
   },
   {
     file: "result_2_pathology_microbiology.pdf",
     description: "Pathology — Urine MCS (Laverty)",
     expectedDocumentType: "pathology_result",
-    expectedAddressee: "Maundrell",
+    expectedAddressee: "Dr A Maundrell",
   },
   {
     file: "result_3_radiology_mri.pdf",
     description: "Radiology — MRI right knee (PRP)",
     expectedDocumentType: "radiology_result",
-    expectedAddressee: "Lau",
+    expectedAddressee: "Dr H Lau",
   },
   {
     file: "result_4_radiology_ultrasound.pdf",
     description: "Radiology — Abdominal ultrasound (I-MED)",
     expectedDocumentType: "radiology_result",
-    expectedAddressee: "Chung",
+    expectedAddressee: "Dr A Chung",
   },
   // Redacted-style scenarios — mimic real-world layouts from field samples.
   {
     file: "redacted-style/redacted_1_dhm_haematology_serial.pdf",
     description: "Pathology — DHM haematology serial (5-date trend)",
     expectedDocumentType: "pathology_result",
-    expectedAddressee: "Lau",
+    expectedAddressee: "Dr H Lau",
   },
   {
     file: "redacted-style/redacted_2_mmi_mri_brain.pdf",
     description: "Radiology — MMI MRI brain (multi-page, To/Copies-To header)",
     expectedDocumentType: "radiology_result",
-    expectedAddressee: "Celkys",
+    expectedAddressee: "Dr K Celkys",
     expectedCc: "Wong",
   },
   {
     file: "redacted-style/redacted_3_prp_ct_xray_combined.pdf",
     description: "Radiology — PRP CT lumbar + X-ray wrist combined",
     expectedDocumentType: "radiology_result",
-    expectedAddressee: "Celkys",
+    expectedAddressee: "Dr K Celkys",
   },
   {
     file: "redacted-style/redacted_4_nswhp_multipanel_fax.pdf",
     description: "Pathology — NSW Health Pathology Hunter (3-panel fax)",
     expectedDocumentType: "pathology_result",
-    expectedAddressee: "Ng",
+    expectedAddressee: "Dr E Ng",
   },
   {
+    // The BJC doctor on the CC line must become the addressee even though the
+    // letter is addressed to an external doctor (client requirement, Aug 2026
+    // — previously this scenario expected the external "Dhabuwala").
     file: "redacted-style/redacted_5_imed_dexa_letter.pdf",
     description:
-      "Radiology — I-MED DEXA letter (addressee external, CC = BJC Habib)",
+      "Radiology — I-MED DEXA letter (addressee external, CC = BJC Habib → promoted)",
     expectedDocumentType: "radiology_result",
-    expectedAddressee: "Dhabuwala",
+    expectedAddressee: "Dr P Habib",
     expectedCc: "Habib",
   },
 ];
@@ -119,12 +126,16 @@ for (const scenario of SCENARIOS) {
   });
   const elapsed = Date.now() - start;
 
+  const snap = snapAddressee(result.referralInfo, BJC_DOCTORS);
+  const addressee = snap.referralInfo?.addresseeName || "";
+
   console.log(`  Time: ${elapsed}ms`);
   console.log(`  Document type: ${result.documentType}`);
   console.log(`  Patient: ${result.data.firstName} ${result.data.lastName}`);
   console.log(
-    `  Addressee: ${result.referralInfo?.addresseeName || "N/A"} (${result.referralInfo?.addresseeClinic || "N/A"})`
+    `  Addressee (raw): ${result.referralInfo?.addresseeName || "N/A"} (${result.referralInfo?.addresseeClinic || "N/A"})`
   );
+  console.log(`  Addressee (snapped): ${addressee || "N/A"}`);
   console.log(
     `  CC: ${result.referralInfo?.ccNames?.join(", ") || "(none)"}`
   );
@@ -133,12 +144,12 @@ for (const scenario of SCENARIOS) {
   if (result.warnings.length) {
     console.log(`  Warnings: ${result.warnings.join(", ")}`);
   }
+  if (snap.warnings.length) {
+    console.log(`  Snap warnings: ${snap.warnings.join(", ")}`);
+  }
 
   const typeOk = result.documentType === scenario.expectedDocumentType;
-  const addressee = result.referralInfo?.addresseeName || "";
-  const addresseeOk = addressee
-    .toLowerCase()
-    .includes(scenario.expectedAddressee.toLowerCase());
+  const addresseeOk = addressee === scenario.expectedAddressee;
 
   const ccNames = result.referralInfo?.ccNames || [];
   const ccOk = scenario.expectedCc
@@ -155,7 +166,7 @@ for (const scenario of SCENARIOS) {
     `  Doc-type check: ${typeOk ? "PASS" : "FAIL"} (expected "${scenario.expectedDocumentType}", got "${result.documentType}")`
   );
   console.log(
-    `  Addressee check: ${addresseeOk ? "PASS" : "FAIL"} (expected "${scenario.expectedAddressee}" in "${addressee}")`
+    `  Addressee check: ${addresseeOk ? "PASS" : "FAIL"} (expected exactly "${scenario.expectedAddressee}", got "${addressee}")`
   );
   if (scenario.expectedCc) {
     console.log(

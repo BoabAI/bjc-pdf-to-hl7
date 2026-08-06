@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
 
+import { DEFAULT_BJC_DOCTORS } from "@/lib/conversion-config";
+
 const extractPatientDataMock = mock();
 const formatExtractedDataMock = mock();
 const recordConversionMock = mock();
@@ -58,12 +60,27 @@ mock.module("@/lib/auth", () => ({
     },
 }));
 
+// convertPdf loads the doctor roster from the DynamoDB reference data when
+// the request supplies none — mocked here so tests never touch real DDB.
+const listDoctorsMock = mock();
+
+mock.module("@/lib/reference-data-store", () => ({
+  listDoctors: listDoctorsMock,
+}));
+
 const PAD_TOKEN = "p".repeat(32);
 process.env.PAD_TOKEN = PAD_TOKEN;
 
 const routeModule = await import("./route");
 const GET = routeModule.GET;
 const POST = routeModule.POST as unknown as (req: NextRequest) => Promise<Response>;
+
+// Genie-format roster as served by the reference-data store.
+const ddbRosterDoctors = [
+  { id: "doctor-irwin-lim", name: "Dr I Lim", providerNumber: "" },
+  { id: "doctor-herman-lau", name: "Dr H Lau", providerNumber: "" },
+];
+const DDB_ROSTER_NAMES = ["Dr I Lim", "Dr H Lau"];
 
 const baseExtraction = {
   success: true,
@@ -161,9 +178,11 @@ beforeEach(() => {
   extractPatientDataMock.mockReset();
   formatExtractedDataMock.mockReset();
   recordConversionMock.mockReset();
+  listDoctorsMock.mockReset();
   extractPatientDataMock.mockResolvedValue(baseExtraction);
   formatExtractedDataMock.mockReturnValue(baseFormattedData);
   recordConversionMock.mockResolvedValue(undefined);
+  listDoctorsMock.mockResolvedValue(ddbRosterDoctors);
   console.error = (() => {}) as typeof console.error;
   console.warn = (() => {}) as typeof console.warn;
 });
@@ -328,7 +347,7 @@ describe("POST /api/convert Bedrock flow", () => {
     expect(extractPatientDataMock).toHaveBeenCalledWith(
       expect.any(Buffer),
       "auto",
-      undefined,
+      DDB_ROSTER_NAMES,
       undefined
     );
     expect(response.status).toBe(200);
@@ -349,7 +368,7 @@ describe("POST /api/convert Bedrock flow", () => {
     expect(extractPatientDataMock).toHaveBeenCalledWith(
       expect.any(Buffer),
       "referral",
-      undefined,
+      DDB_ROSTER_NAMES,
       undefined
     );
   });
@@ -365,7 +384,7 @@ describe("POST /api/convert Bedrock flow", () => {
     expect(extractPatientDataMock).toHaveBeenCalledWith(
       expect.any(Buffer),
       "auto",
-      undefined,
+      DDB_ROSTER_NAMES,
       undefined
     );
   });
@@ -703,6 +722,84 @@ describe("POST /api/convert Bedrock flow", () => {
   });
 });
 
+describe("POST /api/convert doctor roster + addressee snap", () => {
+  test("PAD requests (no form field, no env) get the DynamoDB reference-data roster", async () => {
+    await POST(
+      createConvertRequest({
+        filename: "fax.pdf",
+        sourceHeader: "email",
+        authenticated: false,
+        authHeader: `Bearer ${PAD_TOKEN}`,
+      })
+    );
+
+    expect(listDoctorsMock).toHaveBeenCalledTimes(1);
+    expect(extractPatientDataMock).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      "auto",
+      DDB_ROSTER_NAMES,
+      undefined
+    );
+  });
+
+  test("falls back to the seeded default roster when DynamoDB fails", async () => {
+    listDoctorsMock.mockRejectedValue(new Error("ddb unavailable"));
+
+    const response = await POST(createConvertRequest());
+
+    expect(response.status).toBe(200);
+    expect(extractPatientDataMock).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      "auto",
+      DEFAULT_BJC_DOCTORS.map((d) => d.name),
+      undefined
+    );
+  });
+
+  test("snaps a full-name radiology addressee onto the Genie-format roster entry in the HL7", async () => {
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "radiology_result" as const,
+      referralInfo: {
+        senderName: "Dr Amanda Wong",
+        addresseeName: "Dr Irwin Geok San Lim",
+      },
+    });
+
+    const response = await POST(createConvertRequest({ filename: "xray.pdf" }));
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.action).toBe("auto_routed");
+    // PV1-9 and OBR-16 must carry the Genie-format name, not the document's.
+    expect(data.hl7Content).toContain("^Lim^I^^^DR");
+    expect(data.hl7Content).not.toContain("Irwin Geok San");
+  });
+
+  test("promotes a CC'd BJC doctor over an external primary addressee (REF^I12)", async () => {
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      referralInfo: {
+        senderName: "Dr Sarah Chen",
+        addresseeName: "Dr Brendan Cantwell",
+        addresseeClinic: "St Vincent's Clinic",
+        ccNames: [
+          "Dr Herman Lau Level 1, 17-21 Hunter Street, PARRAMATTA NSW 2150 0283826809, 0298907655",
+        ],
+      },
+    });
+
+    const response = await POST(createConvertRequest({ filename: "letter.pdf" }));
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.action).toBe("auto_routed");
+    expect(data.hl7Content).toContain("Lau^H");
+    expect(data.hl7Content).not.toContain("Cantwell");
+    expect(data.warnings).toContain("Addressee promoted from CC line: Dr H Lau");
+  });
+});
+
 describe("POST /api/convert audit logging", () => {
   test("records audit row with source 'email' when X-Source: email + valid PAD token", async () => {
     await POST(
@@ -834,11 +931,12 @@ describe("POST /api/convert audit logging", () => {
     extractPatientDataMock.mockResolvedValue({
       ...baseExtraction,
       documentType: "pathology_result",
-      // Provide an addresseeName so OBR-16 is populated and no OBR-16-missing
-      // warning is appended — this test is asserting the happy-path audit row.
+      // Provide a roster addressee so OBR-16 is populated and neither the
+      // OBR-16-missing nor the unmatched-addressee warning is appended — this
+      // test is asserting the happy-path audit row.
       referralInfo: {
         senderName: "Douglass Hanly Moir Pathology",
-        addresseeName: "Dr Sarah Smith",
+        addresseeName: "Dr I Lim",
       },
     });
 
@@ -916,7 +1014,7 @@ describe("POST /api/convert X-Source-Mailbox header", () => {
     expect(extractPatientDataMock).toHaveBeenCalledWith(
       expect.any(Buffer),
       "auto",
-      undefined,
+      DDB_ROSTER_NAMES,
       "referrals"
     );
 
@@ -940,7 +1038,7 @@ describe("POST /api/convert X-Source-Mailbox header", () => {
     expect(extractPatientDataMock).toHaveBeenCalledWith(
       expect.any(Buffer),
       "auto",
-      undefined,
+      DDB_ROSTER_NAMES,
       "results"
     );
 
@@ -959,7 +1057,7 @@ describe("POST /api/convert X-Source-Mailbox header", () => {
     expect(extractPatientDataMock).toHaveBeenCalledWith(
       expect.any(Buffer),
       "auto",
-      undefined,
+      DDB_ROSTER_NAMES,
       undefined
     );
 

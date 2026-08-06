@@ -106,12 +106,13 @@ Sender/Addressee rules:
 - senderName: the doctor who WROTE/SIGNED the letter (usually in the letterhead, signature, or "From:" line)
 - senderClinic: the clinic or practice of the sender (usually in the letterhead)
 - senderProviderNumber: the Medicare provider number of the sender (if visible)
-- ccNames: list of doctors on CC, "Copy to", "c/o", or carbon copy lines. Empty array if none.
+- ccNames: list of doctors on CC, "Copy to", "c/o", or carbon copy lines. Names only — exclude any address, phone number, or clinic text that follows the name on the CC line. Empty array if none.
 - addresseeName: the BJC Health doctor who should receive this document. Use these rules in priority order:
   1. If "BJC Health" (or similar) appears as the clinic for either the primary recipient ("Dear Dr...") or a CC recipient, use that doctor
-  2. If a BJC_DOCTORS list is provided in the user prompt, check both the primary recipient and CC recipients against it — use the matching doctor
+  2. If a BJC_DOCTORS list is provided in the user prompt, check both the primary recipient and CC recipients against it — use the matching doctor. A CC match overrides a non-BJC primary recipient: when the letter is addressed to an external doctor and a BJC_DOCTORS doctor is only copied in, the CC'd BJC doctor is the addressee.
   3. If neither clinic name nor doctor list resolves it, prefer the CC recipient (CC is more likely the local receiving doctor)
   4. If no CC exists, use the primary recipient (assumed to be the BJC doctor)
+- When the addressee matches a BJC_DOCTORS entry, return that list entry VERBATIM as addresseeName — never the document's own rendering of the name (e.g. list entry "Dr I Lim" beats "Dr Irwin Geok San Lim" from the letterhead)
 - addresseeClinic: the clinic of the resolved addressee
 - For pathology_result and radiology_result documents, the addressee is the referring doctor named on the report — usually after a "Reported to:", "Copy to:", "Referrer:", or "Referring Doctor:" label, or in the recipient block at the top. Resolve against BJC_DOCTORS the same way as for referrals.
 - For consent_form and generic documents, return null for all sender/addressee fields
@@ -143,7 +144,7 @@ export function buildVisionPrompt(
   }
 
   if (bjcDoctors && bjcDoctors.length > 0) {
-    prompt += `\n\nBJC_DOCTORS list (doctors at the receiving clinic): ${bjcDoctors.join(", ")}.\nUse this list to determine which doctor (primary addressee or CC) is from BJC Health and set that doctor as the addresseeName.`;
+    prompt += `\n\nBJC_DOCTORS list (doctors at the receiving clinic): ${bjcDoctors.join(", ")}.\nUse this list to determine which doctor (primary addressee or CC) is from BJC Health and set that doctor as the addresseeName. A match on a CC/copy line overrides a non-BJC primary recipient. Return the matching list entry VERBATIM as addresseeName, not the document's rendering of the name.`;
   }
 
   return prompt;

@@ -25,6 +25,18 @@ describe("SYSTEM_PROMPT", () => {
     // Should explicitly say that phrase is a referral, not a thank-you note
     expect(SYSTEM_PROMPT.toLowerCase()).toContain("review referral");
   });
+
+  test("instructs verbatim list-entry output for a matched addressee", () => {
+    expect(SYSTEM_PROMPT).toContain("VERBATIM");
+  });
+
+  test("states a CC match overrides a non-BJC primary recipient", () => {
+    expect(SYSTEM_PROMPT).toContain("overrides a non-BJC primary recipient");
+  });
+
+  test("restricts ccNames to names only (no address/phone tails)", () => {
+    expect(SYSTEM_PROMPT).toContain("exclude any address, phone");
+  });
 });
 
 describe("buildVisionPrompt — default (no hint)", () => {
@@ -57,6 +69,12 @@ describe("buildVisionPrompt — BJC doctor list", () => {
     expect(prompt).toContain("BJC_DOCTORS list");
     expect(prompt).toContain("Dr Irwin Lim");
     expect(prompt).toContain("Dr Herman Lau");
+  });
+
+  test("repeats the verbatim + CC-override rules alongside the injected list", () => {
+    const prompt = buildVisionPrompt(undefined, ["Dr I Lim"]);
+    expect(prompt).toContain("VERBATIM");
+    expect(prompt).toContain("overrides a non-BJC primary recipient");
   });
 
   test("omits the BJC_DOCTORS block when no doctor list is provided", () => {

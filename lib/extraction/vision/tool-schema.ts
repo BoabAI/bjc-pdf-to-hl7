@@ -101,7 +101,7 @@ export const EXTRACTION_TOOL = {
           addresseeName: {
             type: ["string", "null"],
             description:
-              "Name of the doctor or specialist the patient is being referred TO. Often in the salutation ('Dear Dr...') or recipient block.",
+              "The doctor who should RECEIVE this document at BJC Health. When a BJC_DOCTORS list is provided and the primary recipient or a CC recipient matches an entry, return that list entry verbatim — a CC match overrides a non-BJC primary recipient. Otherwise the primary recipient from the salutation ('Dear Dr...') or recipient block.",
           },
           addresseeClinic: {
             type: ["string", "null"],
@@ -112,7 +112,7 @@ export const EXTRACTION_TOOL = {
             type: "array",
             items: { type: "string" },
             description:
-              "Names of any CC/carbon copy recipient doctors (from 'CC:', 'cc:', 'Copy to:', 'c/o:' lines). Empty array if no CC line exists.",
+              "Names of any CC/carbon copy recipient doctors (from 'CC:', 'cc:', 'Copy to:', 'c/o:' lines). Names only — exclude address, phone, or clinic text that follows the name. Empty array if no CC line exists.",
           },
           classificationConfidence: {
             type: "integer",
