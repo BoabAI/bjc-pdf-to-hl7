@@ -141,7 +141,7 @@ Converts a PDF document to an HL7 v2.4 message with the original PDF embedded.
 | `autoFile` | string | No | `"true"` | `"true"` = auto-file (Final), `"false"` = queue for review (Preliminary) |
 | `orderingProvider` | string | No | - | Medicare Provider Number (e.g., `"1234567A"`) for doctor routing |
 | `carrier` | string | No | `"SMECAI"` | Sending Application name for MSH-3 |
-| `bjcDoctors` | JSON string | No | env `BJC_DOCTORS` | Array of doctor names for addressee resolution |
+| `bjcDoctors` | JSON string | No | env `BJC_DOCTORS`, then DynamoDB | Array of doctor names for addressee resolution. When neither the field nor the env var is set, the server loads the roster from the DynamoDB reference data (`/reference` page), falling back to `DEFAULT_BJC_DOCTORS`. |
 
 **Optional headers:**
 
@@ -163,7 +163,7 @@ Converts a PDF document to an HL7 v2.4 message with the original PDF embedded.
     "sex": "Male",
     "medicareNo": "1234567890-1",
     "sender": "Dr Jane Wilson (Lakeside Medical)",
-    "addressee": "Dr Irwin Lim (BJC Health)",
+    "addressee": "Dr I Lim (BJC Health)",
     "cc": "Dr Herman Lau",
     "date": "26/03/2026",
     "messageType": "REF (Referral)",
@@ -334,11 +334,15 @@ For `referral_letter` and `gp_referral` documents, additional fields are extract
 **Addressee resolution priority** (when a BJC doctor list is provided):
 
 1. If "BJC Health" appears as clinic for primary recipient or CC → use that doctor
-2. If doctor list provided → match primary recipient or CC against the list
+2. If doctor list provided → match primary recipient or CC against the list. A CC match overrides a non-BJC primary recipient (a letter addressed to an external doctor with a BJC doctor copied in routes to the BJC doctor).
 3. If no match, prefer CC recipient (more likely the local receiving doctor)
 4. Fall back to primary recipient
 
-For `consent_form`, `pathology_result`, `radiology_result`, and `generic` documents, all sender/addressee fields return null.
+When a match is found, the model is instructed to return the doctor-list entry **verbatim**. The roster names are the exact Genie address-book strings ("Dr I Lim", not "Dr Irwin Lim"), so the imported addressee links to Genie's doctor record.
+
+**Deterministic backstop** (`lib/extraction/addressee-snap.ts`): after extraction, `convertPdf` snaps the addressee onto the roster by surname + given-initial match ("Dr Irwin Geok San Lim" → "Dr I Lim"), promotes a roster doctor found on a CC line when the primary is external (tolerating trailing address/phone text), and appends a digit-free advisory warning when the addressee matches no roster doctor or matches ambiguously. The roster itself is resolved by `lib/convert/doctor-roster.ts`: request `bjcDoctors` → `BJC_DOCTORS` env → DynamoDB reference data → `DEFAULT_BJC_DOCTORS`.
+
+`pathology_result` and `radiology_result` documents extract the addressee too (the referring doctor named on the report — it feeds OBR-16 and PV1-9). For `consent_form` and `generic` documents, all sender/addressee fields return null.
 
 ### 6.4 Sex Determination
 
