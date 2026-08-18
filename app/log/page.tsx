@@ -27,7 +27,7 @@ type SortKey =
   | "documentType"
   | "source"
   | "outcome"
-  | "filenameHash"
+  | "contentHash"
   | "warningCount";
 type SortDir = "asc" | "desc";
 
@@ -75,7 +75,7 @@ function buildCsv(rows: AuditRow[]): string {
     "routingDecision",
     "routingReason",
     "suggestedCategory",
-    "filenameHash",
+    "contentHash",
     "warningCount",
     "warnings",
   ].join(",");
@@ -94,7 +94,7 @@ function buildCsv(rows: AuditRow[]): string {
       csvEscape(row.routingDecision ?? ""),
       csvEscape(row.routingReason ?? ""),
       csvEscape(row.suggestedCategory ?? ""),
-      csvEscape(row.filenameHash),
+      csvEscape(row.contentHash ?? ""),
       csvEscape(row.warningCount),
       csvEscape(row.warnings?.join(" | ") ?? ""),
     ].join(",")
@@ -270,13 +270,13 @@ export default function LogPage(): JSX.Element {
                     <SortableHeader label="Routing"       sortKey="outcome"          currentKey={sortKey} dir={sortDir} onClick={toggleSort} />
                     <th className="py-2 pr-4 font-medium">Review reason</th>
                     <SortableHeader
-                      label="Filename Hash"
-                      sortKey="filenameHash"
+                      label="File Hash"
+                      sortKey="contentHash"
                       currentKey={sortKey}
                       dir={sortDir}
                       onClick={toggleSort}
-                      helpHref="/help/filename-hash"
-                      helpLabel="How to compute this hash"
+                      helpHref="/help/file-hash"
+                      helpLabel="How to check this hash"
                     />
                     <SortableHeader label="Warnings"      sortKey="warningCount"     currentKey={sortKey} dir={sortDir} onClick={toggleSort} />
                   </tr>
@@ -339,7 +339,11 @@ export default function LogPage(): JSX.Element {
                             )}
                           </td>
                           <td className="py-2 pr-4 mono text-xs text-[var(--text-secondary)]">
-                            {row.filenameHash}
+                            {row.contentHash ? (
+                              row.contentHash
+                            ) : (
+                              <span className="text-[var(--text-faint)]">—</span>
+                            )}
                           </td>
                           <td className="py-2 pr-4 text-[var(--text-primary)]">
                             {hasDetail ? (

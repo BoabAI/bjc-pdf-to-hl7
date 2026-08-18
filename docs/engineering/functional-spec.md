@@ -245,6 +245,7 @@ Returns audit rows for a single calendar month. Cookie-protected (returns 401 wi
       "diagnosticServiceSection": "LAB",
       "filenameHash": "a1b2c3d4e5f6",
       "filenameExt": ".pdf",
+      "contentHash": "9f8e7d6c5b4a",
       "fileSizeBytes": 234567,
       "durationMs": 4321,
       "warningCount": 0
@@ -822,8 +823,9 @@ Every conversion writes one row to the DynamoDB audit table `bjc-pdf-to-hl7-audi
 | `source` | `"web"` \| `"email"` | From the `X-Source` request header (defaults to `web`) |
 | `messageType` | string \| undefined | `ORU^R01` / `REF^I12`; undefined on failure |
 | `diagnosticServiceSection` | `"LAB"` \| `"RAD"` \| `"PHY"` \| undefined | OBR-24 routing flag |
-| `filenameHash` | string | First 12 hex chars of `sha256(originalFilename)`. **Never** the raw filename. |
+| `filenameHash` | string | First 12 hex chars of `sha256(originalFilename)`. **Never** the raw filename. Legacy — still stored, no longer shown on `/log` (PAD uploads every attachment as `temp.pdf`, so it was constant). |
 | `filenameExt` | string | `".pdf"` or `""` (allowlisted — see `extractFilenameExt`) |
+| `contentHash` | string \| undefined | First 12 hex chars of `sha256(pdf bytes)` — matches `shasum -a 256` / `Get-FileHash`. Shown as **File Hash** on `/log`; see `/help/file-hash`. Absent on rows before 2026-08-18. |
 | `fileSizeBytes` | number | PDF size in bytes |
 | `durationMs` | number | End-to-end conversion duration |
 | `warningCount` | number | Number of extraction warnings produced |

@@ -35,6 +35,8 @@ export interface AuditRow {
   diagnosticServiceSection?: string;
   filenameHash: string;
   filenameExt: string;
+  /** sha256(pdf bytes)[0:12]; absent on rows before 2026-08-18. */
+  contentHash?: string;
   fileSizeBytes: number;
   durationMs: number;
   warningCount: number;

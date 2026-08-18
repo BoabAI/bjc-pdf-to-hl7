@@ -60,6 +60,7 @@ describe("GET /api/logs", () => {
         source: "web" as const,
         filenameHash: "deadbeef0123",
         filenameExt: ".pdf",
+        contentHash: "0123456789ab",
         fileSizeBytes: 100,
         durationMs: 200,
         warningCount: 0,

@@ -32,6 +32,13 @@ export interface AuditRow {
   filenameHash: string;
   /** ".pdf" or "" */
   filenameExt: string;
+  /**
+   * sha256(pdf bytes).slice(0, 12) — identifies the document regardless of
+   * filename (PAD uploads every attachment as `temp.pdf`). Staff can verify
+   * with `shasum -a 256` / `Get-FileHash`. Optional: rows before 2026-08-18
+   * don't have it.
+   */
+  contentHash?: string;
   fileSizeBytes: number;
   durationMs: number;
   warningCount: number;
@@ -177,6 +184,16 @@ export function randomSuffix(length = 6): string {
  */
 export function hashFilename(filename: string): string {
   return createHash("sha256").update(filename).digest("hex").slice(0, 12);
+}
+
+/**
+ * Hash the uploaded PDF's bytes for audit logging. First 12 hex chars of the
+ * full-file sha256 — the same digest `shasum -a 256 file.pdf` (Mac) or
+ * `Get-FileHash file.pdf` (Windows) print, so staff can match a document to
+ * a log row without any custom tooling.
+ */
+export function hashPdfContent(pdf: Buffer | Uint8Array): string {
+  return createHash("sha256").update(pdf).digest("hex").slice(0, 12);
 }
 
 /**
@@ -342,6 +359,7 @@ function isAuditRow(value: unknown): value is AuditRow {
     (v.source === "web" || v.source === "email") &&
     typeof v.filenameHash === "string" &&
     typeof v.filenameExt === "string" &&
+    (v.contentHash === undefined || typeof v.contentHash === "string") &&
     typeof v.fileSizeBytes === "number" &&
     typeof v.durationMs === "number" &&
     typeof v.warningCount === "number" &&

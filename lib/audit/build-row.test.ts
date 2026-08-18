@@ -14,6 +14,7 @@ const baseMeta: AuditRowMeta = {
   mailboxHint: undefined,
   mailboxCategory: "none",
   originalFilename: "Smith_John_DOB19800123.pdf",
+  contentHash: "c0ffee123456",
   fileSizeBytes: 4096,
   startedAtMs: 1_000,
   finishedAtMs: 1_250,
@@ -159,6 +160,11 @@ describe("buildConversionAuditRow", () => {
     const row = buildConversionAuditRow(baseMeta, baseSuccess);
     expect(row.month).toBe("2026-04");
     expect(row.ts.startsWith("2026-04-30T01:23:45.000Z#")).toBe(true);
+  });
+
+  test("content hash is carried through from meta", () => {
+    const row = buildConversionAuditRow(baseMeta, baseSuccess);
+    expect(row.contentHash).toBe("c0ffee123456");
   });
 
   test("filename hash + ext come from originalFilename, not raw filename", () => {
@@ -418,6 +424,7 @@ describe("buildFailureAuditRow", () => {
     expect(row.durationMs).toBe(250);
     expect(row.filenameHash).toMatch(/^[0-9a-f]{12}$/);
     expect(row.filenameExt).toBe(".pdf");
+    expect(row.contentHash).toBe("c0ffee123456");
   });
 
   test("does not include extracted fields", () => {

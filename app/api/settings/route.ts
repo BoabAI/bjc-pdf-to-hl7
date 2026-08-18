@@ -91,6 +91,7 @@ export const PUT = auth(async (request) => {
       source: "web",
       filenameHash: "",
       filenameExt: "",
+      contentHash: "",
       fileSizeBytes: 0,
       durationMs: 0,
       warningCount: 0,
