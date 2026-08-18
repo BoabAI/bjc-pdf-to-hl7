@@ -29,6 +29,28 @@ mock.module("@aws-sdk/client-dynamodb", () => ({
   DynamoDBClient: DynamoDBClientMock,
 }));
 
+// recordConversion also emits a CloudWatch datapoint via
+// lib/pipeline-metrics.ts. Mocked so tests never reach the network — and, more
+// importantly, never publish junk datapoints to the real namespace when AWS
+// credentials happen to be present in the environment.
+const putMetricDataMock = mock((_command: unknown) => Promise.resolve({}));
+
+class CloudWatchClientMock {
+  constructor(public readonly config: unknown) {}
+  send(command: unknown) {
+    return putMetricDataMock(command);
+  }
+}
+
+class PutMetricDataCommandMock {
+  constructor(public readonly input: unknown) {}
+}
+
+mock.module("@aws-sdk/client-cloudwatch", () => ({
+  CloudWatchClient: CloudWatchClientMock,
+  PutMetricDataCommand: PutMetricDataCommandMock,
+}));
+
 class GetCommandStub {
   constructor(public readonly input: unknown) {}
 }
@@ -343,6 +365,50 @@ describe("recordConversion", () => {
     const command = sendMock.mock.calls[0][0] as PutCommandMock;
     const input = command.input as { TableName: string };
     expect(input.TableName).toBe("bjc-pdf-to-hl7-audit");
+  });
+
+  test("emits a Conversions datapoint dimensioned by source", async () => {
+    sendMock.mockResolvedValue({});
+    putMetricDataMock.mockClear();
+
+    await recordConversion(makeRow({ source: "email" }));
+
+    expect(putMetricDataMock).toHaveBeenCalledTimes(1);
+    const command = putMetricDataMock.mock.calls[0][0] as PutMetricDataCommandMock;
+    const input = command.input as {
+      Namespace: string;
+      MetricData: Array<{
+        MetricName: string;
+        Dimensions: Array<{ Name: string; Value: string }>;
+        Value: number;
+      }>;
+    };
+    expect(input.Namespace).toBe("BJC/PdfToHl7");
+    expect(input.MetricData[0].MetricName).toBe("Conversions");
+    expect(input.MetricData[0].Dimensions).toEqual([
+      { Name: "Source", Value: "email" },
+    ]);
+    expect(input.MetricData[0].Value).toBe(1);
+  });
+
+  test("still emits the metric when the DynamoDB write fails", async () => {
+    // The two are deliberately independent: a dead audit table must not also
+    // blind the pipeline-silence alarm.
+    sendMock.mockRejectedValue(new Error("DynamoDB unavailable"));
+    putMetricDataMock.mockClear();
+    console.error = (() => {}) as typeof console.error;
+
+    await recordConversion(makeRow({ source: "email" }));
+
+    expect(putMetricDataMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("does not throw when CloudWatch rejects", async () => {
+    sendMock.mockResolvedValue({});
+    putMetricDataMock.mockRejectedValueOnce(new Error("CloudWatch unavailable"));
+    console.error = (() => {}) as typeof console.error;
+
+    await expect(recordConversion(makeRow())).resolves.toBeUndefined();
   });
 
   test("does not throw when DynamoDB rejects", async () => {
