@@ -398,6 +398,8 @@ LOOP FOREACH Email IN Emails
         END
         SET PdfCount TO PdfCount + 1
 
+        # Fixed temp name is fine: the audit log's "File Hash" column is a
+        # hash of the PDF bytes, not the filename (see /help/file-hash).
         SET TempFile TO '%TempFolder%\\temp.pdf'
         File.WriteBytes TempFile, Attachment.Content
 

@@ -75,6 +75,8 @@ export interface AuditRowMeta {
    */
   mailboxCategory: MailboxCategory | undefined;
   originalFilename: string;
+  /** sha256(pdf bytes)[0:12] via `hashPdfContent`; "" when no file was parsed. */
+  contentHash: string;
   fileSizeBytes: number;
   startedAtMs: number;
   finishedAtMs: number;
@@ -133,6 +135,7 @@ export function buildConversionAuditRow(
       : undefined,
     filenameHash: hashFilename(meta.originalFilename),
     filenameExt: extractFilenameExt(meta.originalFilename),
+    contentHash: meta.contentHash,
     fileSizeBytes: meta.fileSizeBytes,
     durationMs: meta.finishedAtMs - meta.startedAtMs,
     warningCount: augmentedWarnings?.length ?? 0,
@@ -177,6 +180,7 @@ export function buildFailureAuditRow(meta: AuditRowMeta): AuditRow {
     source: meta.source,
     filenameHash: hashFilename(meta.originalFilename),
     filenameExt: extractFilenameExt(meta.originalFilename),
+    contentHash: meta.contentHash,
     fileSizeBytes: meta.fileSizeBytes,
     durationMs: meta.finishedAtMs - meta.startedAtMs,
     warningCount: 0,

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { createHash } from "node:crypto";
 import { NextRequest } from "next/server";
 
 import { DEFAULT_BJC_DOCTORS } from "@/lib/conversion-config";
@@ -840,6 +841,22 @@ describe("POST /api/convert audit logging", () => {
     expect(row.source).toBe("web");
   });
 
+  test("audit row contentHash is sha256 of the uploaded bytes, independent of filename", async () => {
+    const sizeBytes = 2048;
+    const bytes = new Uint8Array(sizeBytes);
+    bytes.set(Buffer.from("%PDF-1.4"));
+    const expected = createHash("sha256").update(bytes).digest("hex").slice(0, 12);
+
+    await POST(createConvertRequest({ filename: "temp.pdf", sizeBytes }));
+    await POST(createConvertRequest({ filename: "Other_Name.pdf", sizeBytes }));
+
+    expect(recordConversionMock).toHaveBeenCalledTimes(2);
+    const [first, second] = recordConversionMock.mock.calls.map((c) => c[0]);
+    expect(first.contentHash).toBe(expected);
+    expect(second.contentHash).toBe(expected);
+    expect(first.filenameHash).not.toBe(second.filenameHash);
+  });
+
   test("audit row contains hashed filename + extension, never raw PHI", async () => {
     // Use a filename with name + DOB + Medicare number bundled together —
     // the worst-case real export filename pattern.
@@ -863,6 +880,8 @@ describe("POST /api/convert audit logging", () => {
       "diagnosticServiceSection",
       "filenameHash",
       "filenameExt",
+      // sha256(pdf bytes)[0:12] — what staff verify with shasum / Get-FileHash.
+      "contentHash",
       "fileSizeBytes",
       "durationMs",
       "warningCount",
@@ -899,6 +918,8 @@ describe("POST /api/convert audit logging", () => {
 
     expect(row.filenameHash).toMatch(/^[0-9a-f]{12}$/);
     expect(row.filenameExt).toBe(".pdf");
+    expect(row.contentHash).toMatch(/^[0-9a-f]{12}$/);
+    expect(row.contentHash).not.toBe(row.filenameHash);
 
     // No PHI fields allowed — defensive, even though allowedKeys check covers it
     expect(row).not.toHaveProperty("filename");

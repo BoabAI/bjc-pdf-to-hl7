@@ -4,7 +4,7 @@ import {
   parseConvertFormData,
   type ConvertResult,
 } from "@/lib/convert-service";
-import { recordConversion, type AuditRow } from "@/lib/audit";
+import { hashPdfContent, recordConversion, type AuditRow } from "@/lib/audit";
 import {
   buildConversionAuditRow,
   buildFailureAuditRow,
@@ -79,6 +79,7 @@ export const POST = auth(async (request) => {
   }
 
   let originalFilename = "";
+  let contentHash = "";
   let fileSizeBytes = 0;
 
   try {
@@ -94,6 +95,7 @@ export const POST = auth(async (request) => {
 
     originalFilename = parsed.originalFilename;
     fileSizeBytes = parsed.data.pdfBuffer.length;
+    contentHash = hashPdfContent(parsed.data.pdfBuffer);
 
     const result = await convertPdf({
       ...parsed.data,
@@ -138,6 +140,7 @@ export const POST = auth(async (request) => {
         mailboxHint,
         mailboxCategory,
         originalFilename,
+        contentHash,
         fileSizeBytes,
         startedAtMs,
         finishedAtMs: Date.now(),
@@ -162,6 +165,7 @@ export const POST = auth(async (request) => {
       mailboxHint,
       mailboxCategory,
       originalFilename,
+      contentHash,
       fileSizeBytes,
       startedAtMs,
       finishedAtMs: Date.now(),

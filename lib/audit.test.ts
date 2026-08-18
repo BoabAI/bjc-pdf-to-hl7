@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 const sendMock = mock();
@@ -54,6 +55,7 @@ const {
   listConversionsForSydneyMonth,
   utcMonthsForSydneyMonth,
   hashFilename,
+  hashPdfContent,
   extractFilenameExt,
   monthKey,
   buildSortKey,
@@ -257,6 +259,29 @@ describe("hashFilename", () => {
         expect(hash).not.toContain(token.toLowerCase());
       }
     }
+  });
+});
+
+describe("hashPdfContent", () => {
+  test("returns a 12-character hex string", () => {
+    expect(hashPdfContent(Buffer.from("%PDF-1.4 hello"))).toMatch(/^[0-9a-f]{12}$/);
+  });
+
+  test("is deterministic and independent of filename", () => {
+    const a = Buffer.from("%PDF-1.4 same bytes");
+    expect(hashPdfContent(a)).toBe(hashPdfContent(Buffer.from(a)));
+  });
+
+  test("differs on a single-byte change", () => {
+    const a = Buffer.from("%PDF-1.4 abc");
+    const b = Buffer.from("%PDF-1.4 abd");
+    expect(hashPdfContent(a)).not.toBe(hashPdfContent(b));
+  });
+
+  test("matches sha256 of the bytes (what `shasum -a 256` / Get-FileHash print)", () => {
+    const buf = Buffer.from("%PDF-1.4 fixture");
+    const expected = createHash("sha256").update(buf).digest("hex").slice(0, 12);
+    expect(hashPdfContent(buf)).toBe(expected);
   });
 });
 
@@ -467,6 +492,20 @@ describe("listConversions", () => {
     expect(result[0]?.warnings).toEqual([
       "Bedrock vision call timed out after 30s",
     ]);
+  });
+
+  test("accepts rows with and without contentHash (isAuditRow guard)", async () => {
+    const withHash = makeRow({ contentHash: "0123456789ab" });
+    const legacy = makeRow({ ts: "2026-04-29T13:00:00.000Z#legacy" });
+    const badHash = makeRow({
+      ts: "2026-04-29T13:00:00.000Z#bad002",
+      contentHash: 42 as unknown as string,
+    });
+    sendMock.mockResolvedValue({ Items: [withHash, legacy, badHash] });
+    const result = await listConversions("2026-04");
+    expect(result).toHaveLength(2);
+    expect(result[0]?.contentHash).toBe("0123456789ab");
+    expect(result[1]?.contentHash).toBeUndefined();
   });
 
   test("filters out malformed items", async () => {
