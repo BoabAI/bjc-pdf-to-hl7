@@ -115,3 +115,7 @@ docs/urgent test 2.pdf
 
 # Separate-client strategy brief — keep out of the BJC repo
 docs/strategy/advanced-hearing-solutions-backoffice-automation.md
+
+# whiteboard rehearsal video (local only)
+/output/
+/scripts/whiteboard-video/
