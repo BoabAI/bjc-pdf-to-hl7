@@ -6,9 +6,21 @@ Technical reference for building the Power Automate Desktop flow that connects t
 
 ---
 
-## Rollout Status — as of 22 Jul 2026
+## Rollout Status — as of 26 Aug 2026
 
 Build is underway on the BJC server (MHS-SYD-APP47). Update this table as items complete.
+
+**Directions from BJC (Nicole, 26 Aug 2026 — `docs/business/emails/2026-08-26-nicole-rollout-next-steps.md`):**
+
+| Mailbox | Go-live date | Notes |
+|---|---|---|
+| `gofax.par@bjchealth.com.au` | live (pilot mailbox) | Parramatta — the flow described in §7 |
+| `gofaxcht@bjchealth.com.au` | **Tue 1 Sep 2026** | Address as written by Nicole (`gofaxcht@`); confirm the exact local part — the pilot address has a dot (`gofax.par@`) |
+| `gofaxbon@bjchealth.com.au` | **Tue 8 Sep 2026** | As above |
+| `gofaxbow@bjchealth.com.au` | **Tue 8 Sep 2026** | As above |
+| `admin@` and other email mailboxes | deferred — "a few months away" | BJC will contact SMEC AI when the broader team is ready (was "Phase 2") |
+
+Plus one workflow change, requested with the rollout: add an **Unlinked** folder next to Linked, and move every email the converter assesses but does not file into it (see §7 "Unlinked-folder change"). Not yet built as of 26 Aug.
 
 **Done:**
 
@@ -34,6 +46,10 @@ Build is underway on the BJC server (MHS-SYD-APP47). Update this table as items 
 | ✅ Task Scheduler task (§10) — live; schedule corrected 3 Aug 2026 to fix contention with PD@ | Sean |
 | ⬜ Testing checklist (§13) — dedupe fix verified 31 Jul 2026; full checklist not yet re-run end-to-end since | Sean |
 | ⬜ Genie REF modifier confirmed — now a **pilot** gate, not just Phase 2: the mixed fax line carries referrals (§9) | Medihost |
+| ⬜ **Unlinked-folder change (Nicole, 26 Aug 2026)** — create `Unlinked` beside `Linked` in each mailbox; flow moves every assessed-but-not-filed email there (§7). Build + prove on `gofax.par@` **before** cloning to the new mailboxes so all four run the same flow | Sean (flow) / Nicole (folders) |
+| ⬜ **`gofaxcht@` go-live 1 Sep 2026** — PAuto Full Access (Amol), `Linked` + `Unlinked` folders (Nicole), flow entry with `MailboxAddress` = that address, §5 mapping decision (default: unmapped like the pilot), §13 checklist | Sean + Amol + Nicole |
+| ⬜ **`gofaxbon@` + `gofaxbow@` go-live 8 Sep 2026** — same checklist as `gofaxcht@` | Sean + Amol + Nicole |
+| ⬜ Confirm `gofax.par@` is polling the full `Inbox` (not the pilot test folder) before the other mailboxes are cloned from it | Sean |
 
 ---
 
@@ -41,13 +57,15 @@ Build is underway on the BJC server (MHS-SYD-APP47). Update this table as items 
 
 The automation polls a mail folder for fax emails, sends each PDF attachment to the SMEC AI cloud service for AI-powered extraction, and — when the service auto-routes the document — saves the resulting HL7 file to the Genie import folder and **moves the email to a "Linked" subfolder** (mirroring the existing PD@ consent-form flow). Anything the service won't auto-file **stays in the inbox exactly as it arrived** — unread, unflagged, uncategorised — for the team's normal process. Review reasons (including a red **Urgent** badge) are visible per document on the dashboard.
 
+> **Change requested 26 Aug 2026 (Nicole) — not yet built:** unfiled emails will no longer stay in the inbox; they move to an **`Unlinked`** subfolder beside `Linked`, so reception can work `Unlinked` as the manual queue instead of guessing whether the converter has seen an inbox email yet. Only emails that hit a service error (retry pending) remain in the polled folder. Details in §7 "Unlinked-folder change".
+
 **Operating principle (Sean + Nicole, May 2026): a misroute is worse than no action.** Documents the service is not confident about are never filed to Genie; they stay in the inbox for a human. Target is ≥60% auto-routed, the rest reviewed by staff.
 
 **Rollout phases (revised 22 Jul 2026 — BJC's real fax accounts are per-location GoFax mailboxes, not the per-modality addresses assumed earlier):**
 
-- **Pilot (current)** — `gofax.par@bjchealth.com.au` (Parramatta, highest volume), polling the subfolder **`Inbox/HL7 Testing`**; Nicole moves a sample of live faxes into it.
-- **Live Phase 1** — same mailbox, polled folder flips to `Inbox`; then extend to the other GoFax location mailboxes (each needs PAuto access and a flow entry; optionally a `MAILBOX_CATEGORIES` mapping — see §5).
-- **Phase 2** — `admin@bjchealth.com.au` (referrals and consult letters).
+- **Pilot** — `gofax.par@bjchealth.com.au` (Parramatta, highest volume), polling the subfolder **`Inbox/HL7 Testing`**; Nicole moves a sample of live faxes into it.
+- **Live Phase 1** — same mailbox, polled folder flips to `Inbox`; then extend to the other GoFax location mailboxes (each needs PAuto access and a flow entry; optionally a `MAILBOX_CATEGORIES` mapping — see §5). **Dates set by BJC 26 Aug 2026:** `gofaxcht@` **1 Sep 2026**, `gofaxbon@` + `gofaxbow@` **8 Sep 2026**. The Unlinked-folder change (§7) ships with this phase.
+- **Phase 2** — `admin@bjchealth.com.au` and the other email mailboxes (referrals and consult letters). **Deferred by BJC 26 Aug 2026** — "a few months away"; BJC will initiate.
 
 ```
 gofax.par@bjchealth.com.au — polled folder: Inbox/HL7 Testing (pilot) -> Inbox (live)
@@ -280,7 +298,8 @@ PAD sends the polled mailbox's full address in `X-Source-Mailbox`. If the server
 | Mailbox | Category | Effect |
 |---|---|---|
 | `gofax.par@bjchealth.com.au` *(pilot)* | *(unmapped)* → none | Free classification — **deliberate**, per Nicole |
-| `admin@bjchealth.com.au` | letters | Phase 2: constrains to `referral` / `consult_letter` |
+| `gofaxcht@` / `gofaxbon@` / `gofaxbow@bjchealth.com.au` *(rollout 1 + 8 Sep 2026)* | *(unmapped)* → none | Same per-location mixed fax lines as the pilot — leave unmapped unless BJC asks for a restriction. No code change needed to go live. |
+| `admin@bjchealth.com.au` | letters | Phase 2 (deferred by BJC, 26 Aug 2026): constrains to `referral` / `consult_letter` |
 | `fax-pathology@` / `fax-radiology@` / `fax-vascular@bjchealth.com.au` | results | **Relics.** These per-modality addresses came from the superseded design and never existed in BJC's tenant. Inert (nothing sends them); slated for cleanup. |
 | *(anything else)* | none | Free classification, no mailbox gate |
 
@@ -493,6 +512,28 @@ Design notes:
 - **Multi-attachment emails**: one POST per PDF; the email moves to `Linked` only when **every** PDF auto-filed. A partial success stays in the inbox (the filed PDFs are already in Genie — the dashboard shows which). GoFax emails normally carry exactly one PDF, so this is a rare edge.
 - **One flow (or one loop iteration set) per mailbox** — `X-Source-Mailbox` must match the mailbox actually being polled. For the pilot it resolves to free classification server-side (§5) but is still recorded in the audit log.
 
+**Unlinked-folder change (requested by Nicole 26 Aug 2026 — to build before the 1 Sep rollout):**
+
+Replaces the "everything else stays in the inbox untouched" rule above. Reception wants to open one folder and know it is the manual queue, rather than working out whether the converter has seen an inbox email yet.
+
+| Outcome | Today (as built) | After the change |
+|---|---|---|
+| Every PDF auto-routed | move → `Linked` | move → `Linked` (unchanged) |
+| `manual_review` (any reason, incl. urgent) | stays in polled folder | **move → `Unlinked`** |
+| 400 / 422 invalid file | stays in polled folder | **move → `Unlinked`** |
+| Multi-attachment, partially filed | stays in polled folder | **move → `Unlinked`** (filed PDFs are already in Genie; dashboard shows which) |
+| Service error / timeout after retries | stays in polled folder, unlogged | stays in polled folder, unlogged — **retried next run** (unchanged) |
+| Non-PDF-only email (no PDF attachments) | stays in polled folder | stays in polled folder — nothing was assessed |
+
+Build notes:
+
+- **Ordering rule still applies:** append to `processed.log` *before* either move, exactly as for `Linked`. The 28–29 Jul incident (269 duplicate imports) was a move failing ahead of the log append — the same failure on the new move would recreate it. Keep the log even though assessed emails now leave the polled folder; it is the only guard if a move silently fails.
+- **Folder resolution:** `MoveV2` resolves multi-segment paths only from a well-known root (see PR #13/#14 as-built notes), so the destination must be `Inbox/<name>` — e.g. `Inbox/HL7_unlinked` beside `Inbox/HL7_linked`. Nicole creates both folders in **each** mailbox before its go-live date. Use the same names in all four mailboxes so one flow definition (parameterised by `MailboxAddress`) covers them.
+- **New flow variable** `UnlinkedFolder` (§12) — mirror `LinkedFolder`.
+- **Urgent visibility:** urgent documents will now sit in `Unlinked`, not the inbox. Reception must treat `Unlinked` as the work queue; the red **Urgent** badge on the dashboard is unchanged.
+- **Meaning of the polled folder shifts** from "inbox as it arrived" to "not yet assessed, or retry pending". Anything lingering there for more than a couple of runs indicates a service problem — a cheap health signal for staff.
+- §8 matrix and §12 variables are updated below; the Robin listing above still shows the pre-change behaviour and should be replaced with the server export once built.
+
 ---
 
 ## 8. Error Handling Decision Matrix
@@ -500,8 +541,8 @@ Design notes:
 | Condition | Detect via | Action | Retry? | Log as processed? |
 |---|---|---|---|---|
 | Auto-routed (all PDFs in email) | 200 + `action=auto_routed` | Save HL7 to LabRslts; move email to `Linked` | No | Yes |
-| Manual review (any `reason`, incl. urgent) | 200 + `action=manual_review` | **Nothing** — email stays in inbox untouched; reason visible on dashboard | No | Yes |
-| Invalid file | 400 (or 422 strict mode) | Nothing — email stays in inbox for the team | No | Yes |
+| Manual review (any `reason`, incl. urgent) | 200 + `action=manual_review` | As built: **nothing** — email stays in inbox untouched. **From the 26 Aug 2026 change: move email to `Unlinked`.** Reason visible on dashboard either way | No | Yes |
+| Invalid file | 400 (or 422 strict mode) | As built: nothing — stays in inbox. **From the 26 Aug 2026 change: move to `Unlinked`** | No | Yes |
 | Token rejected | 401 | **Stop entire flow** + URGENT email to `NotifyRecipient` | No | No |
 | Server error | 500 | Retry 2× (10 s apart), then leave in inbox | Yes | **No — retried next run** |
 | Timeout / connection refused | exception (90 s budget) | Same as server error | Yes | **No — retried next run** |
@@ -586,8 +627,9 @@ Same Windows machine already running PAD and PDF-to-Directory.
 | **Server capacity** | Runs alongside PDF-to-Directory; heavy processing is in the cloud | Confirm |
 | **Genie LabRslts folder access** | `\\192.168.47.20\Labrslts` — `BJC\medihost` needs read/write. Path + permissions confirmed by Medihost 22 Jul 2026; verify with a test write from MHS-SYD-APP47 | Confirmed |
 | **Internet access** | Outbound HTTPS (443) to `*.amplifyapp.com` only; no inbound, no VPN | Confirm |
-| **Mailbox access** | `PAuto@bjchealth.com.au` Full Access to `gofax.par@bjchealth.com.au` granted 22 Jul 2026; other GoFax location mailboxes at rollout | Granted |
-| **Linked subfolder** | `Linked` under the polled folder (`Inbox/HL7 Testing` for the pilot; `Inbox` at go-live) — access now granted, Sean or Nicole creates it | Create |
+| **Mailbox access** | `PAuto@bjchealth.com.au` Full Access to `gofax.par@bjchealth.com.au` granted 22 Jul 2026. **Rollout (Nicole, 26 Aug 2026):** same Full Access needed on `gofaxcht@` before **1 Sep 2026** and on `gofaxbon@` + `gofaxbow@` before **8 Sep 2026** | Granted (par) / Requested (cht, bon, bow) |
+| **Linked subfolder** | `Linked` under the polled folder (`Inbox/HL7 Testing` for the pilot; `Inbox` at go-live) — access now granted, Sean or Nicole creates it. One per rollout mailbox | Create |
+| **Unlinked subfolder** | `Unlinked` beside `Linked` in each mailbox — receives every assessed-but-not-filed email (§7 "Unlinked-folder change", Nicole 26 Aug 2026). Nicole creates; same name in all four mailboxes | Create |
 | **Genie REF modifier** | Required before the pilot goes live (mixed fax line carries referrals — §9) | Confirm / Enable |
 | **Local temp folder** | `C:\SMEC AI\pdf-to-hl7\` — created automatically by the flow; also holds `processed.log` | Verify no restrictions |
 
@@ -603,6 +645,7 @@ No Outlook categories and no `Inbox/Review` folder are needed — the July 2026 
 | `MailboxAddress` | `gofax.par@bjchealth.com.au` | Also sent as `X-Source-Mailbox` — must match the polled mailbox |
 | `MailFolder` | `Inbox/HL7 Testing` | The polled folder. Pilot value shown; flip to `Inbox` at go-live |
 | `LinkedFolder` | `%MailFolder%/Linked` | Fully-filed emails move here (mirrors PD@) |
+| `UnlinkedFolder` | `%MailFolder%/Unlinked` | **26 Aug 2026 change (§7), not yet built:** assessed-but-not-filed emails move here. Must resolve from a well-known root like `LinkedFolder` |
 | `PadToken` | *(from Credential Manager at runtime)* | Never hardcoded in the flow; marked sensitive |
 | `GenieLabRsltsFolder` | `\\192.168.47.20\Labrslts` | Confirmed by Medihost 22 Jul 2026 |
 | `TempFolder` | `C:\SMEC AI\pdf-to-hl7` | Local temp directory |
