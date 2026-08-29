@@ -197,6 +197,7 @@ Locally, create `.env.local`. On Amplify, env vars are set at the app level and 
 - `docs/engineering/functional-spec.md` - Full functional specification (developer reference)
 - `docs/engineering/genie-hl7-input-format.md` - Genie's HL7 input requirements
 - `docs/operations/amplify-bedrock-credentials.md` - Amplify compute role + Bedrock auth setup
+- `docs/operations/bjc-aws-account-access.md` - BJC-owned AWS account access (cross-account role, regions, STS opt-in gotcha)
 - `docs/operations/bjc-pdf-to-hl7-operational-guide.md` - Plain-English operational guide for BJC ops staff and Medihost
 - `docs/engineering/sister-system-pdf-to-directory.md` - Reference for the sister consent-form-to-directory project (different repo)
 - `docs/archive/` - Historical/superseded docs (cost analysis, pricing research, refactor plans, PDF dups)
@@ -204,6 +205,10 @@ Locally, create `.env.local`. On Amplify, env vars are set at the app level and 
 ## Deployment
 
 Deploy to AWS Amplify with platform set to **WEB_COMPUTE** (required for SSR). The `amplify.yml` is pre-configured. Uses `output: "standalone"` in `next.config.mjs` for Amplify compatibility. Must create `.env.production` during build phase to pass `APP_PASSWORD` to Lambda runtime, and the app must have a compute role with Bedrock permissions attached.
+
+### BJC production account
+
+Production deploys into BJC Health's own AWS account (`375391317635`), accessed via the cross-account `smec-deployment-role` — use `aws --profile bjc`. Deploy all resources to **Sydney (`ap-southeast-2`)**; Melbourne (`ap-southeast-4`) is enabled in the account only because Bedrock's `au.anthropic.*` inference profiles route there. Beware: cross-account `sts:AssumeRole` through an opt-in region's STS endpoint fails with a generic AccessDenied that mimics a trust-policy error — pin STS calls to Sydney when diagnosing. Full details: `docs/operations/bjc-aws-account-access.md`.
 
 The root layout uses `force-dynamic` and middleware sets `Cache-Control: no-store` on all responses to prevent CloudFront from caching pages and bypassing middleware auth.
 
