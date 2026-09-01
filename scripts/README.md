@@ -164,6 +164,17 @@ Example:
 AWS_PROFILE=bjc-dev bun scripts/test-result-scenarios.ts
 ```
 
+## Windows Server Scripts (`pad-server/`)
+
+Run on the BJC PAD server (MHS-SYD-APP47), not locally, and not part of `bun test`.
+
+| File | Purpose |
+|------|---------|
+| `pad-server/Restart-PadRuntime.ps1` | Weekly hygiene restart of the PAD runtime (kill console/robin, restart Power Automate Service, smoke-run PDF-to-HL7). Exits non-zero on any failure. |
+| `pad-server/SMEC-AI-BJC-PAD-Weekly-Restart.xml` | Task Scheduler definition for the above — Sunday 03:07 as `BJC\medihost`. Import with `schtasks /Create /XML`. |
+
+Install and verification steps: `docs/operations/pad-integration-guide.md` §14.
+
 ## HL7 Format Reference
 
 The output follows the Australian Diagnostics and Referral Messaging (ADRM) specification:

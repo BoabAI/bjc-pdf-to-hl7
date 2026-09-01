@@ -34,6 +34,7 @@ Build is underway on the BJC server (MHS-SYD-APP47). Update this table as items 
 | ✅ Task Scheduler task (§10) — live; schedule corrected 3 Aug 2026 to fix contention with PD@ | Sean |
 | ⬜ Testing checklist (§13) — dedupe fix verified 31 Jul 2026; full checklist not yet re-run end-to-end since | Sean |
 | ⬜ Genie REF modifier confirmed — now a **pilot** gate, not just Phase 2: the mixed fax line carries referrals (§9) | Medihost |
+| ⬜ Weekly PAD restart task (§14) — script + Task XML in `scripts/pad-server/`; install on MHS-SYD-APP47 | Sean / Medihost |
 
 ---
 
@@ -662,6 +663,46 @@ curl -X POST \
 - [ ] REF^I12 (Phase 2) routes to Incoming Letters — REF modifier confirmed
 - [ ] Patient matching works for existing patients (name + DOB + Medicare); new patient created when no match
 - [ ] Addressee/provider routing puts the document in the correct doctor's inbox (§6 shipped Aug 2026 — verify the imported addressee links to Genie's doctor record, e.g. "Dr I Lim")
+
+---
+
+## 14. Weekly PAD Runtime Restart
+
+Both PAD flows on MHS-SYD-APP47 have silently stopped after days of running while Task Scheduler kept showing `(0x0)` (PD@ 19 Feb 2026; both flows 3 Aug 2026). A weekly restart of the PAD runtime is the mitigation — **not** a root-cause fix. Artifacts live in `scripts/pad-server/`:
+
+| File | Purpose |
+|---|---|
+| `Restart-PadRuntime.ps1` | Waits for any in-flight flow run, kills `PAD.Console.Host` / `PAD.Robin.Host` / `PAD.Designer.Host`, restarts the **Power Automate Service** (`UIFlowService`), then (with `-SmokeRun`) starts `SMEC AI BJC PDF-to-HL7` and checks the console relaunched and wrote a fresh run log. Appends to `C:\SMEC AI\pad-restart.log`. |
+| `SMEC-AI-BJC-PAD-Weekly-Restart.xml` | Task Scheduler definition — Sunday **03:07**, `BJC\medihost`, highest privileges, run only when logged on, 15-min limit, catch-up if missed. |
+
+**Why killing the console is safe:** both flow tasks launch `PAD.Console.Host.exe ms-powerautomate:/console/flow/run?...` every 10 minutes, and that command cold-starts the console if it isn't running (it's how the At-startup trigger already recovers). The restart task starts nothing itself beyond the optional smoke run.
+
+**Why Sunday 03:07:** trigger minutes on the box are PD@ `:45 :55 :05 :15 :25 :35` and PDF-to-HL7 `:50 :00 :10 :20 :30 :40`. 03:07 is 2 minutes after PD@'s slot and 3 before HL7's; at 3 AM Sunday both mailboxes are empty, so each run finishes in seconds. The script still waits for `PAD.Robin.Host.exe` to be absent for 20 s (max 4 min) before killing. **This task does not touch either flow task's triggers** — the 5-minute PD@/HL7 offset in §10 stays as is.
+
+**Mid-run kill risk:** PDF-to-HL7 is safe (the `processed.log` append happens before the mailbox move, so an interrupted run is simply re-assessed next slot — one extra Bedrock call at worst). PD@ could, in theory, write a consent-form PDF and be killed before moving the email to `Linked`, yielding one duplicate PDF in Genie Scans; the quiescence wait plus the 3 AM Sunday window makes this very unlikely.
+
+### Install (RDP to MHS-SYD-APP47 as an admin)
+
+1. Copy both files to `C:\SMEC AI\scripts\`.
+2. **Elevation pre-check** — open a prompt as `medihost` and run `whoami /groups | findstr /i administrators`. "Highest privileges" only elevates if `medihost` is in the local Administrators group; `Restart-Service` needs that. If it isn't listed, either ask Medihost to add it or swap the `<Principal>` in the XML for the SYSTEM variant shown in the XML's header comment (SYSTEM can still kill medihost's PAD processes).
+3. Import: `schtasks /Create /TN "SMEC AI BJC PAD Weekly Restart" /XML "C:\SMEC AI\scripts\SMEC-AI-BJC-PAD-Weekly-Restart.xml"`
+4. First manual run at a quiet time (not between 12:40 and 13:00): `schtasks /Run /TN "SMEC AI BJC PAD Weekly Restart"`, then within a couple of minutes check:
+   - `Get-Content 'C:\SMEC AI\pad-restart.log' -Tail 20` shows `status after=Running` and `SMOKE PASS`, `END exit=0`.
+   - Task Scheduler → the task's **Last Run Result** is `0x0`.
+   - Both flow tasks' **Last Run Time** advance on their next 10-minute slot; send a test fax to `gofax.par@` and confirm it files (or lands on the dashboard).
+
+### Weekly check
+
+Unlike the two flow tasks, this one fails **loudly**. Last Run Result must be `0x0`; anything else maps to:
+
+| Exit | Meaning | Action |
+|---|---|---|
+| `2` | Not elevated — processes killed, service restart skipped | Fix step 2 above |
+| `3` | Smoke run failed — console didn't relaunch or no new run log in 90 s | Sign in as `medihost`, open the PAD console manually, check `%LOCALAPPDATA%\Microsoft\Power Automate Desktop\Console\Logs\` |
+| `4` | Power Automate service not found | PAD install changed — check `Get-Service *Automate*` |
+| `5` | Service didn't reach Running in 60 s | Check Services.msc / Event Viewer → Application |
+
+If the flows still stop between Sundays, capture `%LOCALAPPDATA%\Microsoft\Power Automate Desktop\Console\Logs\` and `Get-ScheduledTaskInfo` for **both** flow tasks **before** the next restart wipes the evidence — the weekly restart hides symptoms, and the existing pipeline-alerts CloudWatch alarm remains the detection layer for "nothing converted".
 
 ---
 
