@@ -163,7 +163,7 @@ PDF-to-Directory and PDF-to-HL7 run on the same Windows server (`MHS-SYD-APP47`)
 
 If either task's schedule is edited in future, re-verify this 5-minute offset still holds on **both** the Daily and At-startup triggers.
 
-**Weekly runtime restart (Sep 2026):** a third task, `SMEC AI BJC PAD Weekly Restart` (Sunday 03:07), kills the PAD console/robin processes and restarts the Power Automate Service — this restarts PD@'s runtime too. It is deliberately placed between PD@'s `:05` and PDF-to-HL7's `:10` slots and does not modify either flow task. See `pad-integration-guide.md` §14.
+**Weekly runtime restart (Sep 2026):** a third task, `SMEC AI BJC PAD Weekly Restart` (Saturday 03:07), kills the PAD console/robin processes and restarts the Power Automate Service — this restarts PD@'s runtime too. It is deliberately placed between PD@'s `:05` and PDF-to-HL7's `:10` slots and does not modify either flow task. See `pad-integration-guide.md` §14.
 
 ---
 

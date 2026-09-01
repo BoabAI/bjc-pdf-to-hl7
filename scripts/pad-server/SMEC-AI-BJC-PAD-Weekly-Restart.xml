@@ -5,7 +5,7 @@
   Import (admin PowerShell, after copying Restart-PadRuntime.ps1 to C:\SMEC AI\scripts\):
     schtasks /Create /TN "SMEC AI BJC PAD Weekly Restart" /XML "C:\SMEC AI\scripts\SMEC-AI-BJC-PAD-Weekly-Restart.xml"
 
-  Runs Sunday 03:07 server-local time. That minute sits between PDF-to-directory's
+  Runs Saturday 03:07 server-local time. That minute sits between PDF-to-directory's
   :05 slot and PDF-to-HL7's :10 slot (see pad-integration-guide.md section 10 / 14).
   Do NOT retune this to a :x5 or :x0 minute.
 
@@ -30,11 +30,11 @@
   </RegistrationInfo>
   <Triggers>
     <CalendarTrigger>
-      <StartBoundary>2026-09-06T03:07:00</StartBoundary>
+      <StartBoundary>2026-09-05T03:07:00</StartBoundary>
       <Enabled>true</Enabled>
       <ScheduleByWeek>
         <DaysOfWeek>
-          <Sunday />
+          <Saturday />
         </DaysOfWeek>
         <WeeksInterval>1</WeeksInterval>
       </ScheduleByWeek>
