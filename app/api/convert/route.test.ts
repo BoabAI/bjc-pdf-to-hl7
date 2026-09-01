@@ -1369,3 +1369,38 @@ describe("POST /api/convert OBR-16 missing (results documents)", () => {
     expect(response.status).toBe(200);
   });
 });
+
+describe("POST /api/convert X-Source-Mailbox address persistence", () => {
+  test("persists an address-shaped mailbox header as mailboxAddress (normalised)", async () => {
+    await POST(
+      createConvertRequest({
+        filename: "fax.pdf",
+        mailboxHeader: " GoFax.Par@bjchealth.com.au ",
+      })
+    );
+
+    const row = recordConversionMock.mock.calls[0][0];
+    expect(row.mailboxAddress).toBe("gofax.par@bjchealth.com.au");
+    // The legacy enum field is untouched by an address-shaped header.
+    expect(row.mailboxHint).toBeUndefined();
+  });
+
+  test("does not persist mailboxAddress for the legacy enum header", async () => {
+    await POST(
+      createConvertRequest({
+        filename: "ref.pdf",
+        mailboxHeader: "results",
+      })
+    );
+
+    const row = recordConversionMock.mock.calls[0][0];
+    expect(row.mailboxAddress).toBeUndefined();
+  });
+
+  test("does not persist mailboxAddress when the header is absent", async () => {
+    await POST(createConvertRequest({ filename: "ref.pdf" }));
+
+    const row = recordConversionMock.mock.calls[0][0];
+    expect(row.mailboxAddress).toBeUndefined();
+  });
+});

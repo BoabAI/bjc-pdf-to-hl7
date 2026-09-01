@@ -420,6 +420,7 @@ describe("recordConversion", () => {
       "patientInitials",
       "mailboxHint",
       "mailboxDisagreement",
+      "mailboxAddress",
     ]);
     const forbiddenKeys = [
       "firstName",
@@ -519,6 +520,24 @@ describe("listConversions", () => {
 
     const result = await listConversions("2026-04");
     expect(result).toHaveLength(1);
+  });
+
+  test("accepts a string mailboxAddress and drops non-string ones (isAuditRow guard)", async () => {
+    const withAddress = makeRow({
+      source: "email",
+      mailboxAddress: "gofax.par@bjchealth.com.au",
+    });
+    const bad = makeRow({
+      ts: "2026-04-29T13:00:00.000Z#badmbx",
+      source: "email",
+      mailboxAddress: 42 as unknown as string,
+    });
+    sendMock.mockResolvedValue({ Items: [withAddress, bad] });
+
+    const result = await listConversions("2026-04");
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.mailboxAddress).toBe("gofax.par@bjchealth.com.au");
   });
 });
 

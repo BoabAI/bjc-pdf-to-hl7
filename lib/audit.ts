@@ -73,6 +73,14 @@ export interface AuditRow {
    */
   mailboxDisagreement?: boolean;
   /**
+   * Full source mailbox address from the `x-source-mailbox` header, lowercased
+   * (e.g. `gofax.par@bjchealth.com.au`). Identifies WHICH GoFax mailbox a PAD
+   * conversion came from once several are live. Absent on web uploads, on
+   * legacy-enum headers, and on rows written before 2026-09-01. A BJC mailbox
+   * address, not patient data.
+   */
+  mailboxAddress?: string;
+  /**
    * Self-reported model confidence in the documentType classification, 0-100.
    * Small integer — not PHI. Persisted to enable dashboard-side filtering of
    * low-confidence classifications.
@@ -360,6 +368,7 @@ function isAuditRow(value: unknown): value is AuditRow {
     typeof v.filenameHash === "string" &&
     typeof v.filenameExt === "string" &&
     (v.contentHash === undefined || typeof v.contentHash === "string") &&
+    (v.mailboxAddress === undefined || typeof v.mailboxAddress === "string") &&
     typeof v.fileSizeBytes === "number" &&
     typeof v.durationMs === "number" &&
     typeof v.warningCount === "number" &&

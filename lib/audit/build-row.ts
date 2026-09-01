@@ -74,6 +74,12 @@ export interface AuditRowMeta {
    * for web uploads with no mailbox hint.
    */
   mailboxCategory: MailboxCategory | undefined;
+  /**
+   * Lowercased source mailbox address from `x-source-mailbox` (see
+   * `parseMailboxAddress`). Undefined for web uploads and legacy-enum headers;
+   * persisted verbatim so the dashboard can tell the GoFax mailboxes apart.
+   */
+  mailboxAddress?: string;
   originalFilename: string;
   /** sha256(pdf bytes)[0:12] via `hashPdfContent`; "" when no file was parsed. */
   contentHash: string;
@@ -149,6 +155,7 @@ export function buildConversionAuditRow(
     ...(meta.mailboxCategory !== undefined && meta.mailboxCategory !== "none"
       ? { mailboxCategory: meta.mailboxCategory }
       : {}),
+    ...(meta.mailboxAddress ? { mailboxAddress: meta.mailboxAddress } : {}),
     ...(mailboxDisagreement ? { mailboxDisagreement: true } : {}),
     ...(typeof confidence === "number"
       ? { classificationConfidence: confidence }
@@ -189,5 +196,6 @@ export function buildFailureAuditRow(meta: AuditRowMeta): AuditRow {
     ...(meta.mailboxCategory !== undefined && meta.mailboxCategory !== "none"
       ? { mailboxCategory: meta.mailboxCategory }
       : {}),
+    ...(meta.mailboxAddress ? { mailboxAddress: meta.mailboxAddress } : {}),
   };
 }
