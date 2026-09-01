@@ -34,7 +34,7 @@ Build is underway on the BJC server (MHS-SYD-APP47). Update this table as items 
 | ✅ Task Scheduler task (§10) — live; schedule corrected 3 Aug 2026 to fix contention with PD@ | Sean |
 | ⬜ Testing checklist (§13) — dedupe fix verified 31 Jul 2026; full checklist not yet re-run end-to-end since | Sean |
 | ⬜ Genie REF modifier confirmed — now a **pilot** gate, not just Phase 2: the mixed fax line carries referrals (§9) | Medihost |
-| ✅ Weekly PAD restart task (§14) — installed on MHS-SYD-APP47 1 Sep 2026 (Saturday 03:07); first full clean run still to be confirmed | Sean |
+| ⚠️ Weekly PAD restart task (§14) — **PARKED 1 Sep 2026.** Task is registered on MHS-SYD-APP47 (Saturday 03:07) but the server still has the first script/XML version (matches the crash-monitor service, smoke-runs the flow, died with `0xC000013A`). Resume: re-copy both files from `scripts/pad-server/`, re-import, re-test per §14 step 4. | Sean |
 
 ---
 
