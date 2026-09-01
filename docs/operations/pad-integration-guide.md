@@ -46,9 +46,9 @@ Plus one workflow change, requested with the rollout: add an **Unlinked** folder
 | ✅ Task Scheduler task (§10) — live; schedule corrected 3 Aug 2026 to fix contention with PD@ | Sean |
 | ⬜ Testing checklist (§13) — dedupe fix verified 31 Jul 2026; full checklist not yet re-run end-to-end since | Sean |
 | ⬜ Genie REF modifier confirmed — now a **pilot** gate, not just Phase 2: the mixed fax line carries referrals (§9) | Medihost |
-| ⬜ **Unlinked-folder change (Nicole, 26 Aug 2026)** — create `Unlinked` beside `Linked` in each mailbox; flow moves every assessed-but-not-filed email there (§7). Build + prove on `gofax.par@` **before** cloning to the new mailboxes so all four run the same flow | Sean (flow) / Nicole (folders) |
-| ⬜ **`gofaxcht@` go-live 1 Sep 2026** — PAuto Full Access (Amol), `Linked` + `Unlinked` folders (Nicole), flow entry with `MailboxAddress` = that address, §5 mapping decision (default: unmapped like the pilot), §13 checklist | Sean + Amol + Nicole |
-| ⬜ **`gofaxbon@` + `gofaxbow@` go-live 8 Sep 2026** — same checklist as `gofaxcht@` | Sean + Amol + Nicole |
+| ⏸️ **Unlinked-folder change (Nicole, 26 Aug 2026)** — **PARKED 1 Sep 2026**: `gofaxcht@` went live on the existing proven flow instead (no time to run the §7 test matrix + two clean scheduled runs). Until it ships, assessed-but-not-filed emails stay in the polled Inbox (dedupe skips them on later runs) and Nicole handles them by hand. Build + prove on `gofax.par@` with `$Genie` local, then it applies to every mailbox in the list at once | Sean (flow) / Nicole (folders) |
+| 🔄 **`gofaxcht@` go-live 1 Sep 2026** — **in progress 1 Sep**: added to the existing flow via `MailboxList` (§7 step 6) polling `Inbox`, `$Genie` = Labrslts; needs PAuto Full Access (Amol) + `Inbox/HL7_linked` (Nicole); unmapped in §5 like the pilot. `Unlinked` folder deferred with the parked change above | Sean + Amol + Nicole |
+| ⏸️ **`gofaxbon@` + `gofaxbow@` go-live 8 Sep 2026** — parked 1 Sep pending the `gofaxcht@` result; same checklist as `gofaxcht@` (one more `AddItemToList` line each) | Sean + Amol + Nicole |
 | ⬜ Confirm `gofax.par@` is polling the full `Inbox` (not the pilot test folder) before the other mailboxes are cloned from it | Sean |
 
 ---
