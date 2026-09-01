@@ -15,9 +15,9 @@ Build is underway on the BJC server (MHS-SYD-APP47). Update this table as items 
 | Mailbox | Go-live date | Notes |
 |---|---|---|
 | `gofax.par@bjchealth.com.au` | live (pilot mailbox) | Parramatta — the flow described in §7 |
-| `gofax.cht@bjchealth.com.au` | **Tue 1 Sep 2026** | Confirmed 1 Sep 2026 — dotted like the pilot (Nicole's 26 Aug note wrote `gofaxcht@`; OWA returns `accessDenied` on that spelling). Assume `gofax.bon@` / `gofax.bow@` likewise — confirm before 8 Sep |
-| `gofaxbon@bjchealth.com.au` | **Tue 8 Sep 2026** | As above |
-| `gofaxbow@bjchealth.com.au` | **Tue 8 Sep 2026** | As above |
+| `gofax.cht@bjchealth.com.au` | **Tue 1 Sep 2026** | Confirmed 1 Sep 2026 — dotted like the pilot (Nicole's 26 Aug note wrote `gofaxcht@`; OWA returns `accessDenied` on that spelling). `gofax.bon@` / `gofax.bow@` confirmed dotted too (Sean, 1 Sep 2026) |
+| `gofax.bon@bjchealth.com.au` | **Tue 8 Sep 2026** | As above |
+| `gofax.bow@bjchealth.com.au` | **Tue 8 Sep 2026** | As above |
 | `admin@` and other email mailboxes | deferred — "a few months away" | BJC will contact SMEC AI when the broader team is ready (was "Phase 2") |
 
 Plus one workflow change, requested with the rollout: add an **Unlinked** folder next to Linked, and move every email the converter assesses but does not file into it (see §7 "Unlinked-folder change"). Not yet built as of 26 Aug.
@@ -48,7 +48,7 @@ Plus one workflow change, requested with the rollout: add an **Unlinked** folder
 | ⬜ Genie REF modifier confirmed — now a **pilot** gate, not just Phase 2: the mixed fax line carries referrals (§9) | Medihost |
 | ⏸️ **Unlinked-folder change (Nicole, 26 Aug 2026)** — **PARKED 1 Sep 2026**: `gofax.cht@` went live on the existing proven flow instead (no time to run the §7 test matrix + two clean scheduled runs). Until it ships, assessed-but-not-filed emails stay in the polled Inbox (dedupe skips them on later runs) and Nicole handles them by hand. Build + prove on `gofax.par@` with `$Genie` local, then it applies to every mailbox in the list at once | Sean (flow) / Nicole (folders) |
 | 🔄 **`gofax.cht@` go-live 1 Sep 2026** — **in progress 1 Sep**: added to the existing flow via `MailboxList` (§7 step 6) polling `Inbox`, `$Genie` = Labrslts; needs PAuto Full Access (Amol) + `Inbox/HL7_linked` (Nicole); unmapped in §5 like the pilot. `Unlinked` folder deferred with the parked change above | Sean + Amol + Nicole |
-| ⏸️ **`gofaxbon@` + `gofaxbow@` go-live 8 Sep 2026** — parked 1 Sep pending the `gofax.cht@` result; same checklist as `gofax.cht@` (one more `AddItemToList` line each) | Sean + Amol + Nicole |
+| ⏸️ **`gofax.bon@` + `gofax.bow@` go-live 8 Sep 2026** — parked 1 Sep pending the `gofax.cht@` result; same checklist as `gofax.cht@` (one more `AddItemToList` line each) | Sean + Amol + Nicole |
 | ⬜ Confirm `gofax.par@` is polling the full `Inbox` (not the pilot test folder) before the other mailboxes are cloned from it | Sean |
 
 ---
@@ -64,7 +64,7 @@ The automation polls a mail folder for fax emails, sends each PDF attachment to 
 **Rollout phases (revised 22 Jul 2026 — BJC's real fax accounts are per-location GoFax mailboxes, not the per-modality addresses assumed earlier):**
 
 - **Pilot** — `gofax.par@bjchealth.com.au` (Parramatta, highest volume), polling the subfolder **`Inbox/HL7 Testing`**; Nicole moves a sample of live faxes into it.
-- **Live Phase 1** — same mailbox, polled folder flips to `Inbox`; then extend to the other GoFax location mailboxes (each needs PAuto access and a flow entry; optionally a `MAILBOX_CATEGORIES` mapping — see §5). **Dates set by BJC 26 Aug 2026:** `gofax.cht@` **1 Sep 2026**, `gofaxbon@` + `gofaxbow@` **8 Sep 2026**. The Unlinked-folder change (§7) ships with this phase.
+- **Live Phase 1** — same mailbox, polled folder flips to `Inbox`; then extend to the other GoFax location mailboxes (each needs PAuto access and a flow entry; optionally a `MAILBOX_CATEGORIES` mapping — see §5). **Dates set by BJC 26 Aug 2026:** `gofax.cht@` **1 Sep 2026**, `gofax.bon@` + `gofax.bow@` **8 Sep 2026**. The Unlinked-folder change (§7) ships with this phase.
 - **Phase 2** — `admin@bjchealth.com.au` and the other email mailboxes (referrals and consult letters). **Deferred by BJC 26 Aug 2026** — "a few months away"; BJC will initiate.
 
 ```
@@ -298,7 +298,7 @@ PAD sends the polled mailbox's full address in `X-Source-Mailbox`. If the server
 | Mailbox | Category | Effect |
 |---|---|---|
 | `gofax.par@bjchealth.com.au` *(pilot)* | *(unmapped)* → none | Free classification — **deliberate**, per Nicole |
-| `gofax.cht@` / `gofaxbon@` / `gofaxbow@bjchealth.com.au` *(rollout 1 + 8 Sep 2026)* | *(unmapped)* → none | Same per-location mixed fax lines as the pilot — leave unmapped unless BJC asks for a restriction. No code change needed to go live. |
+| `gofax.cht@` / `gofax.bon@` / `gofax.bow@bjchealth.com.au` *(rollout 1 + 8 Sep 2026)* | *(unmapped)* → none | Same per-location mixed fax lines as the pilot — leave unmapped unless BJC asks for a restriction. No code change needed to go live. |
 | `admin@bjchealth.com.au` | letters | Phase 2 (deferred by BJC, 26 Aug 2026): constrains to `referral` / `consult_letter` |
 | `fax-pathology@` / `fax-radiology@` / `fax-vascular@bjchealth.com.au` | results | **Relics.** These per-modality addresses came from the superseded design and never existed in BJC's tenant. Inert (nothing sends them); slated for cleanup. |
 | *(anything else)* | none | Free classification, no mailbox gate |
@@ -695,14 +695,14 @@ Then the §13 bar — two consecutive **scheduled** runs with an email left in t
 Variables.CreateNewList List=> MailboxList
 Variables.AddItemToList Item: $'''gofax.par@bjchealth.com.au''' List: MailboxList NewList=> MailboxList
 Variables.AddItemToList Item: $'''gofax.cht@bjchealth.com.au''' List: MailboxList NewList=> MailboxList
-Variables.AddItemToList Item: $'''gofaxbon@bjchealth.com.au''' List: MailboxList NewList=> MailboxList
-Variables.AddItemToList Item: $'''gofaxbow@bjchealth.com.au''' List: MailboxList NewList=> MailboxList
+Variables.AddItemToList Item: $'''gofax.bon@bjchealth.com.au''' List: MailboxList NewList=> MailboxList
+Variables.AddItemToList Item: $'''gofax.bow@bjchealth.com.au''' List: MailboxList NewList=> MailboxList
 LOOP FOREACH Mailbox IN MailboxList
     # ...existing flow body, unchanged...
 END
 ```
 
-Add mailboxes to the list on their go-live dates (1 Sep: `gofax.cht@`; 8 Sep: `gofaxbon@` + `gofaxbow@`), each only after Nicole has created both folders and Amol has granted PAuto Full Access — a wrong or unauthorised mailbox fails the whole run at `GetEmailsV3`. `gofax.cht@` confirmed dotted on 1 Sep 2026 (Nicole's note wrote `gofaxcht@`); confirm `bon`/`bow` the same way before 8 Sep. At go-live the polled folder flips from `HL7_Testing` to `Inbox` in the `GetEmailsV3` action — with one flow that is one value for all, so stagger by keeping a mailbox out of the list until its date rather than by per-mailbox folder values.
+Add mailboxes to the list on their go-live dates (1 Sep: `gofax.cht@`; 8 Sep: `gofax.bon@` + `gofax.bow@`), each only after Nicole has created both folders and Amol has granted PAuto Full Access — a wrong or unauthorised mailbox fails the whole run at `GetEmailsV3`. `gofax.cht@` confirmed dotted on 1 Sep 2026 (Nicole's note wrote `gofaxcht@`); `gofax.bon@` and `gofax.bow@` confirmed dotted the same day. At go-live the polled folder flips from `HL7_Testing` to `Inbox` in the `GetEmailsV3` action — with one flow that is one value for all, so stagger by keeping a mailbox out of the list until its date rather than by per-mailbox folder values.
 
 **7. Dashboard.** The `/log` tab's **Mailbox** column currently shows just "Email" for every PAD row: the `X-Source-Mailbox` value is parsed against the legacy `referrals`/`results` names, resolves to nothing for the gofax addresses, and is never stored. A server-side change ([PR #24](https://github.com/BoabAI/bjc-pdf-to-hl7/pull/24), draft, 1 Sep 2026) stores the address and renders it as e.g. **"Fax · gofax.par"**, with a matching CSV column and filter. PAD needs no change beyond step 3's `-Mailbox` parameter, which is what makes the header correct per mailbox. Historical rows stay "Email".
 
@@ -799,7 +799,7 @@ Same Windows machine already running PAD and PDF-to-Directory.
 | **Server capacity** | Runs alongside PDF-to-Directory; heavy processing is in the cloud | Confirm |
 | **Genie LabRslts folder access** | `\\192.168.47.20\Labrslts` — `BJC\medihost` needs read/write. Path + permissions confirmed by Medihost 22 Jul 2026; verify with a test write from MHS-SYD-APP47 | Confirmed |
 | **Internet access** | Outbound HTTPS (443) to `*.amplifyapp.com` only; no inbound, no VPN | Confirm |
-| **Mailbox access** | `PAuto@bjchealth.com.au` Full Access to `gofax.par@bjchealth.com.au` granted 22 Jul 2026. **Rollout (Nicole, 26 Aug 2026):** same Full Access needed on `gofax.cht@` before **1 Sep 2026** and on `gofaxbon@` + `gofaxbow@` before **8 Sep 2026** | Granted (par) / Requested (cht, bon, bow) |
+| **Mailbox access** | `PAuto@bjchealth.com.au` Full Access to `gofax.par@bjchealth.com.au` granted 22 Jul 2026. **Rollout (Nicole, 26 Aug 2026):** same Full Access needed on `gofax.cht@` before **1 Sep 2026** and on `gofax.bon@` + `gofax.bow@` before **8 Sep 2026** | Granted (par) / Requested (cht, bon, bow) |
 | **Linked subfolder** | `Linked` under the polled folder (`Inbox/HL7 Testing` for the pilot; `Inbox` at go-live) — access now granted, Sean or Nicole creates it. One per rollout mailbox | Create |
 | **Unlinked subfolder** | `Unlinked` beside `Linked` in each mailbox — receives every assessed-but-not-filed email (§7 "Unlinked-folder change", Nicole 26 Aug 2026). Nicole creates; same name in all four mailboxes | Create |
 | **Genie REF modifier** | Required before the pilot goes live (mixed fax line carries referrals — §9) | Confirm / Enable |
