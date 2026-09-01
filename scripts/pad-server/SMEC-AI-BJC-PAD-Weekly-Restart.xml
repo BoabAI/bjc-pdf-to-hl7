@@ -2,7 +2,8 @@
 <!--
   SMEC AI BJC PAD Weekly Restart  -  Task Scheduler definition for MHS-SYD-APP47
 
-  Import (admin PowerShell, after copying Restart-PadRuntime.ps1 to C:\SMEC AI\scripts\):
+  Import (admin PowerShell, after copying both files to C:\SMEC AI\scripts\). If schtasks says
+  "unable to switch the encoding", re-save as UTF-16 first - see pad-integration-guide.md section 14:
     schtasks /Create /TN "SMEC AI BJC PAD Weekly Restart" /XML "C:\SMEC AI\scripts\SMEC-AI-BJC-PAD-Weekly-Restart.xml"
 
   Runs Saturday 03:07 server-local time. That minute sits between PDF-to-directory's

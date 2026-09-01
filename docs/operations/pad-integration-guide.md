@@ -685,7 +685,12 @@ Both PAD flows on MHS-SYD-APP47 have silently stopped after days of running whil
 
 1. Copy both files to `C:\SMEC AI\scripts\`.
 2. **Elevation pre-check** — open a prompt as `medihost` and run `whoami /groups | findstr /i administrators`. "Highest privileges" only elevates if `medihost` is in the local Administrators group; `Restart-Service` needs that. If it isn't listed, either ask Medihost to add it or swap the `<Principal>` in the XML for the SYSTEM variant shown in the XML's header comment (SYSTEM can still kill medihost's PAD processes).
-3. Import: `schtasks /Create /TN "SMEC AI BJC PAD Weekly Restart" /XML "C:\SMEC AI\scripts\SMEC-AI-BJC-PAD-Weekly-Restart.xml"`
+3. Import from an admin PowerShell. Task Scheduler rejects the XML with `(1,40)::ERROR: unable to switch the encoding` if the file's bytes don't match its declaration (copying via Notepad/RDP often re-saves it as UTF-16), so normalise first:
+   ```powershell
+   $p = 'C:\SMEC AI\scripts\SMEC-AI-BJC-PAD-Weekly-Restart.xml'
+   (Get-Content $p -Raw) -replace 'encoding="UTF-8"', 'encoding="UTF-16"' | Set-Content $p -Encoding Unicode
+   schtasks /Create /F /TN "SMEC AI BJC PAD Weekly Restart" /XML $p
+   ```
 4. First manual run at a quiet time (not between 12:40 and 13:00): `schtasks /Run /TN "SMEC AI BJC PAD Weekly Restart"`, then within a couple of minutes check:
    - `Get-Content 'C:\SMEC AI\pad-restart.log' -Tail 20` shows `status after=Running` and `SMOKE PASS`, `END exit=0`.
    - Task Scheduler → the task's **Last Run Result** is `0x0`.
