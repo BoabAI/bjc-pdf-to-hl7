@@ -11,8 +11,12 @@
       2. Waits for any in-flight flow run (PAD.Robin.Host.exe) to finish.
       3. Kills the PAD console / robin / designer processes.
       4. Restarts the "Power Automate Service" Windows service.
-      5. Optionally (-SmokeRun) starts the PDF-to-HL7 task and confirms the
-         console came back and wrote a fresh run log.
+      5. Optionally (-SmokeRun, manual use only) starts the PDF-to-HL7 task and
+         confirms PAD.Console.Host came back. NOT used by the scheduled task:
+         on 1 Sep 2026 the script was terminated (0xC000013A) ~70 s after
+         launching the flow, i.e. as the flow run finished - so the scheduled
+         task exits right after the service restart and verification is a
+         separate one-liner after the next 10-minute slot (guide section 14).
 
     The next 10-minute flow trigger relaunches PAD.Console.Host.exe on its own
     (that is how the existing At-startup trigger recovers), so nothing else
@@ -24,7 +28,7 @@
     Exit codes:
       0  success
       2  not elevated (processes were still killed; service restart skipped)
-      3  smoke run failed (console did not come back / no new run log)
+      3  smoke run failed (console did not come back)
       4  Power Automate service not found
       5  service did not reach Running within the timeout
 
@@ -35,8 +39,8 @@
     Max time to wait for PAD.Robin.Host.exe to disappear before killing anyway.
 
 .PARAMETER SmokeRun
-    After the restart, start the flow task named by -FlowTaskName and verify
-    the console relaunched and wrote a new run log.
+    Manual use only. After the restart, start the flow task named by
+    -FlowTaskName and verify PAD.Console.Host relaunched within 90 s.
 
 .PARAMETER FlowTaskName
     Task Scheduler task to use for the smoke run.
@@ -55,7 +59,6 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $PadProcessNames = @('PAD.Console.Host', 'PAD.Robin.Host', 'PAD.Designer.Host')
-$RunLogDir = Join-Path $env:LOCALAPPDATA 'Microsoft\Power Automate Desktop\Console\Logs'
 
 function Write-Log {
     param([string]$Message)
@@ -172,19 +175,13 @@ try {
 
 $smokeDeadline = (Get-Date).AddSeconds(90)
 $consoleUp = $false
-$newLog = $null
 do {
     Start-Sleep -Seconds 5
     if (Get-Process -Name 'PAD.Console.Host' -ErrorAction SilentlyContinue) { $consoleUp = $true }
-    if (Test-Path -LiteralPath $RunLogDir) {
-        $newLog = Get-ChildItem -LiteralPath $RunLogDir -File -ErrorAction SilentlyContinue |
-            Where-Object { $_.LastWriteTime -gt $restartedAt } |
-            Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    }
-} while (-not ($consoleUp -and $newLog) -and (Get-Date) -lt $smokeDeadline)
+} while (-not $consoleUp -and (Get-Date) -lt $smokeDeadline)
 
-Write-Log ('smoke: consoleUp={0} newRunLog={1}' -f $consoleUp, $(if ($newLog) { $newLog.Name } else { '<none>' }))
-if ($consoleUp -and $newLog) {
+Write-Log ('smoke: consoleUp={0}' -f $consoleUp)
+if ($consoleUp) {
     Exit-WithCode 0 'SMOKE PASS'
 }
-Exit-WithCode 3 'SMOKE FAIL - console did not relaunch or no new run log within 90 s'
+Exit-WithCode 3 'SMOKE FAIL - PAD.Console.Host did not relaunch within 90 s'
