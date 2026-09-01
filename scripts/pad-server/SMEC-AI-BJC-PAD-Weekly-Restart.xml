@@ -2,8 +2,8 @@
 <!--
   SMEC AI BJC PAD Weekly Restart  -  Task Scheduler definition for MHS-SYD-APP47
 
-  Import (admin PowerShell, after copying Restart-PadRuntime.ps1 to C:\SMEC AI\pdf-to-hl7\):
-    schtasks /Create /TN "SMEC AI BJC PAD Weekly Restart" /XML "C:\SMEC AI\pdf-to-hl7\SMEC-AI-BJC-PAD-Weekly-Restart.xml"
+  Import (admin PowerShell, after copying Restart-PadRuntime.ps1 to C:\SMEC AI\scripts\):
+    schtasks /Create /TN "SMEC AI BJC PAD Weekly Restart" /XML "C:\SMEC AI\scripts\SMEC-AI-BJC-PAD-Weekly-Restart.xml"
 
   Runs Sunday 03:07 server-local time. That minute sits between PDF-to-directory's
   :05 slot and PDF-to-HL7's :10 slot (see pad-integration-guide.md section 10 / 14).
@@ -25,7 +25,7 @@
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
     <Author>SMEC AI</Author>
-    <Description>Weekly hygiene restart of the Power Automate Desktop runtime (kills PAD console/robin, restarts the Power Automate Service, smoke-runs PDF-to-HL7). Both BJC PAD flows have silently stalled after days; this is the mitigation. Non-zero Last Run Result = investigate C:\SMEC AI\pdf-to-hl7\pad-restart.log.</Description>
+    <Description>Weekly hygiene restart of the Power Automate Desktop runtime (kills PAD console/robin, restarts the Power Automate Service, smoke-runs PDF-to-HL7). Both BJC PAD flows have silently stalled after days; this is the mitigation. Non-zero Last Run Result = investigate C:\SMEC AI\pad-restart.log.</Description>
     <URI>\SMEC AI BJC PAD Weekly Restart</URI>
   </RegistrationInfo>
   <Triggers>
@@ -69,8 +69,8 @@
   <Actions Context="Author">
     <Exec>
       <Command>C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe</Command>
-      <Arguments>-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "C:\SMEC AI\pdf-to-hl7\Restart-PadRuntime.ps1" -SmokeRun</Arguments>
-      <WorkingDirectory>C:\SMEC AI\pdf-to-hl7</WorkingDirectory>
+      <Arguments>-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "C:\SMEC AI\scripts\Restart-PadRuntime.ps1" -SmokeRun</Arguments>
+      <WorkingDirectory>C:\SMEC AI\scripts</WorkingDirectory>
     </Exec>
   </Actions>
 </Task>

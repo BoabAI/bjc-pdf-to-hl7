@@ -29,7 +29,7 @@
       5  service did not reach Running within the timeout
 
 .PARAMETER LogPath
-    Append-only log. Default: C:\SMEC AI\pdf-to-hl7\pad-restart.log
+    Append-only log. Default: C:\SMEC AI\pad-restart.log
 
 .PARAMETER MaxWaitMinutes
     Max time to wait for PAD.Robin.Host.exe to disappear before killing anyway.
@@ -47,7 +47,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$LogPath = 'C:\SMEC AI\pdf-to-hl7\pad-restart.log',
+    [string]$LogPath = 'C:\SMEC AI\pad-restart.log',
     [int]$MaxWaitMinutes = 4,
     [switch]$SmokeRun,
     [string]$FlowTaskName = 'SMEC AI BJC PDF-to-HL7'
