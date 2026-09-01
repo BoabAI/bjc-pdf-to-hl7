@@ -672,7 +672,7 @@ Both PAD flows on MHS-SYD-APP47 have silently stopped after days of running whil
 
 | File | Purpose |
 |---|---|
-| `Restart-PadRuntime.ps1` | Waits for any in-flight flow run, kills `PAD.Console.Host` / `PAD.Robin.Host` / `PAD.Designer.Host`, restarts the **Power Automate Service** (`UIFlowService`), then (with `-SmokeRun`) starts `SMEC AI BJC PDF-to-HL7` and checks the console relaunched and wrote a fresh run log. Appends to `C:\SMEC AI\pad-restart.log`. |
+| `Restart-PadRuntime.ps1` | Waits for any in-flight flow run, kills `PAD.Console.Host` / `PAD.Robin.Host` / `PAD.Designer.Host`, restarts the **Power Automate Service** (`UIFlowService`), then (with `-SmokeRun`) starts `SMEC AI BJC PDF-to-HL7` and checks the console relaunched and wrote a fresh run log. Appends to `C:\SMEC AI\pdf-to-hl7\pad-restart.log`. |
 | `SMEC-AI-BJC-PAD-Weekly-Restart.xml` | Task Scheduler definition — Sunday **03:07**, `BJC\medihost`, highest privileges, run only when logged on, 15-min limit, catch-up if missed. |
 
 **Why killing the console is safe:** both flow tasks launch `PAD.Console.Host.exe ms-powerautomate:/console/flow/run?...` every 10 minutes, and that command cold-starts the console if it isn't running (it's how the At-startup trigger already recovers). The restart task starts nothing itself beyond the optional smoke run.
@@ -683,11 +683,11 @@ Both PAD flows on MHS-SYD-APP47 have silently stopped after days of running whil
 
 ### Install (RDP to MHS-SYD-APP47 as an admin)
 
-1. Copy both files to `C:\SMEC AI\scripts\`.
+1. Copy both files to `C:\SMEC AI\pdf-to-hl7\`.
 2. **Elevation pre-check** — open a prompt as `medihost` and run `whoami /groups | findstr /i administrators`. "Highest privileges" only elevates if `medihost` is in the local Administrators group; `Restart-Service` needs that. If it isn't listed, either ask Medihost to add it or swap the `<Principal>` in the XML for the SYSTEM variant shown in the XML's header comment (SYSTEM can still kill medihost's PAD processes).
-3. Import: `schtasks /Create /TN "SMEC AI BJC PAD Weekly Restart" /XML "C:\SMEC AI\scripts\SMEC-AI-BJC-PAD-Weekly-Restart.xml"`
+3. Import: `schtasks /Create /TN "SMEC AI BJC PAD Weekly Restart" /XML "C:\SMEC AI\pdf-to-hl7\SMEC-AI-BJC-PAD-Weekly-Restart.xml"`
 4. First manual run at a quiet time (not between 12:40 and 13:00): `schtasks /Run /TN "SMEC AI BJC PAD Weekly Restart"`, then within a couple of minutes check:
-   - `Get-Content 'C:\SMEC AI\pad-restart.log' -Tail 20` shows `status after=Running` and `SMOKE PASS`, `END exit=0`.
+   - `Get-Content 'C:\SMEC AI\pdf-to-hl7\pad-restart.log' -Tail 20` shows `status after=Running` and `SMOKE PASS`, `END exit=0`.
    - Task Scheduler → the task's **Last Run Result** is `0x0`.
    - Both flow tasks' **Last Run Time** advance on their next 10-minute slot; send a test fax to `gofax.par@` and confirm it files (or lands on the dashboard).
 
