@@ -1,6 +1,8 @@
 # Statement of Advice
 
 > **Note (22 Jul 2026):** The email-automation design below has been revised in part during the pilot build. BJC's fax accounts are per-location GoFax mailboxes (pilot: `gofax.par@bjchealth.com.au`), not the three per-modality mailboxes described here; and per BJC ops (Nicole Pyne), the Linked/**Review**-folder model was replaced — successes still move to `Linked`, but documents that can't be auto-filed now **stay in the inbox untouched** (no Review folder, no Outlook categories), with review reasons visible on the dashboard. The body below is preserved as the original statement of advice; the current design is in `docs/operations/pad-integration-guide.md`.
+>
+> **Note (26 Aug 2026):** BJC has since asked for a two-folder model again — `Linked` plus an **`Unlinked`** folder that receives every email the converter assesses but does not file (in effect the Review folder under a new name, without Outlook categories). Rollout dates for the remaining three per-location fax mailboxes: `gofaxcht@` 1 Sep 2026, `gofaxbon@` and `gofaxbow@` 8 Sep 2026; the email mailboxes (stage 2) are deferred by BJC for a few months. See `docs/business/emails/2026-08-26-nicole-rollout-next-steps.md`.
 
 ## BJC PDF-TO-HL7 AUTOMATED WORKFLOW
 
