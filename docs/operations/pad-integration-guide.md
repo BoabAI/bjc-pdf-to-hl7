@@ -15,7 +15,7 @@ Build is underway on the BJC server (MHS-SYD-APP47). Update this table as items 
 | Mailbox | Go-live date | Notes |
 |---|---|---|
 | `gofax.par@bjchealth.com.au` | live (pilot mailbox) | Parramatta — the flow described in §7 |
-| `gofax.cht@bjchealth.com.au` | **Tue 1 Sep 2026** | Address as written by Nicole (`gofax.cht@`); confirm the exact local part — the pilot address has a dot (`gofax.par@`) |
+| `gofax.cht@bjchealth.com.au` | **Tue 1 Sep 2026** | Confirmed 1 Sep 2026 — dotted like the pilot (Nicole's 26 Aug note wrote `gofaxcht@`; OWA returns `accessDenied` on that spelling). Assume `gofax.bon@` / `gofax.bow@` likewise — confirm before 8 Sep |
 | `gofaxbon@bjchealth.com.au` | **Tue 8 Sep 2026** | As above |
 | `gofaxbow@bjchealth.com.au` | **Tue 8 Sep 2026** | As above |
 | `admin@` and other email mailboxes | deferred — "a few months away" | BJC will contact SMEC AI when the broader team is ready (was "Phase 2") |
