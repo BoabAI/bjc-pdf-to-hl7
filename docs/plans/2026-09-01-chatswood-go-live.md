@@ -1,6 +1,6 @@
 # Chatswood (`gofax.cht@`) go-live — 1 Sep 2026 status
 
-**Status: 🔄 flow change pasted into a Copy, not yet run/published (15:00 AEST).** Related: `pad-integration-guide.md` §7 step 6 (PR #23), `docs/operations/pad-flow-exports/` (exports + paste learnings), PR #24 (dashboard mailbox column).
+**Status: ✅ IMPLEMENTED on the server (Sean, ~15:30 AEST 1 Sep 2026) — cht polled on the scheduled flow; verification (cht test fax, Genie check, dedupe bar) still open.** Email to Nicole drafted: `docs/business/emails/2026-09-01-chatswood-live.html`. Related: `pad-integration-guide.md` §7 step 6 (PR #23), `docs/operations/pad-flow-exports/` (exports + paste learnings), PR #24 (dashboard mailbox column).
 
 ## Decision (Sean, 1 Sep 2026 morning)
 
@@ -26,7 +26,9 @@ All rows show as par: `convert.ps1` hardcodes `X-Source-Mailbox: gofax.par@` and
 
 ## Remaining steps
 
-1. **Run the Copy once manually** (not at a `:x0` minute). Watch the outer loop reach iteration 2 (`gofax.cht@`); `GetEmailsV3` must not error — if it does, PAuto lacks Full Access on cht (Amol). A cht test fax should convert (new `service:pad-pipeline` audit row) and move to cht's `Inbox/HL7_linked` — if it stays in Inbox, the folder doesn't exist in cht yet (Nicole).
+_Steps 1–2 done 1 Sep afternoon (Sean: "implemented")._
+
+1. ~~**Run the Copy once manually**~~ (not at a `:x0` minute). Watch the outer loop reach iteration 2 (`gofax.cht@`); `GetEmailsV3` must not error — if it does, PAuto lacks Full Access on cht (Amol). A cht test fax should convert (new `service:pad-pipeline` audit row) and move to cht's `Inbox/HL7_linked` — if it stays in Inbox, the folder doesn't exist in cht yet (Nicole).
 2. **Publish**, then make the schedule run it: re-paste the same text into the original `desktop-pdf-to-hl7` (the task launches by workflow ID), or repoint the task's `workflowid=` to the Copy. Confirm the next `:x0` slot produces rows.
 3. **Dedupe bar (§13):** one unfiled email left in either Inbox, two consecutive scheduled runs, zero new audit rows.
 4. **Genie verification with Nicole:** the 13:32 / 14:20 documents and the first cht fax landed in Radiology / Incoming Letters with the right patient.
