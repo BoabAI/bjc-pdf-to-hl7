@@ -456,3 +456,32 @@ describe("buildFailureAuditRow", () => {
     expect(serialized).not.toContain("19800123");
   });
 });
+
+describe("mailboxAddress", () => {
+  const EMAIL_META: AuditRowMeta = {
+    ...baseMeta,
+    source: "email",
+    userEmail: "anonymous",
+    mailboxAddress: "gofax.par@bjchealth.com.au",
+  };
+
+  test("persists the source mailbox address on a conversion row when supplied", () => {
+    const row = buildConversionAuditRow(EMAIL_META, baseSuccess);
+    expect(row.mailboxAddress).toBe("gofax.par@bjchealth.com.au");
+  });
+
+  test("omits mailboxAddress from the row when not supplied (web upload)", () => {
+    const row = buildConversionAuditRow(baseMeta, baseSuccess);
+    expect("mailboxAddress" in row).toBe(false);
+  });
+
+  test("persists the source mailbox address on a failure row", () => {
+    const row = buildFailureAuditRow(EMAIL_META);
+    expect(row.mailboxAddress).toBe("gofax.par@bjchealth.com.au");
+  });
+
+  test("omits mailboxAddress from a failure row when not supplied", () => {
+    const row = buildFailureAuditRow(baseMeta);
+    expect("mailboxAddress" in row).toBe(false);
+  });
+});

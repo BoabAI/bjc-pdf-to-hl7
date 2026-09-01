@@ -10,6 +10,7 @@ import {
   isResultDocumentType,
   mailboxCategoryFor,
   parseDocumentTypeOption,
+  parseMailboxAddress,
 } from "./conversion-config";
 
 describe("DOCUMENT_TYPES whitelist", () => {
@@ -207,5 +208,30 @@ describe("allowedDocTypesForCategory", () => {
   test("none → all DOCUMENT_TYPES (free classification)", () => {
     const allowed = allowedDocTypesForCategory("none");
     expect(allowed).toEqual([...DOCUMENT_TYPES]);
+  });
+});
+
+describe("parseMailboxAddress", () => {
+  test("returns the lowercased, trimmed address for an address-shaped header", () => {
+    expect(parseMailboxAddress("  GoFax.Par@BJCHealth.com.au ")).toBe(
+      "gofax.par@bjchealth.com.au"
+    );
+  });
+
+  test("returns undefined for the legacy enum values", () => {
+    expect(parseMailboxAddress("results")).toBeUndefined();
+    expect(parseMailboxAddress("referrals")).toBeUndefined();
+  });
+
+  test("returns undefined for missing, junk, or simulated values", () => {
+    expect(parseMailboxAddress(null)).toBeUndefined();
+    expect(parseMailboxAddress(undefined)).toBeUndefined();
+    expect(parseMailboxAddress("")).toBeUndefined();
+    expect(parseMailboxAddress("garbage")).toBeUndefined();
+    expect(parseMailboxAddress("simulated:fax")).toBeUndefined();
+  });
+
+  test("rejects implausibly long values", () => {
+    expect(parseMailboxAddress(`${"a".repeat(260)}@x.au`)).toBeUndefined();
   });
 });

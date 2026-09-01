@@ -13,6 +13,7 @@ import {
 import {
   isStrictRequiredFields,
   mailboxCategoryFor,
+  parseMailboxAddress,
   parseMailboxSource,
 } from "@/lib/conversion-config";
 import { auth } from "@/lib/auth";
@@ -54,6 +55,9 @@ export const POST = auth(async (request) => {
   const mailboxHeader = request.headers.get("x-source-mailbox");
   const mailboxHint = parseMailboxSource(mailboxHeader);
   const mailboxCategory = mailboxCategoryFor(mailboxHeader);
+  // Address-shaped headers are also persisted verbatim (lowercased) so the
+  // dashboard can distinguish the per-location GoFax mailboxes.
+  const mailboxAddress = parseMailboxAddress(mailboxHeader);
   const now = new Date();
 
   // Authenticate per source. Web = Auth.js cookie session.
@@ -139,6 +143,7 @@ export const POST = auth(async (request) => {
         userEmail,
         mailboxHint,
         mailboxCategory,
+        mailboxAddress,
         originalFilename,
         contentHash,
         fileSizeBytes,
@@ -164,6 +169,7 @@ export const POST = auth(async (request) => {
       userEmail,
       mailboxHint,
       mailboxCategory,
+      mailboxAddress,
       originalFilename,
       contentHash,
       fileSizeBytes,
