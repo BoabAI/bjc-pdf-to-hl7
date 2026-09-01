@@ -104,6 +104,32 @@ export function parseMailboxSource(
   return isMailboxSource(normalized) ? normalized : undefined;
 }
 
+/** Upper bound on a persisted mailbox address (RFC 5321 caps them at 254). */
+const MAX_MAILBOX_ADDRESS_LENGTH = 254;
+
+/**
+ * Lower-cases and trims an address-shaped `x-source-mailbox` header (e.g.
+ * `gofax.par@bjchealth.com.au`) so the audit row can record WHICH mailbox a
+ * PAD conversion came from. Returns undefined for the legacy enum values,
+ * `simulated:*` markers, junk, or anything implausibly long — none of those
+ * carry a per-mailbox identity worth showing on the dashboard.
+ */
+export function parseMailboxAddress(
+  value: string | null | undefined
+): string | undefined {
+  if (!value) return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (
+    normalized.length === 0 ||
+    normalized.length > MAX_MAILBOX_ADDRESS_LENGTH
+  ) {
+    return undefined;
+  }
+  const at = normalized.indexOf("@");
+  if (at <= 0 || at === normalized.length - 1) return undefined;
+  return normalized;
+}
+
 /**
  * True when the LLM's classification belongs to a different family than the
  * mailbox suggests. Returns false when the mailbox is unknown, the document
