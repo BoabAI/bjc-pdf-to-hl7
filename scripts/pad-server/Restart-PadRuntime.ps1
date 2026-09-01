@@ -127,9 +127,15 @@ if (-not $isElevated) {
     Exit-WithCode 2 'NOT ELEVATED - service restart skipped. medihost must be a local Administrator (or import the SYSTEM task variant).'
 }
 
-$service = Get-Service | Where-Object { $_.Name -eq 'UIFlowService' -or $_.DisplayName -like 'Power Automate*' } | Select-Object -First 1
+# Prefer the runtime service by exact name, then exact display name. Never the
+# crash monitor (PADCrashMonitor, "Power Automate crash monitor service") - a
+# bare 'Power Automate*' wildcard matched that first on MHS-SYD-APP47 (1 Sep 2026).
+$candidates = @(Get-Service -ErrorAction SilentlyContinue | Where-Object { $_.Name -ne 'PADCrashMonitor' -and $_.DisplayName -notlike '*crash monitor*' })
+$service = $candidates | Where-Object { $_.Name -eq 'UIFlowService' } | Select-Object -First 1
+if (-not $service) { $service = $candidates | Where-Object { $_.DisplayName -eq 'Power Automate Service' } | Select-Object -First 1 }
+if (-not $service) { $service = $candidates | Where-Object { $_.DisplayName -like 'Power Automate*' } | Select-Object -First 1 }
 if (-not $service) {
-    Exit-WithCode 4 'Power Automate service not found (expected name UIFlowService / display "Power Automate Service")'
+    Exit-WithCode 4 'Power Automate runtime service not found (expected name UIFlowService / display "Power Automate Service")'
 }
 Write-Log ('service {0} ("{1}") status before={2}' -f $service.Name, $service.DisplayName, $service.Status)
 
