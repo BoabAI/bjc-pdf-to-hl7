@@ -523,7 +523,7 @@ Replaces the "everything else stays in the inbox untouched" rule above. Receptio
 | 400 / 422 invalid file | stays in polled folder | **move → `Unlinked`** |
 | Multi-attachment, partially filed | stays in polled folder | **move → `Unlinked`** (filed PDFs are already in Genie; dashboard shows which) |
 | Service error / timeout after retries | stays in polled folder, unlogged | stays in polled folder, unlogged — **retried next run** (unchanged) |
-| Non-PDF-only email (no PDF attachments) | stays in polled folder | stays in polled folder — nothing was assessed |
+| Non-PDF-only email (attachments, but no PDF) | stays in polled folder | **move → `Unlinked`** — build decision (1 Sep 2026): reception should see anything the converter passed over. Nicole can reverse this; it is one `Else` branch |
 
 Build notes:
 
@@ -533,6 +533,178 @@ Build notes:
 - **Urgent visibility:** urgent documents will now sit in `Unlinked`, not the inbox. Reception must treat `Unlinked` as the work queue; the red **Urgent** badge on the dashboard is unchanged.
 - **Meaning of the polled folder shifts** from "inbox as it arrived" to "not yet assessed, or retry pending". Anything lingering there for more than a couple of runs indicates a service problem — a cheap health signal for staff.
 - §8 matrix and §12 variables are updated below; the Robin listing above still shows the pre-change behaviour and should be replaced with the server export once built.
+
+#### Build steps (written 1 Sep 2026 — paste-ready for the next server session)
+
+**1. Mailbox prep (Nicole, `gofax.par@` first).** Create **`HL7_unlinked` under Inbox**, beside `HL7_linked`. Not at the mailbox root next to `HL7_Testing`: `MoveV2` only resolves a destination path that hangs off a well-known root (the 29 Jul lesson), so a root-level `HL7_unlinked` would be unreachable exactly as `HL7 Testing/Linked` was. Same name in all four mailboxes so one flow covers them.
+
+**2. Flow change — one `Else` branch on each of the two inner `If`s.** The tail of the email loop is currently: log append → `If HasPdf` → `If AllFiled` → MoveV2 to Linked. The change adds an `Else` to the `AllFiled` If (MoveV2 to Unlinked) and an `Else` to the `HasPdf` If (also to Unlinked, per the table above). The log append stays **first** — that ordering is what the 28–29 Jul incident was about. Service errors set `Assessed = no` and never reach this block, so they stay in the polled folder for retry, as Nicole asked.
+
+In the designer this is quicker than repasting: add **Else** to the two Ifs, copy/paste the existing MoveV2 action into each, change its **Folder** to `Inbox/HL7_unlinked`, and change the `Run PowerShell script` action's script to pass the mailbox (see step 3). The full flow, derived from the 31 Jul server export — the additions are the `-Mailbox` argument on the script call and the two `ELSE` branches that move to `Inbox/HL7_unlinked`:
+
+```robin
+SET Mailbox TO $'''gofax.par@bjchealth.com.au'''
+SET TempPath TO $'''C:\\SMEC AI\\pdf-to-hl7\\'''
+DateTime.GetCurrentDateTime.Local DateTimeFormat: DateTime.DateTimeFormat.DateAndTime CurrentDateTime=> CurrentDateTime
+IF (File.IfFile.Exists File: $'''%TempPath%temp.pdf''') THEN
+    File.Delete Files: $'''%TempPath%temp.pdf'''
+END
+File.ReadTextFromFile.ReadText File: $'''C:\\SMEC AI\\pdf-to-hl7\\processed.log''' Encoding: File.TextFileEncoding.UTF8 Content=> ProcessedIds
+@@folderPath: 'HL7_Testing'
+@@connectionDisplayName: 'Office 365 Outlook pdftodirectory-09a24'
+External.InvokeCloudConnector Connection: 'ad6d3c86-98fa-435c-bc66-3759564f18c1' ConnectorId: '/providers/Microsoft.PowerApps/apis/shared_office365' OperationId: 'GetEmailsV3' @folderPath: $'''HL7_Testing''' @fetchOnlyWithAttachment: True @fetchOnlyUnread: False @mailboxAddress: Mailbox @includeAttachments: True @top: 25 @GetEmailsV3Response=> GetEmailsV3Response
+LOOP FOREACH CurrentEmail IN GetEmailsV3Response.value
+    IF (NOT Contains(ProcessedIds, CurrentEmail.internetMessageId, False)) = True THEN
+        SET HasPdf TO $'''no'''
+        SET AllFiled TO $'''yes'''
+        SET Assessed TO $'''yes'''
+        LOOP FOREACH CurrentAttachment IN CurrentEmail.attachments
+            IF Contains(CurrentAttachment.name, $'''pdf''', True) THEN
+                SET HasPdf TO $'''yes'''
+                File.ConvertFromBase64 Base64Text: CurrentAttachment.contentBytes File: $'''%TempPath%temp.pdf''' IfFileExists: File.IfExists.Overwrite
+                Scripting.RunPowershellScript.RunScript Script: $'''& \"C:\\SMEC AI\\pdf-to-hl7\\convert.ps1\" -Mailbox \"%Mailbox%\"''' ScriptOutput=> ConvertResponse
+                IF Contains(ConvertResponse, $'''auto_routed''', True) THEN
+                    SET LastResult TO $'''filed'''
+                ELSE
+                    SET AllFiled TO $'''no'''
+                    IF NOT Contains(ConvertResponse, $'''manual_review''', True) THEN
+                        SET Assessed TO $'''no'''
+                    END
+                END
+                File.Delete Files: $'''%TempPath%temp.pdf'''
+            END
+        END
+        IF Contains(Assessed, $'''yes''', True) THEN
+            SET EmailId TO CurrentEmail.internetMessageId
+            File.WriteText File: $'''C:\\SMEC AI\\pdf-to-hl7\\processed.log''' TextToWrite: $'''%CurrentDateTime% %EmailId%''' AppendNewLine: True IfFileExists: File.IfFileExists.Append Encoding: File.FileEncoding.UTF8
+            IF Contains(HasPdf, $'''yes''', True) THEN
+                IF Contains(AllFiled, $'''yes''', True) THEN
+                    @@folderPath: 'Inbox/HL7_linked'
+@@connectionDisplayName: 'Office 365 Outlook pdftodirectory-09a24'
+External.InvokeCloudConnector Connection: 'ad6d3c86-98fa-435c-bc66-3759564f18c1' ConnectorId: '/providers/Microsoft.PowerApps/apis/shared_office365' OperationId: 'MoveV2' timeout: 1000 @messageId: CurrentEmail.id @folderPath: $'''Inbox/HL7_linked''' @mailboxAddress: Mailbox @MoveV2Response=> MoveV2Response
+                    ON ERROR
+
+                    END
+                ELSE
+                    @@folderPath: 'Inbox/HL7_unlinked'
+@@connectionDisplayName: 'Office 365 Outlook pdftodirectory-09a24'
+External.InvokeCloudConnector Connection: 'ad6d3c86-98fa-435c-bc66-3759564f18c1' ConnectorId: '/providers/Microsoft.PowerApps/apis/shared_office365' OperationId: 'MoveV2' timeout: 1000 @messageId: CurrentEmail.id @folderPath: $'''Inbox/HL7_unlinked''' @mailboxAddress: Mailbox @MoveV2Response=> MoveV2Response
+                    ON ERROR
+
+                    END
+                END
+            ELSE
+                @@folderPath: 'Inbox/HL7_unlinked'
+@@connectionDisplayName: 'Office 365 Outlook pdftodirectory-09a24'
+External.InvokeCloudConnector Connection: 'ad6d3c86-98fa-435c-bc66-3759564f18c1' ConnectorId: '/providers/Microsoft.PowerApps/apis/shared_office365' OperationId: 'MoveV2' timeout: 1000 @messageId: CurrentEmail.id @folderPath: $'''Inbox/HL7_unlinked''' @mailboxAddress: Mailbox @MoveV2Response=> MoveV2Response
+                ON ERROR
+
+                END
+            END
+        END
+    END
+END
+
+# [ControlRepository][PowerAutomateDesktop]
+
+{
+  "ControlRepositorySymbols": [],
+  "ImageRepositorySymbol": {
+    "Repository": "{\r\n  \"Folders\": [],\r\n  \"Images\": [],\r\n  \"Version\": 1\r\n}",
+    "ImportMetadata": {},
+    "Name": "imgrepo"
+  },
+  "ConnectionReferences": [
+    {
+      "ConnectorId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+      "DisplayName": "Office 365 Outlook pdftodirectory-09a24",
+      "InternalId": "ad6d3c86-98fa-435c-bc66-3759564f18c1",
+      "IsDisabled": false,
+      "LogicalName": "new_sharedoffice365_09a24",
+      "IsEmbedded": false,
+      "ConnectionName": "shared-office365-92ecf715-503a-4aa3-b02d-b2d5603b2fc3",
+      "ConnectionDisplayName": "PAuto@bjchealth.com.au"
+    }
+  ]
+}
+```
+
+Paste notes: the block mirrors the designer's own export layout — the `@@` annotation and connector lines lose their indent inside nested blocks; leave that as is, PAD rejects the whole paste silently on any structural error. The first `ELSE` (manual_review incl. urgent, 400/422, partially filed) and the second (attachments but no PDF) are the additions. `MoveV2` deliberately keeps `CurrentEmail.id` (the move API needs the current folder-scoped handle); only the dedupe uses `internetMessageId`.
+
+**3. `convert.ps1` — the 400/422 case needs help.** A 400 (not a PDF, >10 MB) or 422 (strict-mode OBR-16) returns a body with no `action` field, so today the flow treats it as a service error and retries it every run forever — and never moves it. Capture the HTTP status and map it: 400/422 → a `manual_review`-shaped JSON (PAD's `Contains()` branching then needs no change); 401, 5xx, timeout, empty body → `service_error`. The script also gains a `-Mailbox` parameter so one script serves all four mailboxes. Full revised script:
+
+```powershell
+param([string]$Mailbox = 'gofax.par@bjchealth.com.au')
+$ErrorActionPreference = 'Stop'
+$BaseUrl = 'https://prod.d20i409xquw7x3.amplifyapp.com'
+$Dir     = 'C:\SMEC AI\pdf-to-hl7'
+$Genie   = '\\192.168.47.20\Labrslts'
+try {
+    $sec   = Get-Content (Join-Path $Dir 'token.dat') | ConvertTo-SecureString
+    $token = (New-Object System.Net.NetworkCredential('', $sec)).Password
+    $raw   = & curl.exe -s --max-time 90 -w "`n%{http_code}" -X POST "$BaseUrl/api/convert" `
+        -H "Authorization: Bearer $token" `
+        -H "X-Source: email" `
+        -H "X-Source-Mailbox: $Mailbox" `
+        -F "pdf=@$Dir\temp.pdf"
+    $raw   = ($raw -join "`n")                     # curl output arrives as one string per line
+    $idx   = $raw.LastIndexOf("`n")
+    $code  = $raw.Substring($idx + 1).Trim()       # last line = HTTP status from -w
+    $body  = $raw.Substring(0, [Math]::Max($idx, 0)).Trim()
+    if ($code -eq '400' -or $code -eq '422') {
+        # Final rejection: assessed, never filed -> PAD moves it to Unlinked
+        Write-Output ('{"action":"manual_review","reason":"rejected_' + $code + '","detail":"' + ($body -replace '"','') + '"}')
+        exit
+    }
+    if ($code -notmatch '^2\d\d$' -or -not $body) {
+        # 401 / 5xx / no response: leave for retry (401 must NOT sweep mail into Unlinked)
+        Write-Output ('{"action":"service_error","http":"' + $code + '"}')
+        exit
+    }
+    $json = $body | ConvertFrom-Json
+    if ($json.action -eq 'auto_routed' -and $json.filename -and $json.hl7Content) {
+        $enc = [System.Text.Encoding]::GetEncoding(28591)
+        [System.IO.File]::WriteAllText((Join-Path $Genie $json.filename), $json.hl7Content, $enc)
+    }
+    Write-Output $body
+} catch {
+    Write-Output ('{"action":"service_error","detail":"' + ($_.Exception.Message -replace '"','') + '"}')
+}
+```
+
+Two consequences to know about: **401 stays `service_error` on purpose** — a token problem must park everything for retry, not sweep the mailbox into Unlinked; and **400s never reach the audit table** (the request is rejected before a row is written), so such an email sits in Unlinked with no dashboard row. Rare with GoFax, which always sends PDFs, but reception should know a row can be missing.
+
+**4. Why the move is safe with dedupe.** Moving an email changes its Graph `id`, but `processed.log` keys on `internetMessageId` (the 31 Jul key switch), and Unlinked is not polled anyway. The flip side: **dragging an email from Unlinked back into the polled folder does nothing** — it is already logged and will be skipped. To force a re-assessment, forward it to the mailbox (a new Message-ID). This belongs in the operational guide's folder table for reception.
+
+**5. Test matrix** — on `gofax.par@`, `$Genie` pointed at the local folder, scheduled task off, one manual run per row:
+
+| Put in `HL7_Testing` | Expect |
+|---|---|
+| Urgent fixture (`docs/test-pdfs/urgent/`) | no HL7; email → `HL7_unlinked`; line in `processed.log`; dashboard row with reason `urgent_result` |
+| Clean result fixture | HL7 written; email → `HL7_linked`; logged |
+| One email with two PDFs (clean + urgent) | one HL7 written; email → `HL7_unlinked`; logged; two dashboard rows |
+| Any fixture, with `$BaseUrl` temporarily wrong | stays in `HL7_Testing`; **not** logged; converts normally after `$BaseUrl` is restored |
+| Email whose only attachment is a `.docx` | email → `HL7_unlinked`; logged; no dashboard row (per the build decision) |
+| Re-run with everything above dragged back into `HL7_Testing` | every email skipped: no conversions, no new log lines, nothing moves |
+
+Then the §13 bar — two consecutive **scheduled** runs with an email left in the polled folder and zero new audit rows — before the task is re-enabled. Flip `$Genie` back to `\\192.168.47.20\Labrslts` afterwards.
+
+**6. Rollout shape — one flow, not four clones.** Four cloned flows would need four scheduled tasks contending on the same O365 connection, which is how the 3 Aug PD@ clash happened. Wrap the existing body in an outer loop instead: one flow, one task, one `processed.log` (Message-IDs are globally unique, so one log serves all mailboxes). Replace the first line (`SET Mailbox TO …`) with a list and put `LOOP FOREACH Mailbox IN MailboxList … END` around everything from the `DateTime` action to the final `END`; nothing inside changes, because every connector call already takes `@mailboxAddress: Mailbox`. The list is built with the standard list actions rather than a list literal (verify the paste once; if PAD rejects it, add the *Create new list* / *Add item to list* actions in the designer instead):
+
+```robin
+Variables.CreateNewList List=> MailboxList
+Variables.AddItemToList Item: $'''gofax.par@bjchealth.com.au''' List: MailboxList NewList=> MailboxList
+Variables.AddItemToList Item: $'''gofaxcht@bjchealth.com.au''' List: MailboxList NewList=> MailboxList
+Variables.AddItemToList Item: $'''gofaxbon@bjchealth.com.au''' List: MailboxList NewList=> MailboxList
+Variables.AddItemToList Item: $'''gofaxbow@bjchealth.com.au''' List: MailboxList NewList=> MailboxList
+LOOP FOREACH Mailbox IN MailboxList
+    # ...existing flow body, unchanged...
+END
+```
+
+Add mailboxes to the list on their go-live dates (1 Sep: `gofaxcht@`; 8 Sep: `gofaxbon@` + `gofaxbow@`), each only after Nicole has created both folders and Amol has granted PAuto Full Access — a wrong or unauthorised mailbox fails the whole run at `GetEmailsV3`. Confirm the exact local parts with Nicole first (she wrote them without a dot, unlike `gofax.par@`). At go-live the polled folder flips from `HL7_Testing` to `Inbox` in the `GetEmailsV3` action — with one flow that is one value for all, so stagger by keeping a mailbox out of the list until its date rather than by per-mailbox folder values.
+
+**7. Dashboard.** The `/log` tab's **Mailbox** column currently shows just "Email" for every PAD row: the `X-Source-Mailbox` value is parsed against the legacy `referrals`/`results` names, resolves to nothing for the gofax addresses, and is never stored. A server-side change ([PR #24](https://github.com/BoabAI/bjc-pdf-to-hl7/pull/24), draft, 1 Sep 2026) stores the address and renders it as e.g. **"Fax · gofax.par"**, with a matching CSV column and filter. PAD needs no change beyond step 3's `-Mailbox` parameter, which is what makes the header correct per mailbox. Historical rows stay "Email".
 
 ---
 
@@ -645,7 +817,7 @@ No Outlook categories and no `Inbox/Review` folder are needed — the July 2026 
 | `MailboxAddress` | `gofax.par@bjchealth.com.au` | Also sent as `X-Source-Mailbox` — must match the polled mailbox |
 | `MailFolder` | `Inbox/HL7 Testing` | The polled folder. Pilot value shown; flip to `Inbox` at go-live |
 | `LinkedFolder` | `%MailFolder%/Linked` | Fully-filed emails move here (mirrors PD@) |
-| `UnlinkedFolder` | `%MailFolder%/Unlinked` | **26 Aug 2026 change (§7), not yet built:** assessed-but-not-filed emails move here. Must resolve from a well-known root like `LinkedFolder` |
+| `UnlinkedFolder` | `Inbox/HL7_unlinked` | **26 Aug 2026 change (§7 "Build steps"), not yet built:** assessed-but-not-filed emails move here. Must hang off a well-known root (`Inbox/…`), like `Inbox/HL7_linked`; in the as-built flow the value is typed into each `MoveV2` action rather than held in a variable |
 | `PadToken` | *(from Credential Manager at runtime)* | Never hardcoded in the flow; marked sensitive |
 | `GenieLabRsltsFolder` | `\\192.168.47.20\Labrslts` | Confirmed by Medihost 22 Jul 2026 |
 | `TempFolder` | `C:\SMEC AI\pdf-to-hl7` | Local temp directory |
@@ -691,9 +863,16 @@ curl -X POST \
 - [ ] Urgent fixture (see `docs/test-pdfs/urgent/`) → `reason: urgent_result`, never auto-filed, red **Urgent** badge on the dashboard
 - [ ] Referral PDF via the pilot mailbox → classified freely (no `mailbox_mismatch` — unmapped mailbox); if confident, auto-routes as REF^I12 → **requires the Genie REF modifier (§9)**
 - [ ] Redacted/unreadable PDF → `reason: extraction_failed` (response has `success: false` — confirm the flow still branches on `action`)
-- [ ] **Dedupe:** run the flow twice with a manual-review email left in the folder — second run skips it (no new POST, no duplicate dashboard row; `processed.log` contains its ID)
-- [ ] Non-PDF attachments are skipped without error; multi-PDF emails produce one POST each; a partial success (one filed, one not) leaves the email in the folder
-- [ ] Oversize (>10 MB) PDF → 400 → email stays put, no retry loop, ID logged
+- [ ] **Dedupe:** run the flow twice with a manual-review email left in the folder — second run skips it (no new POST, no duplicate dashboard row; `processed.log` contains its `internetMessageId`)
+- [ ] Non-PDF attachments are skipped without error; multi-PDF emails produce one POST each; a partial success (one filed, one not) leaves the email in the folder (*from the 26 Aug change:* moves it to `Unlinked`)
+- [ ] Oversize (>10 MB) PDF → 400 → email stays put, no retry loop, ID logged (*from the 26 Aug change:* `convert.ps1` maps 400/422 to `manual_review` and the email moves to `Unlinked`)
+- [ ] **Unlinked folder (26 Aug change, §7 "Build steps"):**
+      - `manual_review` (incl. urgent) → email in `Inbox/HL7_unlinked`, `processed.log` line written, dashboard row with the reason
+      - partially filed multi-PDF email → `Unlinked`, the filed HL7 is in LabRslts, one dashboard row per PDF
+      - 400 / 422 → `Unlinked`, logged, **no dashboard row** (rejected before audit) — confirm reception knows
+      - service error (wrong `$BaseUrl` for the test) → email **stays** in the polled folder, **not** logged, converts on the next run after restore
+      - email with attachments but no PDF → `Unlinked`, logged (build decision — reversible)
+      - drag an email from `Unlinked` back into the polled folder and run → skipped (already logged); forwarding it instead triggers a fresh assessment
 - [ ] Retry works: kill connectivity mid-run → flow retries 2×, leaves the email, does **not** log it; next run retries it
 - [ ] Crash recovery: restart server, sign in as `medihost`, Task Scheduler fires within 5 minutes, unassessed emails are picked up
 - [ ] Temp folder is cleaned of leftover PDFs on next startup; `processed.log` prunes entries older than 30 days
