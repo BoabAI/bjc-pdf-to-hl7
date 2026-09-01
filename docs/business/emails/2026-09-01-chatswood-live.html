@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Paste into Word / Outlook</title>
+<style>
+  body { font-family: Aptos, Calibri, "Segoe UI", Arial, sans-serif; font-size: 11pt; color: #201f1e; line-height: 1.5; max-width: 760px; margin: 24px auto; padding: 0 16px; }
+  .note { background: #f3f2f1; border-left: 3px solid #7C3AED; padding: 10px 14px; font-size: 10pt; color: #444; margin-bottom: 16px; }
+  .toolbar { margin-bottom: 16px; }
+  button { font: inherit; font-size: 10pt; background: #7C3AED; color: #fff; border: 0; border-radius: 5px; padding: 8px 14px; cursor: pointer; }
+  button:hover { background: #6d28d9; }
+  #status { margin-left: 10px; font-size: 10pt; color: #107c10; }
+  .copy-region { border: 1px dashed #c8c6c4; padding: 20px 24px; border-radius: 6px; }
+  p { margin: 10px 0; }
+  ul, ol { margin: 8px 0; padding-left: 22px; }
+  li { margin: 4px 0; }
+  a { color: #7C3AED; }
+</style>
+</head>
+<body>
+
+<!-- INSTRUCTIONS + (for email) headers — kept OUTSIDE the copy region so they never paste -->
+<div class="note">
+  <strong>How to use:</strong> click <em>Copy formatted text</em>, then paste into Word or the Outlook Web message body — bold, lists, and links carry over. If the button is blocked, drag-select the dashed box and Copy (⌘C).
+  <br><strong>Subject:</strong> Re: Pdf-to-hl7 — Chatswood is live · <strong>To:</strong> Nicole Pyne · <strong>Cc:</strong> Amol Gupta, Prue Markham
+</div>
+
+<div class="toolbar">
+  <button onclick="copyRich()">Copy formatted text</button>
+  <span id="status"></span>
+</div>
+
+<div class="copy-region" id="copyRegion">
+
+  <!-- CRITICAL: inline a style="" on EVERY element below. Word/Outlook discard the
+       <head> <style> block on paste. The <style> block above is for the BROWSER
+       PREVIEW only. -->
+  <div style="font-family: Aptos, Calibri, 'Segoe UI', Arial, sans-serif; font-size: 11pt; color: #201f1e; line-height: 1.5;">
+
+    <p style="margin: 0 0 10pt 0;">Hi Nicole</p>
+    <p style="margin: 0 0 10pt 0;">Chatswood is live. As of this afternoon the converter polls <strong>gofax.cht@bjchealth.com.au</strong> alongside Parramatta, on the same 10-minute cycle, and files straight into Genie the same way.</p>
+
+    <p style="margin: 0 0 6pt 0;"><strong>One change from what I outlined on Thursday</strong></p>
+    <p style="margin: 0 0 10pt 0;">I have held back the <strong>Unlinked</strong> folder for now. It touches the part of the flow that decides what gets filed, and I was not prepared to put an untested change on the Parramatta line on the same afternoon Chatswood went live. So for the moment both mailboxes work the way Parramatta has since July:</p>
+    <ul style="margin: 0 0 10pt 0; padding-left: 22px;">
+      <li style="margin: 0 0 4pt 0;"><strong>Filed in Genie</strong> &rarr; the email moves to <strong>Inbox &rsaquo; HL7_linked</strong></li>
+      <li style="margin: 0 0 4pt 0;"><strong>Not filed</strong> (urgent, unreadable, low confidence, or only partly filed) &rarr; the email <strong>stays in the Inbox</strong> for reception to handle by hand; the dashboard shows why, with urgent items in red</li>
+    </ul>
+    <p style="margin: 0 0 10pt 0;">Anything the converter has assessed once is not looked at again, so mail left in the Inbox does not get reprocessed. I will bring the Unlinked folder in as a separate step once it has been proven on Parramatta, and let you know before it switches on.</p>
+
+    <p style="margin: 0 0 6pt 0;"><strong>Could you please</strong></p>
+    <ul style="margin: 0 0 10pt 0; padding-left: 22px;">
+      <li style="margin: 0 0 4pt 0;">Check the <strong>HL7_linked</strong> folder exists under the Inbox in the Chatswood mailbox (same as Parramatta). If it does not, filed emails will still file correctly in Genie but will stay in the Inbox rather than moving.</li>
+      <li style="margin: 0 0 4pt 0;">Send one test fax to the Chatswood number and confirm it lands in the right Genie inbox with the right patient, and that the email moves to HL7_linked.</li>
+      <li style="margin: 0 0 4pt 0;">Let the Chatswood team know the Inbox (not Unlinked) is the queue for now, and that anything in HL7_linked is already in Genie.</li>
+    </ul>
+
+    <p style="margin: 0 0 6pt 0;"><strong>Bondi Junction and Bowral &mdash; Monday 8 September</strong></p>
+    <ul style="margin: 0 0 10pt 0; padding-left: 22px;">
+      <li style="margin: 0 0 4pt 0;">Amol &mdash; Full Access for PAuto to <strong>gofax.bon@</strong> and <strong>gofax.bow@bjchealth.com.au</strong> before Monday, as for the other two</li>
+      <li style="margin: 0 0 4pt 0;">Nicole &mdash; create <strong>Inbox &rsaquo; HL7_linked</strong> in both mailboxes before Monday</li>
+    </ul>
+    <p style="margin: 0 0 10pt 0;">Adding each mailbox is then a small change on my side, done the same way as today.</p>
+
+    <p style="margin: 0 0 10pt 0;">One housekeeping note: the dashboard currently labels every faxed document as Parramatta. The fix to show the actual mailbox is written and will go out with the next release; it does not affect filing.</p>
+
+    <p style="margin: 0 0 10pt 0;">Regards</p>
+    <p style="margin: 0 0 10pt 0;"><strong>Sean O&#39;Reilly</strong></p>
+
+  </div>
+</div>
+
+<script>
+  async function copyRich() {
+    const region = document.getElementById('copyRegion');
+    const status = document.getElementById('status');
+    try {
+      const html = region.innerHTML;
+      const text = region.innerText;
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/html': new Blob([html], { type: 'text/html' }),
+          'text/plain': new Blob([text], { type: 'text/plain' })
+        })
+      ]);
+      status.style.color = '#107c10';
+      status.textContent = 'Copied — paste into Word/Outlook.';
+    } catch (e) {
+      status.style.color = '#a4262c';
+      status.textContent = 'Auto-copy blocked — drag-select the box and press ⌘C.';
+    }
+  }
+</script>
+
+</body>
+</html>

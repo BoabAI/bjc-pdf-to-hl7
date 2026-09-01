@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SMEC AI BJC PAD Weekly Restart  -  Task Scheduler definition for MHS-SYD-APP47
+
+  Import (admin PowerShell, after copying both files to C:\SMEC AI\scripts\). If schtasks says
+  "unable to switch the encoding", re-save as UTF-16 first - see pad-integration-guide.md section 14:
+    schtasks /Create /TN "SMEC AI BJC PAD Weekly Restart" /XML "C:\SMEC AI\scripts\SMEC-AI-BJC-PAD-Weekly-Restart.xml"
+
+  Runs Saturday 03:07 server-local time. That minute sits between PDF-to-directory's
+  :05 slot and PDF-to-HL7's :10 slot (see pad-integration-guide.md section 10 / 14).
+  Do NOT retune this to a :x5 or :x0 minute.
+
+  Principal is BJC\medihost with highest privileges, "run only when user is logged on"
+  (InteractiveToken), matching the two flow tasks. Highest privileges only elevates if
+  medihost is in the local Administrators group - verify with:  whoami /groups
+  If it is not, and Medihost will not add it, swap the <Principal> for the SYSTEM
+  variant below (SYSTEM can still kill medihost's PAD processes and restart the service):
+
+    <Principal id="Author">
+      <UserId>S-1-5-18</UserId>
+      <RunLevel>HighestAvailable</RunLevel>
+    </Principal>
+
+  Runbook: docs/operations/pad-integration-guide.md section 14.
+-->
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Author>SMEC AI</Author>
+    <Description>Weekly hygiene restart of the Power Automate Desktop runtime (kills PAD console/robin, restarts the Power Automate Service; the flows relaunch the console on their next 10-minute slot). Both BJC PAD flows have silently stalled after days; this is the mitigation. Non-zero Last Run Result = investigate C:\SMEC AI\pad-restart.log.</Description>
+    <URI>\SMEC AI BJC PAD Weekly Restart</URI>
+  </RegistrationInfo>
+  <Triggers>
+    <CalendarTrigger>
+      <StartBoundary>2026-09-05T03:07:00</StartBoundary>
+      <Enabled>true</Enabled>
+      <ScheduleByWeek>
+        <DaysOfWeek>
+          <Saturday />
+        </DaysOfWeek>
+        <WeeksInterval>1</WeeksInterval>
+      </ScheduleByWeek>
+    </CalendarTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <UserId>BJC\medihost</UserId>
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>HighestAvailable</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <IdleSettings>
+      <StopOnIdleEnd>false</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <WakeToRun>false</WakeToRun>
+    <ExecutionTimeLimit>PT15M</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe</Command>
+      <Arguments>-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "C:\SMEC AI\scripts\Restart-PadRuntime.ps1"</Arguments>
+      <WorkingDirectory>C:\SMEC AI\scripts</WorkingDirectory>
+    </Exec>
+  </Actions>
+</Task>
