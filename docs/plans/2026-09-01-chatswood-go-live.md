@@ -4,7 +4,7 @@
 
 ## Decision (Sean, 1 Sep 2026 morning)
 
-`gofax.cht@bjchealth.com.au` goes live on the **existing proven flow** — `MailboxList` wrap only. The Unlinked-folder change and `gofax.bon@`/`gofax.bow@` (8 Sep) are parked. Until Unlinked ships, unfiled cht emails stay in the cht Inbox (dedupe skips them) and reception handles them by hand.
+`gofax.cht@bjchealth.com.au` goes live on the **existing proven flow** — `MailboxList` wrap only. The Unlinked-folder change and `gofax.bon@`/`gofax.bow@` (was 8 Sep; rescheduled to **Wed 16 Sep 2026 1:30pm**, Nicole confirmed 9 Sep) are parked. Until Unlinked ships, unfiled cht emails stay in the cht Inbox (dedupe skips them) and reception handles them by hand.
 
 ## What the audit table showed today (AEST, `bjc-pdf-to-hl7-audit`, `month=2026-09`)
 
@@ -33,5 +33,5 @@ _Steps 1–2 done 1 Sep afternoon (Sean: "implemented")._
 3. **Dedupe bar (§13):** one unfiled email left in either Inbox, two consecutive scheduled runs, zero new audit rows.
 4. **Genie verification with Nicole:** the 13:32 / 14:20 documents and the first cht fax landed in Radiology / Incoming Letters with the right patient.
 5. **Dashboard:** `param($Mailbox)` + `-H "X-Source-Mailbox: $Mailbox"` in `convert.ps1`, call becomes `& "…\convert.ps1" -Mailbox "%Mailbox%"`; merge/deploy PR #24. Until then `/log` says par for everything.
-6. **Docs:** on PR #23 — fix §7 step 6's `AddItemToList` lines (drop `NewList=> MailboxList`), flip the 🔄 cht rollout row to ✅ with time + what was verified, note the Copy/workflow-ID caveat; merge #23. Then 8 Sep prep: Amol Full Access on bon/bow, Nicole creates `Inbox/HL7_linked` in both, two more `AddItemToList` lines.
-7. **Comms:** short note to Nicole + Amol — cht live, unfiled mail stays in the Inbox until Unlinked ships, 8 Sep prerequisites.
+6. **Docs:** on PR #23 — fix §7 step 6's `AddItemToList` lines (drop `NewList=> MailboxList`), flip the 🔄 cht rollout row to ✅ with time + what was verified, note the Copy/workflow-ID caveat; merge #23. Then 16 Sep prep: Amol Full Access on bon/bow, Nicole creates `Inbox/HL7_linked` in both, two more `AddItemToList` lines.
+7. **Comms:** short note to Nicole + Amol — cht live, unfiled mail stays in the Inbox until Unlinked ships, 16 Sep prerequisites.
