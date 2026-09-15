@@ -2,6 +2,9 @@
 
 **Between Boab AI Pty Ltd, trading as SMEC AI (Contractor), and BJC Health (Client)**
 
+_Version 1.1 | June 2026 — executed: Errol Lim (BJC) 25/6/26, Andrew Lai (Boab AI) 29/6/26.
+Signed copy: [contractor-services-agreement-bjc-health-v1.1-signed.pdf](contractor-services-agreement-bjc-health-v1.1-signed.pdf)_
+
 ---
 
 ## Parties
@@ -9,7 +12,7 @@
 | | |
 | --- | --- |
 | **Contractor** | Boab AI Pty Ltd (trading as **SMEC AI**), ABN **60 640 047 007** ("the **Contractor**") |
-| **Client** | The trustee for BJC Health Trust (trading as **BJC Health**), ABN **30 143 927 579** ("the **Client**") |
+| **Client** | **BJC Health Trading Pty Ltd**, ABN **96 697 562 137** ("the **Client**") |
 | **Effective date** | The date of the last signature below |
 
 ---
@@ -33,8 +36,9 @@ of the days a piece of work will take is a guide only — not a cap or a fixed p
 
 ## 2. Fees and payment
 
-2.1 The Contractor's rate is **$1,000 per day (8-hour day), inc GST** (= $125 per
-hour), billed against time actually worked in whole or part-day blocks.
+2.1 The Contractor's rate is **$1,200 per day (8-hour day), plus GST** — that is,
+$1,320 per day including GST (= $150 per hour plus GST), billed against time actually
+worked in whole or part-day blocks.
 
 2.2 The Contractor issues tax invoices (showing ABN and GST), payable within
 **30 days**. The Contractor may pause work on overdue invoices after notice.
@@ -173,13 +177,13 @@ non-exclusive jurisdiction of its courts.
 
 | Name | Signature | Date |
 | --- | --- | --- |
-| &nbsp; | &nbsp; | &nbsp; |
+| Andrew Lai | _(signed)_ | 29/06/26 |
 
-**Signed for BJC Health:**
+**Signed for BJC Health Trading Pty Ltd:**
 
 | Name | Signature | Date |
 | --- | --- | --- |
-| &nbsp; | &nbsp; | &nbsp; |
+| Errol Lim | _(signed)_ | 25/6/26 |
 
 ---
 

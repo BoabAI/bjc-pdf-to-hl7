@@ -4,7 +4,15 @@
 
 Prepared by SMEC AI for BJC Health | April 2026 (v1) · May 2026 (v2) · June 2026 (v3 draft)
 
-All amounts in AUD, inclusive of GST.
+All amounts in AUD. Contractor fees are shown **plus GST**, with the inc-GST
+figure in brackets.
+
+> **Superseded on rate and parties (June 2026):** the Contractor Services
+> Agreement v1.1 was executed 25/29 June 2026 with **BJC Health Trading Pty Ltd**
+> (ABN 96 697 562 137) at **$1,200 per day plus GST ($1,320 inc GST)**. The
+> executed agreement
+> ([signed PDF](contracts/contractor-services-agreement-bjc-health-v1.1-signed.pdf))
+> prevails wherever this sheet differs.
 
 > ⚠️ **DRAFT — not for sending yet.** This version replaces the v2 hosted-service
 > model with a **contractor engagement**: SMEC AI works for BJC Health as a
@@ -29,8 +37,8 @@ All amounts in AUD, inclusive of GST.
 
 | Component | Cost |
 | --- | --- |
-| **SMEC AI contractor rate** | **$1,000 per day (8 hours) inc GST** (= $125/hr) |
-| **Production build estimate** | **10 days = $10,000 inc GST** (incl. testing cycle — see §1) |
+| **SMEC AI contractor rate** | **$1,200 per day (8 hours) plus GST** ($1,320 inc GST; = $150/hr plus GST) |
+| **Production build estimate** | **10 days = $12,000 plus GST** ($13,200 inc GST; incl. testing cycle — see §1) |
 | Intellectual property | **Owned by BJC Health** |
 | AWS infrastructure | **Owned and paid by BJC Health, directly to AWS** (est. ~$55–100/mo at full volume — see §3) |
 | Per-document fee | None |
@@ -44,7 +52,7 @@ SMEC AI is engaged by BJC Health as a **contractor**. Work — the production
 build, configuration of BJC's AWS account, and any later changes, fixes, or AI
 tuning — is performed on this basis and billed in day blocks.
 
-- **Rate:** $1,000 per day (8 hours), inc GST.
+- **Rate:** $1,200 per day (8 hours), plus GST ($1,320 inc GST).
 - **Billing:** in whole or part-day blocks against work performed; quoted in
   advance for any block of work before it begins.
 - **No ongoing fixed fees:** no implementation lump sum, no per-document charge,
@@ -52,7 +60,8 @@ tuning — is performed on this basis and billed in day blocks.
 
 ### Production build estimate
 
-The full production build is estimated at **10 days = $10,000 inc GST**,
+The full production build is estimated at **10 days = $12,000 plus GST ($13,200
+inc GST)**,
 including the testing cycle. This covers:
 
 - BJC AWS account setup, deployment role, and Bedrock model access
