@@ -17,10 +17,10 @@
 |---|---|
 | **SOW number** | 001 |
 | **Title** | Production Build — PDF-to-HL7 automation |
-| **Contractor** | [SMEC AI legal entity name], ABN [SMEC ABN] |
-| **Client** | [BJC Health legal entity name], ABN [BJC ABN] |
+| **Contractor** | Boab AI Pty Ltd (trading as SMEC AI), ABN 60 640 047 007 |
+| **Client** | BJC Health Trading Pty Ltd, ABN 96 697 562 137 |
 | **Start date** | [Start date] |
-| **Estimate** | **10 days = $10,000 inc GST** (estimate, not a cap — see §5) |
+| **Estimate** | **10 days = $12,000 plus GST ($13,200 inc GST)** (estimate, not a cap — see §5) |
 
 ---
 
@@ -83,7 +83,8 @@ converter and the results into Genie.
 
 ## 5. Estimate and billing
 
-5.1 Estimated effort: **10 days at $1,000/day inc GST = $10,000 inc GST.**
+5.1 Estimated effort: **10 days at $1,200/day plus GST = $12,000 plus GST ($13,200
+inc GST).**
 
 5.2 This is an **estimate, not a cap**. SMEC AI will notify BJC Health before
 exceeding it and will not exceed it without written approval. Billing is for time
@@ -141,11 +142,11 @@ Defects (non-conformance with the above) are corrected at no charge under clause
 
 ## 9. Signatures
 
-**[SMEC AI legal entity name]**
+**Boab AI Pty Ltd (trading as SMEC AI)**
 
 Name: __________________________  Signature: _____________________  Date: ________
 
-**[BJC Health legal entity name]**
+**BJC Health Trading Pty Ltd**
 
 Name: __________________________  Signature: _____________________  Date: ________
 
