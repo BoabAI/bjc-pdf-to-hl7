@@ -64,22 +64,27 @@ PAD console → right-click the **live** flow → *Create a copy*. Edit the Copy
 
 If the paste is rejected: it's silent on a whole-flow paste but shows a red row + Errors-list message on a small one (README rule 3). The known trap is `NewList=> MailboxList` — the prepared file correctly omits it.
 
-## Step 3 — Manual run of the Copy
+## Step 3 — Manual run of the Copy (access check only — **no test faxes yet**)
 
-Run it **off the scheduled minutes**: not `:x0` (our HL7 slot) and not `:x5` (the PD@ consent-form flow's slot — same O365 connection, and overlapping runs silently contended back in Aug). **Use `:x2` or `:x7`.**
+Run it **off the scheduled minutes**: not `:x0` (our HL7 slot) and not `:x5` (the PD@ consent-form flow's slot — same O365 connection, and overlapping runs silently contended back in Aug). **Use `:x2`** — `:x7` risks colliding with a PD@ run still in progress.
+
+> ⚠️ **Hold Nicole's test faxes until after publish (Step 4).** `processed.log` is shared by the Copy and the live flow. If a test fax is converted by the Copy here, the live flow will skip it as already-processed and the `:x0` run produces no rows — leaving the scheduled path unproven, which is exactly the gap 1 Sep left open. An empty run at this step is a *pass*.
 
 Watch for:
 
 - The outer `LOOP FOREACH Mailbox` reaching **iteration 3 (bon)** and **iteration 4 (bow)**.
-- `GetEmailsV3` not erroring on either → confirms Amol's Full Access.
-- Nicole's test faxes converting → new `service:pad-pipeline` rows in the audit table.
-- The two test emails moving to `Inbox/HL7_linked` in their own mailboxes. `MoveV2` uses `@mailboxAddress: Mailbox`, so this is per-mailbox and correct — a failure here means the folder is missing, not a flow bug.
+- `GetEmailsV3` not erroring on either → confirms Amol's Full Access. This is the only thing this run needs to prove.
 
-## Step 4 — Publish into the flow the schedule runs
+## Step 4 — Publish into the flow the schedule runs, then send the test faxes
 
 Save/publish the Copy only proves the change. Then **apply it to the flow identified in Step 0**: re-paste the same two lines into that flow (same procedure as Step 2) and save. Alternatively repoint the task's `workflowid=` to the Copy — but re-pasting keeps one canonical flow and is preferred.
 
-Confirm the next `:x0` slot produces audit rows.
+**Now** Nicole sends one test fax to each of the bon and bow numbers. On the next `:x0` slot expect:
+
+- Two new `service:pad-pipeline` audit rows.
+- Each test email moved to `Inbox/HL7_linked` in **its own** mailbox. `MoveV2` uses `@mailboxAddress: Mailbox`, so this is per-mailbox and correct — a failure here means the folder is missing, not a flow bug.
+
+If you'd rather not wait a full slot for the access check and the end-to-end test separately, split it: Nicole sends the **bon** fax before Step 3 (proves end-to-end on the Copy) and the **bow** fax after publish (proves the scheduled flow). Don't use the same fax for both.
 
 ## Step 5 — Verify with Nicole
 
