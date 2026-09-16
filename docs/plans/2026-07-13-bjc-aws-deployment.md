@@ -157,7 +157,8 @@ aws dynamodb scan --region ap-southeast-2 \
 
 - **Custom domain** (e.g. `convert.bjchealth.com.au`)? Needs a DNS delegation
   decision with BJC IT; would also change `AUTH_URL` + the Entra redirect URI.
-- Keep `AUTH_MODE=both` (SSO + password) or go SSO-only once BJC staff are
-  onboarded?
+- ~~Keep `AUTH_MODE=both` (SSO + password) or go SSO-only once BJC staff are
+  onboarded?~~ Resolved 2026-08-18: SSO-only (`AUTH_MODE=oauth`), shared
+  password login removed.
 - Timing for decommissioning the SMEC environment, and whether historical
   audit rows should be exported across before it goes.

@@ -57,12 +57,6 @@ variable "github_access_token" {
   sensitive   = true
 }
 
-variable "app_password" {
-  description = "APP_PASSWORD — fallback password login (AUTH_MODE=both keeps it alongside SSO)"
-  type        = string
-  sensitive   = true
-}
-
 variable "auth_secret" {
   description = "AUTH_SECRET for Auth.js JWT sessions. Generate fresh for this environment: openssl rand -base64 32"
   type        = string
@@ -297,15 +291,14 @@ resource "aws_amplify_app" "main" {
   environment_variables = {
     AMPLIFY_DIFF_DEPLOY      = "true"
     AUTH_ALLOWED_DOMAINS     = "bjchealth.com.au,smecai.au"
-    AUTH_MODE                = "both"
-    NEXT_PUBLIC_AUTH_MODE    = "both"
+    AUTH_MODE                = "oauth" # SSO only — shared password login removed 2026-08-18
+    NEXT_PUBLIC_AUTH_MODE    = "oauth"
     AUTH_TRUST_HOST          = "true"
     AZURE_AD_CLIENT_ID       = "9ca073d3-a123-46b0-a344-3822e51f36dc"
     AZURE_AD_TENANT_ID       = "common"
     NEXT_PUBLIC_TEST_MODE    = "false" # unlike SMEC: no auth bypass in BJC prod
     NEXT_TELEMETRY_DISABLED  = "1"
     PUPPETEER_SKIP_DOWNLOAD  = "true"
-    APP_PASSWORD             = var.app_password
     AUTH_SECRET              = var.auth_secret
     AZURE_AD_CLIENT_SECRET   = var.azure_ad_client_secret
     PAD_TOKEN                = var.pad_token
