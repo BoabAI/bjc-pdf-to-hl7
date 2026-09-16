@@ -110,6 +110,20 @@ Leave one unfiled email in a bon or bow Inbox, let **two consecutive** scheduled
 - `pad-integration-guide.md` §7: mark bon/bow ✅ with the time and what was verified (PR #23).
 - Short note to Nicole + Amol: all four mailboxes live; unfiled mail stays in each Inbox until the Unlinked-folder change ships.
 
+## Follow-up: `processed.log` has no prune (docs claim otherwise)
+
+Checked on the server during the 16 Sep session: **35,648 bytes / 488 lines** (~73 bytes per entry) — a non-issue, no action needed. It needs ~14,000 entries to reach 1 MB.
+
+But a repo-wide search across all 35 refs found **no pruning, rotation, or size-cap anywhere**, while the docs say there is one:
+
+- `pad-integration-guide.md` §"Phase 1: Startup Housekeeping" says *"prune entries older than 30 days"* and leaves a bare `# (prune: rewrite ProcessedLog …)` comment — never implemented, not even in the pseudocode.
+- Its verification checklist still lists the 30-day prune as testable behaviour.
+- The note that recorded this as a deferred v1 gap existed on `worktree-pad-as-built` and has since been **dropped** from the current guide — so the only surviving text now asserts a prune that doesn't exist.
+
+Fix the guide (fold into PR #23, which already edits that file): delete the prune claim from Phase 1 and the checklist, or mark it explicitly Not implemented.
+
+⚠️ **Never prune by deleting the file.** The as-built flow dropped the design's create-if-missing guard, so its first action errors if `processed.log` is absent — see `incident-2026-07-28-duplicate-imports-runbook.md`. Truncating also discards all dedupe state, re-exposing every email still sitting in an Inbox. A safe prune rewrites the file keeping recent lines. Entries *are* dated so age-pruning stays retrofittable, but the as-built writes a locale-formatted `DateAndTime`, not the design's `yyyy-MM-dd` — a parser would have to handle that.
+
 ## Explicitly out of scope today
 
 `convert.ps1` mailbox parameter / PR #24 deploy · the Unlinked-folder change (parked) · the weekly PAD restart task (PR #25, parked) · the Genie carrier mis-attribution (Genie-side fix).
