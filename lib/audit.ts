@@ -6,6 +6,7 @@ import {
   QueryCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { DateTime } from "luxon";
+import { recordConversionMetric } from "./pipeline-metrics";
 import { logOperationalError } from "./server/logging";
 
 const REGION = "ap-southeast-2";
@@ -247,6 +248,12 @@ export async function recordConversion(row: AuditRow): Promise<void> {
     logOperationalError("audit", error, { op: "write" });
     // Swallow — never fail the conversion because of audit infra.
   }
+
+  // Emit the pipeline-health datapoint separately from the row write, so a
+  // DynamoDB failure still produces the metric (and vice versa). The alarm
+  // watches Source=email to detect a stalled PAD pipeline; see
+  // lib/pipeline-metrics.ts.
+  await recordConversionMetric(row.source);
 }
 
 /**

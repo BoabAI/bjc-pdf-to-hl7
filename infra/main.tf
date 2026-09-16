@@ -25,9 +25,12 @@ variable "alarm_emails" {
 }
 
 variable "silence_window_hours" {
-  description = "Raise the pipeline-silence alarm if no document has been processed (no audit row written) for this many hours. Set comfortably longer than the longest expected quiet stretch (overnight/weekends). Keep <= 24 — CloudWatch alarm periods cannot exceed one day."
+  description = "Raise the pipeline-silence alarm if no PAD conversion is recorded for this many hours. Set comfortably longer than the longest expected quiet stretch (overnight/weekends). Keep <= 24 — CloudWatch alarm periods cannot exceed one day."
   type        = number
-  default     = 6
+
+  # 24h, not 6h — see the matching comment in infra/bjc/main.tf. A 6h window
+  # fires every night against a pipeline that only runs in business hours.
+  default = 24
 }
 
 resource "aws_dynamodb_table" "audit" {
@@ -109,6 +112,28 @@ resource "aws_dynamodb_table" "reference_data" {
   }
 }
 
+resource "aws_iam_role_policy" "pipeline_metrics" {
+  name = "bjc-pdf-to-hl7-pipeline-metrics"
+  role = var.amplify_compute_role_name
+
+  # lib/pipeline-metrics.ts emits one BJC/PdfToHl7 Conversions datapoint per
+  # conversion. PutMetricData cannot be scoped to a resource ARN; the
+  # namespace condition is the only available restriction.
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = "cloudwatch:PutMetricData"
+      Resource = "*"
+      Condition = {
+        StringEquals = {
+          "cloudwatch:namespace" = "BJC/PdfToHl7"
+        }
+      }
+    }]
+  })
+}
+
 resource "aws_iam_role_policy" "reference_data_dynamodb" {
   name = "bjc-pdf-to-hl7-reference-data-dynamodb"
   role = var.amplify_compute_role_name
@@ -160,12 +185,16 @@ resource "aws_sns_topic_subscription" "pipeline_alerts_email" {
 
 resource "aws_cloudwatch_metric_alarm" "pipeline_silence" {
   alarm_name        = "bjc-pdf-to-hl7-pipeline-silence"
-  alarm_description = "No documents processed (no audit rows written) for ${var.silence_window_hours}h. The converter pipeline may be down — check the conversion service, the PAD workflow, the BJC server, and mailbox auth."
+  alarm_description = "No documents converted via the PAD pipeline for ${var.silence_window_hours}h. Check the scheduled task on MHS-SYD-APP47 (is BJC\\medihost still signed in?), the PAD flow, mailbox auth, and the conversion service."
 
-  namespace   = "AWS/DynamoDB"
-  metric_name = "ConsumedWriteCapacityUnits"
+  # See the matching comment in infra/bjc/main.tf: this watches the app's own
+  # Conversions metric (Source=email) rather than DynamoDB write capacity, so
+  # a web upload can no longer mask a dead PAD pipeline. The app must be
+  # deployed and emitting before this alarm is applied.
+  namespace   = "BJC/PdfToHl7"
+  metric_name = "Conversions"
   dimensions = {
-    TableName = aws_dynamodb_table.audit.name
+    Source = "email"
   }
 
   statistic           = "Sum"
@@ -174,8 +203,8 @@ resource "aws_cloudwatch_metric_alarm" "pipeline_silence" {
   comparison_operator = "LessThanOrEqualToThreshold"
   threshold           = 0
 
-  # DynamoDB only publishes this metric when there is write activity, so "no
-  # datapoints" is exactly the silent-pipeline condition we want to catch.
+  # The metric is only published when a conversion happens, so "no datapoints"
+  # is exactly the silent-pipeline condition we want to catch.
   treat_missing_data = "breaching"
 
   alarm_actions = [aws_sns_topic.pipeline_alerts.arn]
