@@ -1,0 +1,2 @@
+Variables.AddItemToList Item: $'''gofax.bon@bjchealth.com.au''' List: MailboxList
+Variables.AddItemToList Item: $'''gofax.bow@bjchealth.com.au''' List: MailboxList
