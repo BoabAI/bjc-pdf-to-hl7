@@ -1,8 +1,6 @@
 Variables.CreateNewList List=> MailboxList
 Variables.AddItemToList Item: $'''gofax.par@bjchealth.com.au''' List: MailboxList
 Variables.AddItemToList Item: $'''gofax.cht@bjchealth.com.au''' List: MailboxList
-Variables.AddItemToList Item: $'''gofax.bon@bjchealth.com.au''' List: MailboxList
-Variables.AddItemToList Item: $'''gofax.bow@bjchealth.com.au''' List: MailboxList
 SET TempPath TO $'''C:\\SMEC AI\\pdf-to-hl7\\'''
 LOOP FOREACH Mailbox IN MailboxList
     DateTime.GetCurrentDateTime.Local DateTimeFormat: DateTime.DateTimeFormat.DateAndTime CurrentDateTime=> CurrentDateTime
