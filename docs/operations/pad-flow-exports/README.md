@@ -6,8 +6,10 @@ Point-in-time Robin exports of the production PAD flow on `MHS-SYD-APP47`, plus 
 |---|---|
 | `2026-09-01-desktop-pdf-to-hl7-pre-chatswood.robin` | Designer export ~14:40 AEST 1 Sep 2026, **before** the Chatswood change. Single mailbox `gofax.par@`, polling `Inbox`. Rollback target. |
 | `2026-09-01-desktop-pdf-to-hl7-chatswood-mailboxlist.robin` | The text pasted successfully at ~15:00 AEST 1 Sep 2026: same body wrapped in `LOOP FOREACH Mailbox IN MailboxList` over `gofax.par@` + `gofax.cht@`. 41 actions, 0 errors on paste. |
+| `2026-09-16-desktop-pdf-to-hl7-bon-bow-mailboxlist.robin` | Prepared for the Wed 16 Sep 2026 1:30pm session: identical to the Chatswood file plus `gofax.bon@` and `gofax.bow@`. 76 lines, expect 43 actions on paste. Whole-flow fallback if the in-place paste goes wrong. |
+| `2026-09-16-bon-bow-additemtolist.txt` | The two `AddItemToList` lines on their own — the primary 16 Sep paste, dropped in below the `gofax.cht@` row. |
 
-Restore = paste the whole file (footer included) into an empty desktop flow. Add mailboxes on their go-live dates with one more `Variables.AddItemToList` line each (`gofax.bon@`, `gofax.bow@` — rescheduled to Wed 16 Sep 2026 1:30pm, confirmed by Nicole 9 Sep).
+Restore = paste the whole file (footer included) into an empty desktop flow. Add mailboxes on their go-live dates with one more `Variables.AddItemToList` line each. Session runbook for bon/bow: `docs/plans/2026-09-16-bon-bow-go-live.md`.
 
 ## Paste learnings (PAD 2.68.237, verified 1 Sep 2026)
 
