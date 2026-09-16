@@ -6,7 +6,7 @@ top-level directory answers "what kind of thing is in here."
 | Directory | What's in it | Start with |
 |-----------|--------------|------------|
 | [`engineering/`](engineering/) | Specs and technical research — how the system works and the constraints it's built against (HL7/Genie formats, security baseline, PAD gotchas, PHI data flow, sister-system reference, code review). | [`functional-spec.md`](engineering/functional-spec.md) |
-| [`operations/`](operations/) | Runbooks — how it runs and deploys (ops-staff guide, PAD integration runbook, Amplify/Bedrock credential setup, sister PDF-to-Directory system). | [`bjc-pdf-to-hl7-operational-guide.md`](operations/bjc-pdf-to-hl7-operational-guide.md) |
+| [`operations/`](operations/) | Runbooks — how it runs and deploys (ops-staff guide, PAD integration runbook, Amplify/Bedrock credential setup, BJC AWS account access, sister PDF-to-Directory system). | [`bjc-pdf-to-hl7-operational-guide.md`](operations/bjc-pdf-to-hl7-operational-guide.md) |
 | [`business/`](business/) | Commercial / client engagement — requirements, costs, emails, stakeholder Q&A, and go-to-market (`emails/`, `stakeholder-questions/`, `marketing/`). | [`bjc-pdf-to-hl7-requirements.md`](business/bjc-pdf-to-hl7-requirements.md) |
 | [`meetings/`](meetings/) | BJC meeting transcripts and structured action notes (dated). | — |
 | [`plans/`](plans/) | Implementation plans for features and rollouts (dated where time-bound). | — |
