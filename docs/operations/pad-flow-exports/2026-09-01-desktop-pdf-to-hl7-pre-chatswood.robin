@@ -1,0 +1,77 @@
+# desktop-pdf-to-hl7 — designer export taken 1 Sep 2026 ~14:40 AEST, BEFORE the
+# Chatswood (gofax.cht@) MailboxList change. Live production flow at that moment:
+# single mailbox gofax.par@, polling Inbox, moving filed mail to Inbox/HL7_linked.
+# Restore = paste everything below the line into an empty desktop flow in PAD 2.68
+# (paste from server-side Notepad; the header comment lines must be removed first —
+# '#' comment syntax is unverified in PAD's paste parser).
+# ------------------------------------------------------------------------------
+SET Mailbox TO $'''gofax.par@bjchealth.com.au'''
+SET TempPath TO $'''C:\\SMEC AI\\pdf-to-hl7\\'''
+DateTime.GetCurrentDateTime.Local DateTimeFormat: DateTime.DateTimeFormat.DateAndTime CurrentDateTime=> CurrentDateTime
+IF (File.IfFile.Exists File: $'''%TempPath%temp.pdf''') THEN
+    File.Delete Files: $'''%TempPath%temp.pdf'''
+END
+File.ReadTextFromFile.ReadText File: $'''C:\\SMEC AI\\pdf-to-hl7\\processed.log''' Encoding: File.TextFileEncoding.UTF8 Content=> ProcessedIds
+@@folderPath: 'Inbox'
+@@connectionDisplayName: 'Office 365 Outlook pdftodirectory-09a24'
+External.InvokeCloudConnector Connection: 'ad6d3c86-98fa-435c-bc66-3759564f18c1' ConnectorId: '/providers/Microsoft.PowerApps/apis/shared_office365' OperationId: 'GetEmailsV3' @folderPath: $'''Inbox''' @fetchOnlyWithAttachment: True @fetchOnlyUnread: False @mailboxAddress: Mailbox @includeAttachments: True @top: 25 @GetEmailsV3Response=> GetEmailsV3Response
+LOOP FOREACH CurrentEmail IN GetEmailsV3Response.value
+    IF (NOT Contains(ProcessedIds, CurrentEmail.internetMessageId, False)) = True THEN
+        SET HasPdf TO $'''no'''
+        SET AllFiled TO $'''yes'''
+        SET Assessed TO $'''yes'''
+        LOOP FOREACH CurrentAttachment IN CurrentEmail.attachments
+            IF Contains(CurrentAttachment.name, $'''pdf''', True) THEN
+                SET HasPdf TO $'''yes'''
+                File.ConvertFromBase64 Base64Text: CurrentAttachment.contentBytes File: $'''%TempPath%temp.pdf''' IfFileExists: File.IfExists.Overwrite
+                Scripting.RunPowershellScript.RunScript Script: $'''& \"C:\\SMEC AI\\pdf-to-hl7\\convert.ps1\"''' ScriptOutput=> ConvertResponse
+                IF Contains(ConvertResponse, $'''auto_routed''', True) THEN
+                    SET LastResult TO $'''filed'''
+                ELSE
+                    SET AllFiled TO $'''no'''
+                    IF NOT Contains(ConvertResponse, $'''manual_review''', True) THEN
+                        SET Assessed TO $'''no'''
+                    END
+                END
+                File.Delete Files: $'''%TempPath%temp.pdf'''
+            END
+        END
+        IF Contains(Assessed, $'''yes''', True) THEN
+            SET EmailId TO CurrentEmail.internetMessageId
+            File.WriteText File: $'''C:\\SMEC AI\\pdf-to-hl7\\processed.log''' TextToWrite: $'''%CurrentDateTime% %EmailId%''' AppendNewLine: True IfFileExists: File.IfFileExists.Append Encoding: File.FileEncoding.UTF8
+            IF Contains(HasPdf, $'''yes''', True) THEN
+                IF Contains(AllFiled, $'''yes''', True) THEN
+                    @@folderPath: 'Inbox/HL7_linked'
+@@connectionDisplayName: 'Office 365 Outlook pdftodirectory-09a24'
+External.InvokeCloudConnector Connection: 'ad6d3c86-98fa-435c-bc66-3759564f18c1' ConnectorId: '/providers/Microsoft.PowerApps/apis/shared_office365' OperationId: 'MoveV2' timeout: 1000 @messageId: CurrentEmail.id @folderPath: $'''Inbox/HL7_linked''' @mailboxAddress: Mailbox @MoveV2Response=> MoveV2Response
+                    ON ERROR
+
+                    END
+                END
+            END
+        END
+    END
+END
+
+# [ControlRepository][PowerAutomateDesktop]
+
+{
+  "ControlRepositorySymbols": [],
+  "ImageRepositorySymbol": {
+    "Repository": "{\r\n  \"Folders\": [],\r\n  \"Images\": [],\r\n  \"Version\": 1\r\n}",
+    "ImportMetadata": {},
+    "Name": "imgrepo"
+  },
+  "ConnectionReferences": [
+    {
+      "ConnectorId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+      "DisplayName": "Office 365 Outlook pdftodirectory-09a24",
+      "InternalId": "ad6d3c86-98fa-435c-bc66-3759564f18c1",
+      "IsDisabled": false,
+      "LogicalName": "new_sharedoffice365_09a24",
+      "IsEmbedded": false,
+      "ConnectionName": "shared-office365-92ecf715-503a-4aa3-b02d-b2d5603b2fc3",
+      "ConnectionDisplayName": "PAuto@bjchealth.com.au"
+    }
+  ]
+}
