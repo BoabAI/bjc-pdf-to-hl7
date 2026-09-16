@@ -359,6 +359,9 @@ X-Source: email
 X-Source-Mailbox: %MailboxAddress%'
 
 # ── Phase 1: Startup Housekeeping ──────────────────────────────────
+# ⚠️ NOT IMPLEMENTED. The whole of Phase 1 was dropped when the flow was
+# built — see "Phase 1 was never built" below. Kept here as the design
+# intent only; do not read it as a description of the running flow.
 # Delete temp PDFs left by a crashed run; ensure the processed log
 # exists and prune entries older than 30 days.
 # Log format: one line per assessed email -> 'yyyy-MM-dd <message-id>'
@@ -504,10 +507,34 @@ LOOP FOREACH Email IN Emails
 END  # Email loop
 ```
 
+### ⚠️ Phase 1 was never built — `processed.log` is not pruned
+
+Verified against the as-built flow exports in `pad-flow-exports/` (16 Sep 2026) and a search of every branch in the repo: **none of Phase 1 exists in the running flow.** The pseudocode above describes intent that was dropped during the build and never revisited. Specifically:
+
+| Phase 1 design | As built |
+|---|---|
+| Prune entries older than 30 days | **No prune of any kind.** `processed.log` is append-only and grows without bound |
+| `Folder.Create TempFolder` | Absent |
+| Create `processed.log` if missing | **Absent — and this one bites** |
+| Delete leftover `*.pdf` on startup | Absent; the flow deletes `%TempPath%temp.pdf` inline instead, before and after each conversion |
+
+The flow touches `processed.log` in exactly two places — one `File.ReadTextFromFile` at the top of each mailbox iteration and one `File.WriteText … IfFileExists.Append` per assessed email.
+
+⚠️ **Never delete `processed.log` to clear it.** Because the create-if-missing guard was dropped, the flow's read action errors if the file is absent. Truncating it to empty is survivable (every email still in a polled folder gets one extra assessment, and the log rebuilds); deleting it is not. See `incident-2026-07-28-duplicate-imports-runbook.md`, which recreates the file explicitly after removing it for exactly this reason.
+
+**Do we need a prune?** Not yet. Measured on `MHS-SYD-APP47` on 16 Sep 2026: **35,648 bytes / 488 lines** (~73 bytes per entry), so ~14,000 entries to reach 1 MB — years of runway at current volume. Two things change the calculus later: the read now happens once **per mailbox** per run (4× since the bon/bow rollout), and the dedupe is a linear `Contains()` over the whole file for every email in every run.
+
+**If it is ever built, two constraints:**
+
+1. **Keep-last-N lines, not age-based.** The as-built writes a locale-formatted `DateAndTime` (`16/09/2026 1:57:29 PM`), not the design's `yyyy-MM-dd`, so date parsing is fragile. N also maps to what matters — covering every email that could still be sitting in a polled folder — regardless of date.
+2. **Prune only with the PAD runtime stopped.** An append racing a rewrite silently drops entries, and a dropped entry means that email is re-assessed and **re-imported into Genie**. Folding it into the weekly-restart script (`scripts/pad-server/Restart-PadRuntime.ps1`), which already stops the runtime, makes the race impossible.
+
+One related caveat on the log format: entries *are* dated, so age-pruning stays retrofittable, but `CurrentDateTime` is captured once per **mailbox iteration**, not per email — every email processed in one iteration shares the timestamp of when that iteration started.
+
 Design notes:
 
 - **PD@-mirror decision (Nicole, 22 Jul 2026):** filed → `Linked`; everything else stays in the inbox untouched. No categories, no read-state changes, no per-document notification emails — the dashboard (red **Urgent** badge, reason per row, patient initials, received time) is the visibility layer.
-- **The processed-ID log is the dedupe mechanism.** Without it, every email left in the inbox would be re-sent to Bedrock each 15-minute run (~48 calls/day per lingering fax) and would write duplicate dashboard rows. The log lives on the server; if it's ever lost, each leftover email gets one extra assessment and the log rebuilds — self-healing. Graph message IDs change when an email is manually moved between folders, so an email dragged out of the inbox and back gets one re-assessment; harmless.
+- **The processed-ID log is the dedupe mechanism.** Without it, every email left in the inbox would be re-sent to Bedrock each 15-minute run (~48 calls/day per lingering fax) and would write duplicate dashboard rows. The log lives on the server; if it is **emptied**, each leftover email gets one extra assessment and the log rebuilds — self-healing. If it is **deleted**, the flow errors on its first action (no create-if-missing guard — see "Phase 1 was never built"), so recreate the empty file rather than leaving it absent. Graph message IDs change when an email is manually moved between folders, so an email dragged out of the inbox and back gets one re-assessment; harmless.
 - **Service errors are deliberately NOT logged as processed** — a transient outage or timeout leaves the email eligible for retry next run. Failed requests don't reach Bedrock, so this retry loop is free. Only a 200 (either action) or a 400/422 marks the email assessed.
 - **Multi-attachment emails**: one POST per PDF; the email moves to `Linked` only when **every** PDF auto-filed. A partial success stays in the inbox (the filed PDFs are already in Genie — the dashboard shows which). GoFax emails normally carry exactly one PDF, so this is a rare edge.
 - **One flow (or one loop iteration set) per mailbox** — `X-Source-Mailbox` must match the mailbox actually being polled. For the pilot it resolves to free classification server-side (§5) but is still recorded in the audit log.
@@ -875,7 +902,7 @@ curl -X POST \
       - drag an email from `Unlinked` back into the polled folder and run → skipped (already logged); forwarding it instead triggers a fresh assessment
 - [ ] Retry works: kill connectivity mid-run → flow retries 2×, leaves the email, does **not** log it; next run retries it
 - [ ] Crash recovery: restart server, sign in as `medihost`, Task Scheduler fires within 5 minutes, unassessed emails are picked up
-- [ ] Temp folder is cleaned of leftover PDFs on next startup; `processed.log` prunes entries older than 30 days
+- [ ] ~~Temp folder is cleaned of leftover PDFs on next startup; `processed.log` prunes entries older than 30 days~~ — **not testable: Phase 1 was never built** (see §7). The flow deletes `%TempPath%temp.pdf` inline around each conversion instead, and `processed.log` is never pruned. Do not delete the log to clear it — the read action errors if the file is missing.
 - [ ] Bearer token does not appear in PAD logs (`%LOCALAPPDATA%\Microsoft\Power Automate Desktop\Console\Logs`) — sensitive marking verified
 
 ### Genie verification
