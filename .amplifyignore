@@ -18,6 +18,9 @@ node_modules
 *.md
 !README.md
 
+# Docs directory (test PDFs, plans, business docs — not needed at runtime)
+docs/
+
 # Local environment files
 .env
 .env.local
@@ -25,16 +28,25 @@ node_modules
 .env.production
 .env*.local
 
+# Infrastructure as code (Terraform config, local state, tfvars secrets)
+infra/
+
+# Local Claude Code state
+.claude/
+
+# Supabase migrations (legacy, not used at runtime)
+supabase/
+
+# Local-only sample and output directories
+/samples/
+/output/
+
 # Test files
-/test-pdfs/
 **/*.test.ts
 **/*.spec.ts
 **/*.test.pdf
 __tests__/
 /coverage
-
-# Docs directory (12MB+ of test PDFs not needed at runtime)
-docs/
 
 # Scripts (dev tools, not needed in build)
 /scripts/
@@ -47,11 +59,9 @@ docs/
 /login-with-video.png
 /conversion-options-after.png
 
-# Plans
-docs/plans/
-
 # Local artifacts
 *.zip
+*.hl7
 
 # Misc
 .DS_Store
