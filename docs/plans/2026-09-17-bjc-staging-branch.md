@@ -59,6 +59,6 @@ resources by hand (`aws amplify delete-branch`, `dynamodb delete-table` ×2,
 ## Verifying isolation
 
 After a staging conversion (curl with `Authorization: Bearer $PAD_TOKEN`,
-`X-Source: email`, `X-Source-Mailbox: gofaxcht@bjchealth.com.au`):
+`X-Source: email`, `X-Source-Mailbox: gofax.cht@bjchealth.com.au`):
 - the row is in `bjc-pdf-to-hl7-audit-staging`
 - the newest `ts` in `bjc-pdf-to-hl7-audit` is unchanged
