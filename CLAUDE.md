@@ -187,7 +187,8 @@ The vision extractor uses AI to identify sender, addressee, and CC recipients fr
 |----------|----------|---------|
 | `APP_PASSWORD` | No | Shared password login — only used when `AUTH_MODE=password` or `both`. Prod runs `AUTH_MODE=oauth` (SSO only) since 2026-08-18. |
 | `BJC_DOCTORS` | No | Comma-separated doctor names — legacy override; when unset the server loads the roster from the DynamoDB reference data |
-| `DYNAMODB_TABLE` | No | Override the audit table name (defaults to `bjc-pdf-to-hl7-audit`). Used by `lib/audit.ts`. |
+| `DYNAMODB_TABLE` | No | Override the audit table name (defaults to `bjc-pdf-to-hl7-audit`). Used by `lib/audit.ts` and `lib/settings.ts`. Set on the BJC `staging` branch only. |
+| `REFERENCE_DATA_TABLE` | No | Override the reference-data table (defaults to `bjc-pdf-to-hl7-reference-data`). Set on the BJC `staging` branch only. |
 
 Locally, create `.env.local`. On Amplify, env vars are set at the app level and written to `.env.production` during build (see `amplify.yml`).
 

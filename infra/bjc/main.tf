@@ -289,19 +289,19 @@ resource "aws_amplify_app" "main" {
   # so CloudFront never caches past middleware auth) from customHttp.yml.
 
   environment_variables = {
-    AMPLIFY_DIFF_DEPLOY      = "true"
-    AUTH_ALLOWED_DOMAINS     = "bjchealth.com.au,smecai.au"
-    AUTH_MODE                = "oauth" # SSO only — shared password login removed 2026-08-18
-    NEXT_PUBLIC_AUTH_MODE    = "oauth"
-    AUTH_TRUST_HOST          = "true"
-    AZURE_AD_CLIENT_ID       = "9ca073d3-a123-46b0-a344-3822e51f36dc"
-    AZURE_AD_TENANT_ID       = "common"
-    NEXT_PUBLIC_TEST_MODE    = "false" # unlike SMEC: no auth bypass in BJC prod
-    NEXT_TELEMETRY_DISABLED  = "1"
-    PUPPETEER_SKIP_DOWNLOAD  = "true"
-    AUTH_SECRET              = var.auth_secret
-    AZURE_AD_CLIENT_SECRET   = var.azure_ad_client_secret
-    PAD_TOKEN                = var.pad_token
+    AMPLIFY_DIFF_DEPLOY     = "true"
+    AUTH_ALLOWED_DOMAINS    = "bjchealth.com.au,smecai.au"
+    AUTH_MODE               = "oauth" # SSO only — shared password login removed 2026-08-18
+    NEXT_PUBLIC_AUTH_MODE   = "oauth"
+    AUTH_TRUST_HOST         = "true"
+    AZURE_AD_CLIENT_ID      = "9ca073d3-a123-46b0-a344-3822e51f36dc"
+    AZURE_AD_TENANT_ID      = "common"
+    NEXT_PUBLIC_TEST_MODE   = "false" # unlike SMEC: no auth bypass in BJC prod
+    NEXT_TELEMETRY_DISABLED = "1"
+    PUPPETEER_SKIP_DOWNLOAD = "true"
+    AUTH_SECRET             = var.auth_secret
+    AZURE_AD_CLIENT_SECRET  = var.azure_ad_client_secret
+    PAD_TOKEN               = var.pad_token
   }
 }
 
@@ -315,6 +315,90 @@ resource "aws_amplify_branch" "prod" {
 
   environment_variables = {
     AUTH_URL = "https://prod.${aws_amplify_app.main.id}.amplifyapp.com"
+  }
+}
+
+# --- Staging --------------------------------------------------------------------
+# Pre-prod branch in the same app. It shares the app-level env (PAD_TOKEN, Entra
+# client) and the compute role — aws_amplify_branch has no compute_role_arn — so
+# isolation comes from its own tables: staging traffic must never land in the
+# prod audit log, rewrite the prod /reference roster, or mask pipeline_silence.
+# amplify.yml writes DYNAMODB_TABLE / REFERENCE_DATA_TABLE into .env.production
+# only when set, so prod keeps the code defaults.
+resource "aws_dynamodb_table" "audit_staging" {
+  name         = "bjc-pdf-to-hl7-audit-staging"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "month"
+  range_key    = "ts"
+
+  attribute {
+    name = "month"
+    type = "S"
+  }
+
+  attribute {
+    name = "ts"
+    type = "S"
+  }
+}
+
+resource "aws_dynamodb_table" "reference_data_staging" {
+  name         = "bjc-pdf-to-hl7-reference-data-staging"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "kind"
+  range_key    = "id"
+
+  attribute {
+    name = "kind"
+    type = "S"
+  }
+
+  attribute {
+    name = "id"
+    type = "S"
+  }
+}
+
+# Separate policy so the prod policies above are left untouched.
+resource "aws_iam_role_policy" "staging_dynamodb" {
+  name = "bjc-pdf-to-hl7-staging-dynamodb"
+  role = aws_iam_role.amplify_compute.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "StagingAudit"
+        Effect   = "Allow"
+        Action   = ["dynamodb:PutItem", "dynamodb:Query", "dynamodb:GetItem"]
+        Resource = aws_dynamodb_table.audit_staging.arn
+      },
+      {
+        Sid    = "StagingReferenceData"
+        Effect = "Allow"
+        Action = [
+          "dynamodb:Query",
+          "dynamodb:PutItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:BatchWriteItem"
+        ]
+        Resource = aws_dynamodb_table.reference_data_staging.arn
+      }
+    ]
+  })
+}
+
+resource "aws_amplify_branch" "staging" {
+  app_id            = aws_amplify_app.main.id
+  branch_name       = "staging"
+  stage             = "BETA"
+  enable_auto_build = true
+  framework         = "Next.js - SSR"
+
+  environment_variables = {
+    AUTH_URL             = "https://staging.${aws_amplify_app.main.id}.amplifyapp.com"
+    DYNAMODB_TABLE       = aws_dynamodb_table.audit_staging.name
+    REFERENCE_DATA_TABLE = aws_dynamodb_table.reference_data_staging.name
   }
 }
 
@@ -388,4 +472,13 @@ output "reference_data_table" {
 
 output "pipeline_alerts_topic_arn" {
   value = aws_sns_topic.pipeline_alerts.arn
+}
+
+output "staging_url" {
+  value = "https://staging.${aws_amplify_app.main.id}.amplifyapp.com"
+}
+
+output "staging_entra_redirect_uri" {
+  description = "Add to Entra app 9ca073d3-a123-46b0-a344-3822e51f36dc before first staging login"
+  value       = "https://staging.${aws_amplify_app.main.id}.amplifyapp.com/api/auth/callback/microsoft-entra-id"
 }
