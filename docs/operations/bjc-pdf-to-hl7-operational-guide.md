@@ -4,7 +4,7 @@ Plain-English guide to the BJC Health PDF-to-HL7 service — covering the email 
 
 > **Status (July 2026):** The conversion engine and the manual web-upload path are live in BJC's AWS account. The email-automation (PAD) flow is being built now, piloting on the **Parramatta fax mailbox** (`gofax.par@bjchealth.com.au`) via a dedicated "HL7 Testing" folder before going live on the full inbox and extending to the other fax mailboxes. The design below reflects the pilot agreement with BJC ops (Nicole, 22 Jul 2026). (BJC's existing PDF-to-Directory automation for consent forms is a separate PAD workflow — the email handling here deliberately mirrors it.)
 >
-> **Update (26 Aug 2026):** BJC has set the rollout to the other three fax mailboxes — **`gofaxcht@` on 1 Sep 2026, `gofaxbon@` and `gofaxbow@` on 8 Sep 2026** — and asked for one workflow change: an **Unlinked** folder beside Linked. Once built, every email the converter looks at but does not file moves to `Unlinked`, so reception works that folder as the manual queue instead of guessing whether an inbox email has been assessed yet. The general email mailboxes (admin@ etc.) are deferred until BJC's broader team is ready — likely a few months. Sections below marked *"from the 26 Aug change"* describe the new behaviour.
+> **Update (26 Aug 2026):** BJC has set the rollout to the other three fax mailboxes — **`gofax.cht@` on 1 Sep 2026, `gofax.bon@` and `gofax.bow@` on 8 Sep 2026** — and asked for one workflow change: an **Unlinked** folder beside Linked. Once built, every email the converter looks at but does not file moves to `Unlinked`, so reception works that folder as the manual queue instead of guessing whether an inbox email has been assessed yet. The general email mailboxes (admin@ etc.) are deferred until BJC's broader team is ready — likely a few months. Sections below marked *"from the 26 Aug change"* describe the new behaviour.
 
 ---
 
@@ -131,7 +131,7 @@ There is no Review folder and no Outlook categories — the automation never cha
 | `Unlinked` | The automation looked at it and would not auto-file it (urgent / unreadable / low confidence / partly filed) | **Process manually — this is the queue.** Reason is on the dashboard; urgent items carry a red badge |
 | Inbox | Not yet assessed, or the service was unreachable and it will be retried on the next run | Leave it. If mail sits here for more than a couple of runs, the service may be down — tell SMEC AI |
 
-The same three folders exist in each fax mailbox as it goes live (`gofax.par@`, then `gofaxcht@` from 1 Sep, `gofaxbon@` and `gofaxbow@` from 8 Sep 2026).
+The same three folders exist in each fax mailbox as it goes live (`gofax.par@`, then `gofax.cht@` from 1 Sep, `gofax.bon@` and `gofax.bow@` from 8 Sep 2026).
 
 ---
 
@@ -179,7 +179,7 @@ The dashboard at `/dashboard` surfaces these rows. Patient names, dates of birth
 | Internet access from server | The server needs to reach the SMEC AI cloud service (HTTPS only) | Confirmed |
 | `Linked` subfolder in the polled folder | Successfully filed emails move here (no Review folder — unfiled emails stay in the inbox) | Pending |
 | `Unlinked` subfolder beside `Linked` | *From the 26 Aug change:* unfiled emails move here. Needed in every fax mailbox before its go-live date; Nicole creates | Pending |
-| Service account permissions | The PAD account needs Full Access to `gofax.par@bjchealth.com.au` (pilot) and the Genie folder. Rollout: Full Access to `gofaxcht@` before 1 Sep 2026 and to `gofaxbon@` + `gofaxbow@` before 8 Sep 2026 | Pending |
+| Service account permissions | The PAD account needs Full Access to `gofax.par@bjchealth.com.au` (pilot) and the Genie folder. Rollout: Full Access to `gofax.cht@` before 1 Sep 2026 and to `gofax.bon@` + `gofax.bow@` before 8 Sep 2026 | Pending |
 | **Confirm Genie REF V8 flag is enabled** | Without REF V8, Genie ignores the OBR-24 routing flag and dumps everything into Pathology / Radiology — referrals will not reach Incoming Letters. **This is the single biggest pre-go-live blocker.** Owned by Steven Hill (Medihost). | Pending |
 
 ---

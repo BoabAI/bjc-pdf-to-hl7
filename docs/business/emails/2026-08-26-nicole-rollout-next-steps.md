@@ -8,7 +8,7 @@ decisions it carries are folded into `docs/operations/pad-integration-guide.md`
 
 | Item | Detail |
 |---|---|
-| Rollout order + dates | `gofaxcht@` → **1 Sep 2026**; `gofaxbon@` and `gofaxbow@` → **8 Sep 2026** (three per-location GoFax mailboxes, same pattern as the `gofax.par@` pilot) |
+| Rollout order + dates | `gofax.cht@` → **1 Sep 2026**; `gofax.bon@` and `gofax.bow@` → **8 Sep 2026** (three per-location GoFax mailboxes, same pattern as the `gofax.par@` pilot). The email below writes them undotted; the real addresses are dotted (confirmed 1 Sep 2026) |
 | Workflow change | Add an **Unlinked** folder alongside Linked. Anything the converter does *not* file moves to Unlinked, so reception knows what still needs manual processing without guessing whether the converter has looked at it yet. Reverses the 22 Jul "unfiled emails stay in the inbox untouched" rule. |
 | Email mailboxes (admin@ etc.) | Deferred — "could be a few months away"; BJC will contact SMEC AI when the broader team is ready. |
 
