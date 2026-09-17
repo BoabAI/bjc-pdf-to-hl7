@@ -228,7 +228,7 @@ export default function StatsPage(): JSX.Element {
     [conversionRows]
   );
 
-  // One slice per source mailbox (e.g. "Fax · gofaxcht"), using the same label
+  // One slice per source mailbox (e.g. "Fax · gofax.cht"), using the same label
   // as the /log Mailbox column; rows without an address fall back to "Web" or
   // legacy "Email".
   const mailboxData = useMemo(
