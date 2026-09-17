@@ -10,6 +10,7 @@ import {
   type AuditRow,
   currentSydneyDate,
   firstOfCurrentSydneyMonth,
+  mailboxDisplay,
   prettifyDocType,
   prettifyOutcome,
   ROUTING_REASON_STYLE,
@@ -33,7 +34,16 @@ const DOC_TYPE_COLORS: TremorColor[] = ["blue", "teal", "violet", "amber", "slat
 const OUTCOME_COLORS: TremorColor[] = ["emerald", "rose"];
 const SOURCE_COLORS: TremorColor[] = ["blue", "teal"];
 const ROUTING_COLORS: TremorColor[] = ["emerald", "amber"];
-const MAILBOX_COLORS: TremorColor[] = ["teal", "violet", "slate"];
+// Four GoFax mailboxes plus Web / legacy Email need distinct slices.
+const MAILBOX_COLORS: TremorColor[] = [
+  "teal",
+  "violet",
+  "amber",
+  "blue",
+  "emerald",
+  "orange",
+  "slate",
+];
 
 // Tremor builds chart classes dynamically (e.g. `fill-blue-500`), so Tailwind's
 // content scanner can't see them. Listing them as literal strings keeps them
@@ -218,13 +228,11 @@ export default function StatsPage(): JSX.Element {
     [conversionRows]
   );
 
+  // One slice per source mailbox (e.g. "Fax · gofaxcht"), using the same label
+  // as the /log Mailbox column; rows without an address fall back to "Web" or
+  // legacy "Email".
   const mailboxData = useMemo(
-    () =>
-      groupBy(conversionRows, (r) => {
-        if (r.mailboxCategory === "results") return "Fax (results)";
-        if (r.mailboxCategory === "letters") return "Admin (letters)";
-        return "Web upload";
-      }),
+    () => groupBy(conversionRows, mailboxDisplay),
     [conversionRows]
   );
 
@@ -304,7 +312,7 @@ export default function StatsPage(): JSX.Element {
                 colors={ROUTING_COLORS}
               />
               <BreakdownPie
-                title="By mailbox category"
+                title="By mailbox"
                 data={mailboxData}
                 colors={MAILBOX_COLORS}
               />
