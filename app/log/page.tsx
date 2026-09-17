@@ -11,6 +11,7 @@ import {
   currentSydneyDate,
   firstOfCurrentSydneyMonth,
   formatSydneyTimestamp,
+  mailboxDisplay,
   prettifyDocType,
   prettifyOutcome,
   ROUTING_DECISION_LABELS,
@@ -31,13 +32,8 @@ type SortKey =
   | "warningCount";
 type SortDir = "asc" | "desc";
 
-/** Compact label combining new mailbox category (when present) with the
- *  legacy source field for backward compat. */
-function mailboxDisplay(row: AuditRow): string {
-  if (row.mailboxCategory === "results") return "Fax (results)";
-  if (row.mailboxCategory === "letters") return "Admin (letters)";
-  return row.source === "email" ? "Email" : "Web";
-}
+/** Sentinel option value for rows with no stored source mailbox. */
+const NO_MAILBOX_FILTER = "__none__";
 
 function compareRows(a: AuditRow, b: AuditRow, key: SortKey): number {
   const av = a[key];
@@ -72,6 +68,7 @@ function buildCsv(rows: AuditRow[]): string {
     "messageType",
     "diagnosticServiceSection",
     "mailboxCategory",
+    "mailboxAddress",
     "routingDecision",
     "routingReason",
     "suggestedCategory",
@@ -91,6 +88,7 @@ function buildCsv(rows: AuditRow[]): string {
       csvEscape(row.messageType ?? ""),
       csvEscape(row.diagnosticServiceSection ?? ""),
       csvEscape(row.mailboxCategory ?? ""),
+      csvEscape(row.mailboxAddress ?? ""),
       csvEscape(row.routingDecision ?? ""),
       csvEscape(row.routingReason ?? ""),
       csvEscape(row.suggestedCategory ?? ""),
@@ -116,9 +114,28 @@ export default function LogPage(): JSX.Element {
   const [expandedTs, setExpandedTs] = useState<string | null>(null);
   const [routingFilter, setRoutingFilter] = useState<"all" | "auto_routed" | "manual_review">("all");
   const [reasonFilter, setReasonFilter] = useState<"all" | NonNullable<AuditRow["routingReason"]>>("all");
+  const [mailboxFilter, setMailboxFilter] = useState<string>("all");
+
+  // Distinct source mailboxes in the loaded range, for the per-site filter.
+  // Only PAD rows written after the address was persisted carry one; the
+  // filter is hidden entirely when no row in the range has it.
+  const mailboxOptions = useMemo(() => {
+    const addresses = new Set<string>();
+    for (const row of rows) {
+      if (row.mailboxAddress) addresses.add(row.mailboxAddress);
+    }
+    return [...addresses].sort();
+  }, [rows]);
 
   const filteredRows = useMemo(() => {
     return rows.filter((row) => {
+      if (mailboxFilter !== "all") {
+        if (mailboxFilter === NO_MAILBOX_FILTER) {
+          if (row.mailboxAddress) return false;
+        } else if (row.mailboxAddress !== mailboxFilter) {
+          return false;
+        }
+      }
       if (routingFilter !== "all") {
         // Treat missing routingDecision (pre-Nicole rows) as auto_routed if
         // outcome is ok, otherwise manual_review. Keeps legacy rows visible
@@ -132,7 +149,7 @@ export default function LogPage(): JSX.Element {
       }
       return true;
     });
-  }, [rows, routingFilter, reasonFilter]);
+  }, [rows, mailboxFilter, routingFilter, reasonFilter]);
 
   const sortedRows = useMemo(() => {
     const dir = sortDir === "asc" ? 1 : -1;
@@ -222,6 +239,25 @@ export default function LogPage(): JSX.Element {
             <div className="divider-subtle mb-4" />
 
             <div className="flex flex-wrap gap-3 mb-4 items-center text-xs">
+              {mailboxOptions.length > 0 ? (
+                <label className="flex items-center gap-1.5">
+                  <span className="text-[var(--text-muted)]">Mailbox:</span>
+                  <select
+                    className="select-field text-xs py-1"
+                    value={mailboxFilter}
+                    onChange={(e) => setMailboxFilter(e.target.value)}
+                    aria-label="Filter by source mailbox"
+                  >
+                    <option value="all">All</option>
+                    {mailboxOptions.map((address) => (
+                      <option key={address} value={address}>
+                        {address}
+                      </option>
+                    ))}
+                    <option value={NO_MAILBOX_FILTER}>No mailbox recorded</option>
+                  </select>
+                </label>
+              ) : null}
               <label className="flex items-center gap-1.5">
                 <span className="text-[var(--text-muted)]">Routing:</span>
                 <select
