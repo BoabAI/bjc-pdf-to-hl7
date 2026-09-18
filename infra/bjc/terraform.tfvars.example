@@ -6,8 +6,6 @@
 # Used once at app creation to install the Amplify webhook.
 github_access_token = ""
 
-# Fallback password login (AUTH_MODE=both keeps password + SSO).
-app_password = ""
 
 # Generate fresh for this environment: openssl rand -base64 32
 auth_secret = ""

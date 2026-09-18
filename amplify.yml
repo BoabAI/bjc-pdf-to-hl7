@@ -21,6 +21,10 @@ frontend:
         - echo "AUTH_MODE=$AUTH_MODE" >> .env.production
         - echo "APP_PASSWORD=$APP_PASSWORD" >> .env.production
         - echo "PAD_TOKEN=$PAD_TOKEN" >> .env.production
+        # Table overrides are branch-level (staging only). Write them only when set:
+        # an empty DYNAMODB_TABLE= would defeat the `?? DEFAULT` fallback in prod.
+        - if [ -n "$DYNAMODB_TABLE" ]; then echo "DYNAMODB_TABLE=$DYNAMODB_TABLE" >> .env.production; fi
+        - if [ -n "$REFERENCE_DATA_TABLE" ]; then echo "REFERENCE_DATA_TABLE=$REFERENCE_DATA_TABLE" >> .env.production; fi
         - echo "Wrote Auth.js + PAD env vars to .env.production"
         - npm run build
         # Copy .env.production into standalone output so the Lambda server can read it
