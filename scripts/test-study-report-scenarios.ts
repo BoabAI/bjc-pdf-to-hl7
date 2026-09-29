@@ -40,6 +40,25 @@ const SCENARIOS: Scenario[] = [
   { file: "eye_exam_report.pdf", description: "Optometry eye examination report (To: block)", expectedAddressee: "Dr V Wong" },
 ];
 
+// Negatives: administrative documents that must stay generic (→ manual review),
+// so the wider consult_letter rule can't auto-file them. Borderline reports are
+// printed for inspection but don't fail the run.
+// Generate with: bun scripts/generate-study-report-negative-pdfs.ts
+const NEG_DIR = join(import.meta.dir, "..", "docs", "test-pdfs", "study-report-negatives");
+const MUST_STAY_GENERIC = [
+  "neg_centrelink_form.pdf",
+  "neg_patient_invoice.pdf",
+  "neg_appointment_letter.pdf",
+  "neg_medication_chart.pdf",
+];
+const BORDERLINE = [
+  "bl_ecg_report.pdf",
+  "bl_echo_report.pdf",
+  "bl_spirometry_report.pdf",
+  "bl_hospital_discharge.pdf",
+  "bl_physio_report.pdf",
+];
+
 console.log("=".repeat(70));
 console.log("Study Report Scenarios — expect consult_letter");
 console.log("=".repeat(70));
@@ -78,8 +97,28 @@ for (const scenario of SCENARIOS) {
   console.log(`  Result: ${ok ? "PASS" : "FAIL"}`);
 }
 
+console.log("\n--- Negatives (must stay generic) ---");
+for (const file of MUST_STAY_GENERIC) {
+  const result = await extractPatientDataWithVision(readFileSync(join(NEG_DIR, file)), {
+    bjcDoctors: BJC_DOCTORS,
+  });
+  const ok = result.documentType === "generic";
+  if (ok) passed++;
+  else failed++;
+  console.log(`  ${ok ? "PASS" : "FAIL"} ${file} → ${result.documentType} (${result.classificationConfidence})`);
+}
+
+console.log("\n--- Borderline (informational) ---");
+for (const file of BORDERLINE) {
+  const result = await extractPatientDataWithVision(readFileSync(join(NEG_DIR, file)), {
+    bjcDoctors: BJC_DOCTORS,
+  });
+  console.log(`  ${file} → ${result.documentType} (${result.classificationConfidence})`);
+}
+
+const total = SCENARIOS.length + MUST_STAY_GENERIC.length;
 console.log("\n" + "=".repeat(70));
-console.log(`Results: ${passed} passed, ${failed} failed out of ${SCENARIOS.length}`);
+console.log(`Results: ${passed} passed, ${failed} failed out of ${total}`);
 console.log("=".repeat(70));
 
 process.exit(failed > 0 ? 1 : 0);

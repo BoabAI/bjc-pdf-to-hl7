@@ -45,3 +45,14 @@ Draft via `/word-paste-html`, save to `docs/business/emails/2026-09-XX-unknown-t
 - Regression: re-run live extraction on existing `docs/test-pdfs/results/`, `referrals/`, `letter-subtypes/` → no pathology/radiology/referral drift.
 - End-to-end: `curl` `/api/convert` with a fixture on local dev (port 3001, PAD bearer + `X-Source: email`) → `auto_routed`, HL7 has `REF^I12` + OBR-24 `PHY`.
 - Draft PR against `prod`; copy this plan to `docs/plans/`.
+
+## Regression results (29 Sep 2026, live Bedrock Sonnet 4.6, 3 runs per doc per prompt)
+Corpus: 69 PDFs — every committed fixture, the client's 3 de-identified samples, 9 new negative/borderline fixtures, and 25 local archive samples (consent forms, grainy/skewed scans, real result + referral samples). 414 classifications, 0 errors.
+
+- **62/69 unchanged**, all stable 3/3 on both prompts: every referral, consult letter, pathology, radiology, consent form and urgent fixture. Urgent flag unchanged on all 69.
+- **7 changed, all to `consult_letter`:** the 2 client samples and 2 fixtures that were previously `radiology_result`/`generic`, plus borderline ECG (was radiology_result), echo (was radiology_result) and spirometry (was pathology_result).
+- **Must-stay-generic negatives** (Centrelink form, invoice, appointment letter, dispensing history): `generic` 3/3 on both prompts. Hospital discharge summary stays `generic` (manual review).
+- **Stability:** old prompt flip-flopped on 2 docs; new prompt 0.
+- Every new `consult_letter` result is ≥82% confidence; prod floor is 70.
+
+Decision for the client: ECG / echo / spirometry would now go to Incoming Letters instead of Radiology/Pathology. ECG and spirometry were previously misfiled; echo is arguably imaging.
