@@ -56,3 +56,11 @@ Corpus: 69 PDFs — every committed fixture, the client's 3 de-identified sample
 - Every new `consult_letter` result is ≥82% confidence; prod floor is 70.
 
 Decision for the client: ECG / echo / spirometry would now go to Incoming Letters instead of Radiology/Pathology. ECG and spirometry were previously misfiled; echo is arguably imaging.
+
+## Fax-degraded fixtures (29 Sep 2026)
+6 image-only PDFs (no text layer; speckle, scan lines, skew, fax header) in `docs/test-pdfs/study-reports/degraded/`, each run 3× end-to-end through `convertPdf` (floor 70): 18/18 as expected.
+- 4-page sleep study, 2-page NCS, eye exam → `consult_letter` 88–95%, `auto_routed`, OBR-24 `PHY`, PRD-RT = roster doctor.
+- Eye report to an external GP with the BJC doctor on CC → addressee promoted to the BJC doctor.
+- Sleep study stamped URGENT → `manual_review` / `urgent_result` 3/3.
+- NCS with a non-roster referring physician → `auto_routed` with the external name + "not matched" warning (existing behaviour; client asked).
+Folded into `scripts/test-study-report-scenarios.ts`: 13/13 pass.

@@ -20,7 +20,6 @@ import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 
 const OUT_DIR = join(import.meta.dir, "..", "docs", "test-pdfs", "study-reports");
-mkdirSync(OUT_DIR, { recursive: true });
 
 const BASE_CSS = `
   body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #111; padding: 20px 28px; line-height: 1.35; }
@@ -36,7 +35,7 @@ const BASE_CSS = `
   .two-col { display: flex; gap: 40px; margin-bottom: 12px; }
 `;
 
-const SLEEP_STUDY_HTML = `
+export const SLEEP_STUDY_HTML = `
 <!DOCTYPE html>
 <html><head><style>${BASE_CSS}</style></head><body>
   <div class="letterhead">
@@ -71,7 +70,7 @@ const SLEEP_STUDY_HTML = `
 </body></html>
 `;
 
-const NERVE_CONDUCTION_HTML = `
+export const NERVE_CONDUCTION_HTML = `
 <!DOCTYPE html>
 <html><head><style>${BASE_CSS}</style></head><body>
   <div class="letterhead">
@@ -111,7 +110,7 @@ const NERVE_CONDUCTION_HTML = `
 </body></html>
 `;
 
-const EYE_EXAM_HTML = `
+export const EYE_EXAM_HTML = `
 <!DOCTYPE html>
 <html><head><style>${BASE_CSS}</style></head><body>
   <div class="letterhead">
@@ -153,6 +152,7 @@ const SCENARIOS: { filename: string; html: string; description: string }[] = [
 ];
 
 async function main() {
+  mkdirSync(OUT_DIR, { recursive: true });
   const browser = await puppeteer.launch();
   try {
     for (const scenario of SCENARIOS) {
@@ -173,7 +173,9 @@ async function main() {
   console.log(`\nGenerated ${SCENARIOS.length} PDFs in ${OUT_DIR}`);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+if (import.meta.main) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

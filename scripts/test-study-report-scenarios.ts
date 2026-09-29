@@ -32,12 +32,22 @@ interface Scenario {
   file: string;
   description: string;
   expectedAddressee: string;
+  /** Defaults to false. The urgent-first gate sends these to manual review. */
+  expectedUrgent?: boolean;
 }
 
 const SCENARIOS: Scenario[] = [
   { file: "sleep_study.pdf", description: "Ambulatory sleep study (Referring Physician line)", expectedAddressee: "Dr Q Luu" },
   { file: "nerve_conduction.pdf", description: "Nerve conduction study (Referring Physician line)", expectedAddressee: "Dr H Lau" },
   { file: "eye_exam_report.pdf", description: "Optometry eye examination report (To: block)", expectedAddressee: "Dr V Wong" },
+  // Fax-realistic, image-only variants — bun scripts/generate-study-report-degraded-pdfs.ts
+  { file: "degraded/sleep_study_fax_4p.pdf", description: "Fax: 4-page sleep study", expectedAddressee: "Dr Q Luu" },
+  { file: "degraded/nerve_conduction_fax_2p.pdf", description: "Fax: 2-page nerve conduction study", expectedAddressee: "Dr H Lau" },
+  { file: "degraded/eye_exam_fax.pdf", description: "Fax: eye examination report", expectedAddressee: "Dr V Wong" },
+  { file: "degraded/sleep_study_urgent_fax.pdf", description: "Fax: sleep study stamped URGENT", expectedAddressee: "Dr Q Luu", expectedUrgent: true },
+  { file: "degraded/eye_exam_cc_bjc_fax.pdf", description: "Fax: eye report to external GP, BJC doctor on CC", expectedAddressee: "Dr V Wong" },
+  // Referring physician not on the roster → left as extracted (auto-files unlinked).
+  { file: "degraded/ncs_nonroster_fax.pdf", description: "Fax: NCS with non-roster referring physician", expectedAddressee: "Dr Gregory Tanaka-Wells" },
 ];
 
 // Negatives: administrative documents that must stay generic (→ manual review),
@@ -88,12 +98,14 @@ for (const scenario of SCENARIOS) {
 
   const typeOk = result.documentType === "consult_letter";
   const addresseeOk = addressee === scenario.expectedAddressee;
-  const ok = result.success && typeOk && addresseeOk;
+  const urgentOk = Boolean(result.isUrgent) === Boolean(scenario.expectedUrgent);
+  const ok = result.success && typeOk && addresseeOk && urgentOk;
   if (ok) passed++;
   else failed++;
 
   console.log(`  Doc-type check: ${typeOk ? "PASS" : "FAIL"}`);
   console.log(`  Addressee check: ${addresseeOk ? "PASS" : "FAIL"} (expected "${scenario.expectedAddressee}", got "${addressee}")`);
+  console.log(`  Urgent check: ${urgentOk ? "PASS" : "FAIL"} (expected ${Boolean(scenario.expectedUrgent)}, got ${Boolean(result.isUrgent)})`);
   console.log(`  Result: ${ok ? "PASS" : "FAIL"}`);
 }
 
