@@ -20,6 +20,26 @@ describe("SYSTEM_PROMPT", () => {
     expect(SYSTEM_PROMPT).toContain("Thanks for referring");
   });
 
+  test("folds non-imaging study / examination reports into consult_letter", () => {
+    // Nicole 22 Sep 2026: sleep studies, nerve conduction studies and
+    // optometry eye-exam reports fell into generic ("Unknown type").
+    expect(SYSTEM_PROMPT).toContain("sleep studies");
+    expect(SYSTEM_PROMPT).toContain("nerve conduction");
+    expect(SYSTEM_PROMPT).toContain("eye / optometry examination reports");
+  });
+
+  test("keeps imaging and lab reports out of the study-report rule", () => {
+    expect(SYSTEM_PROMPT).toContain(
+      "A diagnostic study or examination report that is neither imaging nor lab pathology is a **consult_letter**"
+    );
+  });
+
+  test("uses the Referring Physician line as the study-report addressee", () => {
+    expect(SYSTEM_PROMPT).toContain(
+      "For study / examination reports classified as consult_letter"
+    );
+  });
+
   test("calls out the AU review-referral phrasing trap", () => {
     expect(SYSTEM_PROMPT).toContain("Thank you for seeing");
     // Should explicitly say that phrase is a referral, not a thank-you note

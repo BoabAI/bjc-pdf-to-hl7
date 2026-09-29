@@ -52,6 +52,8 @@ bun run scripts/test-vision.ts            # Run live Bedrock extraction against 
 bun run scripts/generate-test-pdfs.ts     # Regenerate all 20 test PDFs (requires puppeteer)
 bun run scripts/generate-addressee-test-pdfs.ts  # Generate CC/addressee resolution test PDFs
 bun run scripts/test-addressee-scenarios.ts      # Live Bedrock test for CC addressee scenarios
+bun run scripts/generate-study-report-test-pdfs.ts  # Generate sleep / nerve conduction / eye exam fixtures
+bun run scripts/test-study-report-scenarios.ts      # Live Bedrock test: study reports → consult_letter
 ```
 
 Tests use generated PDFs at `docs/test-pdfs/` (nested subdirectories with various formats).
@@ -93,7 +95,7 @@ Password auth via Next.js middleware (`middleware.ts`):
 Six document types are classified by Bedrock vision:
 - **`consent_form`** - BJC Health Patient Information and Consent Forms
 - **`referral`** - Referral letters from any sender (GP, specialist, clinic, allied health)
-- **`consult_letter`** - Specialist-to-GP consultation reports ("Thanks for referring…")
+- **`consult_letter`** - Specialist-to-GP consultation reports ("Thanks for referring…"), plus non-imaging, non-lab study / examination reports (sleep study, nerve conduction, eye exam) so they reach Incoming Letters instead of "Unknown type"
 - **`pathology_result`** - Pathology / lab reports (Douglass Hanly Moir, Laverty, Sonic, etc.)
 - **`radiology_result`** - Imaging reports (PRP, I-MED, Lumus, etc.)
 - **`generic`** - Any other medical PDF or unclear case
