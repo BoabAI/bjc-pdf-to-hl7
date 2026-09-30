@@ -113,6 +113,16 @@ describe("documentTypeLabel", () => {
 
   test("returns 'Consult Letter' for consult_letter", () => {
     expect(documentTypeLabel("consult_letter")).toBe("Consult Letter");
+    expect(documentTypeLabel("consult_letter", { isStudyReport: false })).toBe("Consult Letter");
+  });
+
+  test("returns 'Report' for a consult_letter flagged as a study report", () => {
+    expect(documentTypeLabel("consult_letter", { isStudyReport: true })).toBe("Report");
+  });
+
+  test("ignores the study-report flag on non-consult types", () => {
+    expect(documentTypeLabel("radiology_result", { isStudyReport: true })).toBe("Radiology Result");
+    expect(documentTypeLabel("referral", { isStudyReport: true })).toBe("Referral");
   });
 
   test("returns 'Correspondence' for consent_form", () => {

@@ -228,8 +228,15 @@ export function isResultDocumentType(documentType: DocumentType): boolean {
  * Nicole's UI labels are slightly different (sentence case, see
  * `prettifyDocType` in app/components/auditShared.ts) — that file owns the
  * dashboard labels; this one owns the HL7 OBR-4 label.
+ *
+ * A consult_letter flagged `isStudyReport` (sleep study, nerve conduction,
+ * eye exam…) reads "Report" — routing is unchanged (REF^I12, PHY).
  */
-export function documentTypeLabel(documentType: DocumentType): string {
+export function documentTypeLabel(
+  documentType: DocumentType,
+  options?: { isStudyReport?: boolean }
+): string {
+  if (documentType === "consult_letter" && options?.isStudyReport) return "Report";
   switch (documentType) {
     case "pathology_result":
       return "Pathology Result";

@@ -659,6 +659,42 @@ describe("POST /api/convert Bedrock flow", () => {
     expect(data.hl7Content).toBeUndefined();
   });
 
+  test("consult_letter flagged as a study report gets OBR-4 'Report', routing unchanged", async () => {
+    // Nicole 30 Sep 2026: sleep / nerve conduction / eye-exam reports file to
+    // Incoming Letters but must read "Report" in Genie, not "Consult Letter".
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "consult_letter",
+      isStudyReport: true,
+      referralInfo: { senderName: "Dr Marcus Hale", addresseeName: "Dr Sarah Smith" },
+    });
+
+    const data = await (await POST(createConvertRequest())).json();
+    const segments: string[] = data.hl7Content.split("\r");
+    const obr = segments.find((s) => s.startsWith("OBR|"))!.split("|");
+    const msh = segments.find((s) => s.startsWith("MSH|"))!.split("|");
+
+    expect(data.action).toBe("auto_routed");
+    expect(obr[4]).toBe("PDF^Report^L");
+    expect(obr[24]).toBe("PHY");
+    expect(msh[8]).toBe("REF^I12");
+  });
+
+  test("consult_letter without the study-report flag keeps OBR-4 'Consult Letter'", async () => {
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "consult_letter",
+      referralInfo: { senderName: "Dr Marcus Hale", addresseeName: "Dr Sarah Smith" },
+    });
+
+    const data = await (await POST(createConvertRequest())).json();
+    const obr = (data.hl7Content.split("\r") as string[])
+      .find((s) => s.startsWith("OBR|"))!
+      .split("|");
+
+    expect(obr[4]).toBe("PDF^Consult Letter^L");
+  });
+
   test("carrier flows to MSH-3 and extractedData", async () => {
     const response = await POST(
       createConvertRequest({ carrier: "EMAIL" })

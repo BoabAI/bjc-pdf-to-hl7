@@ -28,6 +28,10 @@ describe("SYSTEM_PROMPT", () => {
     expect(SYSTEM_PROMPT).toContain("eye / optometry examination reports");
   });
 
+  test("instructs the model to flag study reports for the 'Report' description", () => {
+    expect(SYSTEM_PROMPT).toContain("Set isStudyReport to true");
+  });
+
   test("keeps imaging and lab reports out of the study-report rule", () => {
     expect(SYSTEM_PROMPT).toContain(
       "A diagnostic study or examination report that is neither imaging nor lab pathology is a **consult_letter**"

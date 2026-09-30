@@ -99,14 +99,38 @@ for (const scenario of SCENARIOS) {
   const typeOk = result.documentType === "consult_letter";
   const addresseeOk = addressee === scenario.expectedAddressee;
   const urgentOk = Boolean(result.isUrgent) === Boolean(scenario.expectedUrgent);
-  const ok = result.success && typeOk && addresseeOk && urgentOk;
+  // Every study scenario must carry the flag so Genie shows "Report" (OBR-4).
+  const studyOk = result.isStudyReport === true;
+  const ok = result.success && typeOk && addresseeOk && urgentOk && studyOk;
   if (ok) passed++;
   else failed++;
 
   console.log(`  Doc-type check: ${typeOk ? "PASS" : "FAIL"}`);
   console.log(`  Addressee check: ${addresseeOk ? "PASS" : "FAIL"} (expected "${scenario.expectedAddressee}", got "${addressee}")`);
   console.log(`  Urgent check: ${urgentOk ? "PASS" : "FAIL"} (expected ${Boolean(scenario.expectedUrgent)}, got ${Boolean(result.isUrgent)})`);
+  console.log(`  Study-report flag: ${studyOk ? "PASS" : "FAIL"} (got ${Boolean(result.isStudyReport)})`);
   console.log(`  Result: ${ok ? "PASS" : "FAIL"}`);
+}
+
+// Real consult letters (correspondence) must keep "Consult Letter" — flag false.
+const TEST_PDFS = join(import.meta.dir, "..", "docs", "test-pdfs");
+const LETTERS_NOT_REPORTS = [
+  "letter-subtypes/letter_followup.pdf",
+  "letter-subtypes/letter_discharge.pdf",
+  "letter-subtypes/letter_result_commentary.pdf",
+  "referrals/referral_1.pdf",
+  "addressees/addressee_2_bjc_in_cc.pdf",
+];
+
+console.log("\n--- Consult letters (study-report flag must be false) ---");
+for (const file of LETTERS_NOT_REPORTS) {
+  const result = await extractPatientDataWithVision(readFileSync(join(TEST_PDFS, file)), {
+    bjcDoctors: BJC_DOCTORS,
+  });
+  const ok = result.documentType === "consult_letter" && result.isStudyReport !== true;
+  if (ok) passed++;
+  else failed++;
+  console.log(`  ${ok ? "PASS" : "FAIL"} ${file} → ${result.documentType}, isStudyReport=${Boolean(result.isStudyReport)}`);
 }
 
 console.log("\n--- Negatives (must stay generic) ---");
@@ -125,10 +149,10 @@ for (const file of BORDERLINE) {
   const result = await extractPatientDataWithVision(readFileSync(join(NEG_DIR, file)), {
     bjcDoctors: BJC_DOCTORS,
   });
-  console.log(`  ${file} → ${result.documentType} (${result.classificationConfidence})`);
+  console.log(`  ${file} → ${result.documentType} (${result.classificationConfidence}), isStudyReport=${Boolean(result.isStudyReport)}`);
 }
 
-const total = SCENARIOS.length + MUST_STAY_GENERIC.length;
+const total = SCENARIOS.length + LETTERS_NOT_REPORTS.length + MUST_STAY_GENERIC.length;
 console.log("\n" + "=".repeat(70));
 console.log(`Results: ${passed} passed, ${failed} failed out of ${total}`);
 console.log("=".repeat(70));

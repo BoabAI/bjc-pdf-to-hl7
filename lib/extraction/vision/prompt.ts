@@ -131,6 +131,9 @@ Sender/Addressee rules:
 Urgency detection:
 - Set isUrgent to true whenever the word "urgent" (any case — "Urgent", "URGENT", "urgent") appears prominently anywhere on the document: a stamp, a header, a priority/urgency field, or in the report body, findings, or impression (e.g. "urgent clinical correlation recommended"). It is a single boolean for the whole document. Err toward true when you are unsure — over-flagging is safe because a human will review it.
 
+Study report flag:
+- Set isStudyReport to true only when documentType is consult_letter AND the document is a diagnostic study or examination report (sleep study, nerve conduction / EMG study, eye / optometry examination report, or a similar measurement report with results tables or findings). Set it to false for consult letters written as correspondence ("Thanks for referring…", follow-up, discharge or results-commentary letters) and for every other document type. It only changes the document's description in Genie; it does not change routing.
+
 - Always call the extract_patient_data tool`;
 
 /** Build the per-request user prompt. The mailbox category controls which

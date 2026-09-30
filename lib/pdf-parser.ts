@@ -26,6 +26,9 @@ export interface ExtractionResult {
    * falsy) on the catch fallback path. Consumed by the eligibility gate to
    * block urgent documents (any type) from auto-routing. */
   isUrgent?: boolean;
+  /** Study / examination report flag — selects the OBR-4 "Report" label for
+   * consult_letter. Omitted (→ falsy) on the catch fallback path. */
+  isStudyReport?: boolean;
   referralInfo?: ReferralInfo;
 }
 
@@ -67,6 +70,7 @@ export async function extractPatientData(
       extractionMethod: "vision",
       classificationConfidence: visionResult.classificationConfidence,
       isUrgent: visionResult.isUrgent,
+      isStudyReport: visionResult.isStudyReport,
       referralInfo: visionResult.referralInfo,
     };
   } catch (error) {

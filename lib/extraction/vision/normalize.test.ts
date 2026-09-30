@@ -547,6 +547,38 @@ describe("normalizeVisionToolInput — isUrgent", () => {
   });
 });
 
+describe("normalizeVisionToolInput — isStudyReport", () => {
+  function base(extra: Record<string, unknown>) {
+    return normalizeVisionToolInput({
+      documentType: "consult_letter",
+      firstName: "Jane",
+      lastName: "Smith",
+      dob: "08/11/1985",
+      sex: "F",
+      ...extra,
+    });
+  }
+
+  test("is true only when raw.isStudyReport === true", () => {
+    expect(base({ isStudyReport: true }).isStudyReport).toBe(true);
+  });
+
+  test("is false when absent or explicitly false", () => {
+    expect(base({}).isStudyReport).toBe(false);
+    expect(base({ isStudyReport: false }).isStudyReport).toBe(false);
+  });
+
+  test("is false for non-boolean values", () => {
+    expect(base({ isStudyReport: "true" }).isStudyReport).toBe(false);
+    expect(base({ isStudyReport: 1 }).isStudyReport).toBe(false);
+    expect(base({ isStudyReport: null }).isStudyReport).toBe(false);
+  });
+
+  test("is false when raw input is not a record", () => {
+    expect(normalizeVisionToolInput(null, "generic").isStudyReport).toBe(false);
+  });
+});
+
 describe("normalizeVisionToolInput — classificationConfidence", () => {
   test("returns the model's reported confidence as an integer", () => {
     const result = normalizeVisionToolInput({

@@ -64,3 +64,12 @@ Decision for the client: ECG / echo / spirometry would now go to Incoming Letter
 - Sleep study stamped URGENT → `manual_review` / `urgent_result` 3/3.
 - NCS with a non-roster referring physician → `auto_routed` with the external name + "not matched" warning (existing behaviour; client asked).
 Folded into `scripts/test-study-report-scenarios.ts`: 13/13 pass.
+
+## Follow-up: "Report" description (30 Sep 2026)
+The client approved Incoming Letters but needs these documents described as **"Report"** in Genie (OBR-4), with real consult letters keeping "Consult Letter". The model now returns `isStudyReport` (declared in the tool schema; prompt instruction; normalized like `isUrgent`), and `documentTypeLabel(type, { isStudyReport })` returns "Report" only for a flagged `consult_letter`. Routing is unchanged (REF^I12 / PHY). The flag is not exposed in the audit row or the API response.
+
+Verification:
+- Unit: 9 new tests (normalize, label, extractor pass-through, prompt text, route end-to-end OBR-4). Full suite 864/864.
+- Live `scripts/test-study-report-scenarios.ts`: 18/18 — 9 study reports (clean + fax-degraded) flagged; 5 real consult letters not flagged; 4 admin negatives stay generic.
+- Corpus 69 PDFs × 3: 0 document-type changes and 0 unstable vs the previous run. The flag is true 3/3 on exactly the 9 study-type documents (the client's 3 samples, 3 fixtures, and the ECG/echo/spirometry borderline cases) and false on all 14 real consult letters.
+- `convertPdf` end-to-end: study reports → `PDF^Report^L`; consult letters → `PDF^Consult Letter^L`; both REF^I12 / PHY.

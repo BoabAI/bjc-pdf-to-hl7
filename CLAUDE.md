@@ -95,7 +95,7 @@ Password auth via Next.js middleware (`middleware.ts`):
 Six document types are classified by Bedrock vision:
 - **`consent_form`** - BJC Health Patient Information and Consent Forms
 - **`referral`** - Referral letters from any sender (GP, specialist, clinic, allied health)
-- **`consult_letter`** - Specialist-to-GP consultation reports ("Thanks for referring…"), plus non-imaging, non-lab study / examination reports (sleep study, nerve conduction, eye exam) so they reach Incoming Letters instead of "Unknown type"
+- **`consult_letter`** - Specialist-to-GP consultation reports ("Thanks for referring…"), plus non-imaging, non-lab study / examination reports (sleep study, nerve conduction, eye exam) so they reach Incoming Letters instead of "Unknown type". The model flags these with `isStudyReport`, which sets the OBR-4 description to "Report" instead of "Consult Letter" (routing unchanged)
 - **`pathology_result`** - Pathology / lab reports (Douglass Hanly Moir, Laverty, Sonic, etc.)
 - **`radiology_result`** - Imaging reports (PRP, I-MED, Lumus, etc.)
 - **`generic`** - Any other medical PDF or unclear case
