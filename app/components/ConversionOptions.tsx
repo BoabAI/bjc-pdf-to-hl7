@@ -82,7 +82,7 @@ export function ConversionOptions({
             <option value="consent_form">Consent Form</option>
             <option value="referral">Referral Letter</option>
             <option value="consult_letter">Consult Letter</option>
-            <option value="study_report">Report (sleep study, nerve conduction, eye exam)</option>
+            <option value="study_report">Report</option>
             <option value="pathology_result">Pathology Result</option>
             <option value="radiology_result">Radiology Result</option>
             <option value="generic">Other Document</option>
