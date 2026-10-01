@@ -205,6 +205,47 @@ export function parseDocumentTypeOption(value: FormDataEntryValue | null): Docum
 }
 
 /**
+ * The UI dropdown value that means "this is a diagnostic study / examination
+ * report". Nicole asked twice for a selectable "Report" (22 Sep: "creating a
+ * type 'Study/Report'"; 1 Oct: "I don't see Report in the document type?").
+ *
+ * It is deliberately NOT a seventh `DocumentType`: a study report routes
+ * exactly like a consult letter (REF^I12, OBR-24=PHY → Genie Incoming
+ * Letters), and only its OBR-4 description differs. Keeping it out of the
+ * enum avoids retraining the classifier and avoids the silent-misroute risk
+ * that a new member carries (no exhaustiveness checking in this codebase —
+ * the doc-type switches all have `default:` branches).
+ */
+export const STUDY_REPORT_SELECTION = "study_report";
+
+/** A dropdown selection: any document type, `auto`, or the Report preset. */
+export type DocumentTypeSelection =
+  | DocumentTypeOption
+  | typeof STUDY_REPORT_SELECTION;
+
+export interface DocumentTypeSelectionResult {
+  documentType: DocumentTypeOption;
+  /** Operator asked for the "Report" description regardless of the model's
+   *  own `isStudyReport`. Safe to honour absolutely — unlike `documentType`
+   *  (an advisory hint, see lib/pdf-parser.ts), this flag cannot change
+   *  routing, only OBR-4. */
+  forceStudyReport: boolean;
+}
+
+/**
+ * Split a dropdown selection into the classification hint and the
+ * description override.
+ */
+export function parseDocumentTypeSelection(
+  value: FormDataEntryValue | null
+): DocumentTypeSelectionResult {
+  if (value === STUDY_REPORT_SELECTION) {
+    return { documentType: "consult_letter", forceStudyReport: true };
+  }
+  return { documentType: parseDocumentTypeOption(value), forceStudyReport: false };
+}
+
+/**
  * True for doc types that route as REF^I12 with OBR-24=PHY (Genie Incoming
  * Letters). Includes `consult_letter` (specialist→GP correspondence) which
  * Nicole confirmed should land in the same inbox as referrals.
