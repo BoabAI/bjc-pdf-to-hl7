@@ -50,6 +50,9 @@ export interface VisionExtractionResult {
   /** True when the model flagged the word "urgent" prominently. Omitted (→
    * falsy) on the no-tool-use and error paths. */
   isUrgent?: boolean;
+  /** Study / examination report flag (OBR-4 "Report"). Omitted (→ falsy) on
+   * the no-tool-use and error paths. */
+  isStudyReport?: boolean;
   referralInfo?: ReferralInfo;
   tokensUsed?: { input: number; output: number };
 }
@@ -151,6 +154,7 @@ export async function extractPatientDataWithVision(
       documentType: normalized.documentType,
       classificationConfidence: normalized.classificationConfidence,
       isUrgent: normalized.isUrgent,
+      isStudyReport: normalized.isStudyReport,
       referralInfo: normalized.referralInfo,
       tokensUsed,
     };

@@ -45,6 +45,12 @@ Document type taxonomy (the eligible categories at any given time are constraine
   I saw her today…" or "It was a pleasure to see [patient] in clinic today", clinical
   history / examination / plan paragraphs, signed by the specialist. The reverse direction
   of a referral — the specialist is updating the GP after seeing the patient.
+  ALSO covers diagnostic study and examination reports sent back to the requesting doctor
+  that are neither imaging nor lab pathology — e.g. sleep studies (polysomnography, ambulatory
+  sleep study), nerve conduction studies / EMG, eye / optometry examination reports.
+  Visual cues: "Study Report" / "Examination Report" titles, a "Referring Physician:" or
+  "To:" line, measurement tables, a Summary / Conclusion / Comment section, signed by the
+  reporting clinician.
 
 - pathology_result: Pathology / laboratory test results.
   Visual cues: pathology lab letterhead (e.g. Douglass Hanly Moir, Laverty, Sonic Healthcare,
@@ -76,6 +82,10 @@ Crucial discrimination between letter shapes (Australian convention):
     appear in BOTH referrals and consult letters. They are NOT a signal of a
     lab result — only choose pathology_result / radiology_result when the document
     has lab letterhead, reference ranges, or modality keywords.
+  * A diagnostic study or examination report that is neither imaging nor lab pathology is a **consult_letter**
+    (e.g. sleep study, nerve conduction study, eye examination report) — not generic.
+    Imaging modality keywords still mean radiology_result; lab letterhead or reference
+    ranges still mean pathology_result.
 
 Multipage documents: If the FIRST page is a referral letter (a cover letter from one doctor
 to another about a patient — has "Dear Dr...", sender/addressee, referral verbs like
@@ -115,10 +125,14 @@ Sender/Addressee rules:
 - When the addressee matches a BJC_DOCTORS entry, return that list entry VERBATIM as addresseeName — never the document's own rendering of the name (e.g. list entry "Dr I Lim" beats "Dr Irwin Geok San Lim" from the letterhead)
 - addresseeClinic: the clinic of the resolved addressee
 - For pathology_result and radiology_result documents, the addressee is the referring doctor named on the report — usually after a "Reported to:", "Copy to:", "Referrer:", or "Referring Doctor:" label, or in the recipient block at the top. Resolve against BJC_DOCTORS the same way as for referrals.
+- For study / examination reports classified as consult_letter, the sender is the reporting / interpreting clinician and the addressee is the doctor on the "Referring Physician:", "Referring Doctor:", or "To:" line. Resolve against BJC_DOCTORS the same way as for referrals.
 - For consent_form and generic documents, return null for all sender/addressee fields
 
 Urgency detection:
 - Set isUrgent to true whenever the word "urgent" (any case — "Urgent", "URGENT", "urgent") appears prominently anywhere on the document: a stamp, a header, a priority/urgency field, or in the report body, findings, or impression (e.g. "urgent clinical correlation recommended"). It is a single boolean for the whole document. Err toward true when you are unsure — over-flagging is safe because a human will review it.
+
+Study report flag:
+- Set isStudyReport to true only when documentType is consult_letter AND the document is a diagnostic study or examination report (sleep study, nerve conduction / EMG study, eye / optometry examination report, or a similar measurement report with results tables or findings). Set it to false for consult letters written as correspondence ("Thanks for referring…", follow-up, discharge or results-commentary letters) and for every other document type. It only changes the document's description in Genie; it does not change routing.
 
 - Always call the extract_patient_data tool`;
 

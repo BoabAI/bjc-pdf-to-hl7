@@ -164,7 +164,9 @@ export async function convertPdf(
   );
 
   const hl7Content = buildHL7Message(resolved.data, request.pdfBuffer, {
-    documentTitle: documentTypeLabel(resolved.documentType),
+    documentTitle: documentTypeLabel(resolved.documentType, {
+      isStudyReport: resolved.isStudyReport,
+    }),
     documentType: resolved.documentType,
     resultStatus: request.autoFile ? "F" : "P",
     orderingProvider: request.orderingProvider,

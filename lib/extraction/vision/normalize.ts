@@ -132,6 +132,10 @@ export interface NormalizedVisionInput {
    * document. Defaults to `false` when absent or non-boolean (older fixtures /
    * bad input). The urgent-blocking policy (all doc types) lives in the gate. */
   isUrgent: boolean;
+  /** True when the model flagged a consult_letter as a diagnostic study /
+   * examination report. Defaults to `false` when absent or non-boolean. Only
+   * affects the OBR-4 label (see `documentTypeLabel`). */
+  isStudyReport: boolean;
 }
 
 /** Clamp the model's self-reported confidence to a 0-100 integer. Returns 100
@@ -173,6 +177,7 @@ export function normalizeVisionToolInput(
       warnings,
       classificationConfidence: 100,
       isUrgent: false,
+      isStudyReport: false,
     };
   }
 
@@ -254,5 +259,6 @@ export function normalizeVisionToolInput(
     warnings,
     classificationConfidence,
     isUrgent: raw.isUrgent === true,
+    isStudyReport: raw.isStudyReport === true,
   };
 }

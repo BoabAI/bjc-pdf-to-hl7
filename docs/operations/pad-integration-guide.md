@@ -533,7 +533,7 @@ The service sets OBR-24 automatically from the document type — this is what pu
 
 | Document type | Message type | OBR-24 | Genie inbox |
 |---|---|---|---|
-| `referral`, `consult_letter` | REF^I12 | `PHY` | Incoming Letters |
+| `referral`, `consult_letter` (incl. sleep / nerve conduction / eye exam reports — OBR-4 "Report") | REF^I12 | `PHY` | Incoming Letters |
 | `pathology_result` | ORU^R01 | `LAB` | Pathology |
 | `radiology_result` | ORU^R01 | `RAD` | Radiology |
 | `consent_form`, `generic` | ORU^R01 | *(empty)* | Genie default routing |
