@@ -24,6 +24,7 @@ import {
   type EligibilityResult,
 } from "./extraction/eligibility";
 import { snapAddressee } from "./extraction/addressee-snap";
+import { snapStudyReport } from "./extraction/study-report-snap";
 import { loadConversionRoster } from "./convert/doctor-roster";
 import { getSettings, type RuntimeSettings } from "./settings";
 
@@ -112,11 +113,31 @@ export async function convertPdf(
   // line. Runs before eligibility so a promoted addressee satisfies the
   // result-doc required-fields check.
   const snapped = snapAddressee(extraction.referralInfo, roster);
-  const resolved =
+  const addresseeResolved =
     snapped.referralInfo === extraction.referralInfo
       ? extraction
       : { ...extraction, referralInfo: snapped.referralInfo };
-  const warningsResolved = [...warningsWithMailbox, ...snapped.warnings];
+
+  // Deterministic study-report backstop: recover the "Report" description when
+  // the model classified the document correctly but omitted `isStudyReport`.
+  // Promote-only and consult_letter-only, so it can change OBR-4 but never
+  // routing (OBR-24 / MSH-9 are derived from documentType, not this flag).
+  const studySnap = snapStudyReport(
+    addresseeResolved.documentType,
+    addresseeResolved.isStudyReport,
+    addresseeResolved.referralInfo
+  );
+  const promotedStudyReport =
+    studySnap.isStudyReport && addresseeResolved.isStudyReport !== true;
+  const resolved = promotedStudyReport
+    ? { ...addresseeResolved, isStudyReport: true }
+    : addresseeResolved;
+
+  const warningsResolved = [
+    ...warningsWithMailbox,
+    ...snapped.warnings,
+    ...studySnap.warnings,
+  ];
 
   const settings = options?.settings ?? (await getSettings());
   const strictRequiredFields = isStrictRequiredFields();
