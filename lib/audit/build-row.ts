@@ -125,6 +125,7 @@ export function buildConversionAuditRow(
     month: monthKey(meta.now),
     ts: buildSortKey(meta.now),
     documentType: resolvedDocType,
+    documentDescription: result.extractedData?.description,
     outcome: result.success ? "ok" : "fail",
     source: meta.source,
     messageType: recordPolicy

@@ -25,6 +25,8 @@ export interface ConvertExtractedData {
   cc?: string;
   date?: string;
   messageType?: string;
+  /** The OBR-4 description Genie shows beside the document. */
+  description?: string;
   carrier?: string;
 }
 
@@ -144,7 +146,7 @@ function isExtractedData(value: unknown): value is ConvertExtractedData {
   if (typeof v.sex !== "string") return false;
   if (typeof v.medicareNo !== "string") return false;
   // Optional fields, when present, must be strings.
-  for (const key of ["sender", "addressee", "cc", "date", "messageType", "carrier"]) {
+  for (const key of ["sender", "addressee", "cc", "date", "messageType", "description", "carrier"]) {
     if (v[key] !== undefined && typeof v[key] !== "string") return false;
   }
   return true;

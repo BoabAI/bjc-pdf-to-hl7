@@ -137,7 +137,15 @@ export function ConversionResultPanel({
         {result.extractedData && (
           <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
             <ResultField label="Date" value={result.extractedData.date} mono />
-            <ResultField label="Type" value={result.extractedData.messageType} />
+            {/* "Description in Genie" is OBR-4 — the label staff read in the
+                clinical file, and what Nicole was looking for under "Type".
+                The HL7 message type is a separate, more technical thing, so
+                it is labelled as such rather than as the document's "Type". */}
+            <ResultField
+              label="Description in Genie"
+              value={result.extractedData.description}
+            />
+            <ResultField label="HL7 message" value={result.extractedData.messageType} />
             <ResultField label="Surname" value={result.extractedData.lastName} />
             <ResultField label="First Name" value={result.extractedData.firstName} />
             <ResultField label="DOB" value={result.extractedData.dob} mono />

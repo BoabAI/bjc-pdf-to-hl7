@@ -22,6 +22,11 @@ export interface AuditRow {
   ts: string;
   /** Document type, e.g. "pathology_result". Never patient-identifying. */
   documentType?: string;
+  /** The OBR-4 description Genie shows, e.g. "Report" vs "Consult Letter".
+   *  Persisted because it is not derivable from `documentType` alone — a
+   *  study report and an ordinary consult letter share a type and differ
+   *  only here, so without this a mislabelling is invisible after the fact. */
+  documentDescription?: string;
   outcome: "ok" | "fail";
   source: "web" | "email";
   /** "ORU^R01" | "REF^I12" | undefined when fail */

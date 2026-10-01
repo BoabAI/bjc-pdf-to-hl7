@@ -10,7 +10,49 @@ import {
   isResultDocumentType,
   mailboxCategoryFor,
   parseDocumentTypeOption,
+  parseDocumentTypeSelection,
 } from "./conversion-config";
+
+describe("parseDocumentTypeSelection", () => {
+  test("'study_report' means consult_letter with the Report description forced", () => {
+    expect(parseDocumentTypeSelection("study_report")).toEqual({
+      documentType: "consult_letter",
+      forceStudyReport: true,
+    });
+  });
+
+  test("a plain type selection does not force the description", () => {
+    expect(parseDocumentTypeSelection("consult_letter")).toEqual({
+      documentType: "consult_letter",
+      forceStudyReport: false,
+    });
+  });
+
+  test("auto-detect leaves both to the model", () => {
+    expect(parseDocumentTypeSelection("auto")).toEqual({
+      documentType: "auto",
+      forceStudyReport: false,
+    });
+  });
+
+  test("junk and null fall back to auto", () => {
+    expect(parseDocumentTypeSelection("nonsense")).toEqual({
+      documentType: "auto",
+      forceStudyReport: false,
+    });
+    expect(parseDocumentTypeSelection(null)).toEqual({
+      documentType: "auto",
+      forceStudyReport: false,
+    });
+  });
+
+  test("legacy aliases still resolve", () => {
+    expect(parseDocumentTypeSelection("gp_referral")).toEqual({
+      documentType: "referral",
+      forceStudyReport: false,
+    });
+  });
+});
 
 describe("DOCUMENT_TYPES whitelist", () => {
   test("includes the seven doc types including consult_letter", () => {
@@ -113,6 +155,16 @@ describe("documentTypeLabel", () => {
 
   test("returns 'Consult Letter' for consult_letter", () => {
     expect(documentTypeLabel("consult_letter")).toBe("Consult Letter");
+    expect(documentTypeLabel("consult_letter", { isStudyReport: false })).toBe("Consult Letter");
+  });
+
+  test("returns 'Report' for a consult_letter flagged as a study report", () => {
+    expect(documentTypeLabel("consult_letter", { isStudyReport: true })).toBe("Report");
+  });
+
+  test("ignores the study-report flag on non-consult types", () => {
+    expect(documentTypeLabel("radiology_result", { isStudyReport: true })).toBe("Radiology Result");
+    expect(documentTypeLabel("referral", { isStudyReport: true })).toBe("Referral");
   });
 
   test("returns 'Correspondence' for consent_form", () => {
