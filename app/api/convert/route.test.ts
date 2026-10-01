@@ -695,6 +695,54 @@ describe("POST /api/convert Bedrock flow", () => {
     expect(obr[4]).toBe("PDF^Consult Letter^L");
   });
 
+  test("backstop recovers OBR-4 'Report' when the model omits isStudyReport", async () => {
+    // normalize.ts accepts only a literal `true`, so an omitted flag silently
+    // becomes false and Genie would show "Consult Letter" on a sleep study.
+    // snapStudyReport promotes it from the sending service.
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "consult_letter",
+      isStudyReport: false,
+      referralInfo: {
+        senderName: "Dr Alan Reed",
+        senderClinic: "Sydney Sleep Diagnostics",
+        addresseeName: "Dr Sarah Smith",
+      },
+    });
+
+    const data = await (await POST(createConvertRequest())).json();
+    const segments: string[] = data.hl7Content.split("\r");
+    const obr = segments.find((s) => s.startsWith("OBR|"))!.split("|");
+    const msh = segments.find((s) => s.startsWith("MSH|"))!.split("|");
+
+    expect(data.action).toBe("auto_routed");
+    expect(obr[4]).toBe("PDF^Report^L");
+    // Routing must be untouched by the backstop.
+    expect(obr[24]).toBe("PHY");
+    expect(msh[8]).toBe("REF^I12");
+    expect(data.warnings.some((w: string) => w.includes("Report"))).toBe(true);
+  });
+
+  test("backstop leaves ordinary correspondence as 'Consult Letter'", async () => {
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "consult_letter",
+      isStudyReport: false,
+      referralInfo: {
+        senderName: "Dr Marcus Hale",
+        senderClinic: "Westmead Gastroenterology Centre",
+        addresseeName: "Dr Sarah Smith",
+      },
+    });
+
+    const data = await (await POST(createConvertRequest())).json();
+    const obr = (data.hl7Content.split("\r") as string[])
+      .find((s) => s.startsWith("OBR|"))!
+      .split("|");
+
+    expect(obr[4]).toBe("PDF^Consult Letter^L");
+  });
+
   test("carrier flows to MSH-3 and extractedData", async () => {
     const response = await POST(
       createConvertRequest({ carrier: "EMAIL" })
