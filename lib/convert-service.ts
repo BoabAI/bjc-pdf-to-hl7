@@ -127,8 +127,22 @@ export async function convertPdf(
     addresseeResolved.isStudyReport,
     addresseeResolved.referralInfo
   );
+  // Operator override: the "Report" entry in the Document Type dropdown.
+  // Honoured absolutely, unlike the documentType hint — this flag only
+  // selects the OBR-4 wording, so a wrong pick cannot misroute a document.
+  // It applies solely to consult_letter, which is what the preset requests;
+  // if the model classified the PDF as something else the override cannot
+  // take effect, and we say so rather than failing silently.
+  const overrideApplies =
+    request.forceStudyReport === true &&
+    addresseeResolved.documentType === "consult_letter";
+  const overrideIneffective =
+    request.forceStudyReport === true &&
+    addresseeResolved.documentType !== "consult_letter";
+
+  const wantsStudyReport = studySnap.isStudyReport || overrideApplies;
   const promotedStudyReport =
-    studySnap.isStudyReport && addresseeResolved.isStudyReport !== true;
+    wantsStudyReport && addresseeResolved.isStudyReport !== true;
   const resolved = promotedStudyReport
     ? { ...addresseeResolved, isStudyReport: true }
     : addresseeResolved;
@@ -136,7 +150,16 @@ export async function convertPdf(
   const warningsResolved = [
     ...warningsWithMailbox,
     ...snapped.warnings,
-    ...studySnap.warnings,
+    // The backstop warning is noise when the operator asked for "Report"
+    // outright — only one of the two explanations is useful.
+    ...(overrideApplies ? [] : studySnap.warnings),
+    ...(overrideIneffective
+      ? [
+          `"Report" was selected, but this document was classified as ${documentTypeLabel(
+            addresseeResolved.documentType
+          )} — the Report description applies to letter-type documents only.`,
+        ]
+      : []),
   ];
 
   const settings = options?.settings ?? (await getSettings());
@@ -184,10 +207,14 @@ export async function convertPdf(
     resolved.documentType
   );
 
+  // Resolved once and reused for OBR-4, the API response and the audit row,
+  // so the description Genie shows is the same string we display and log.
+  const documentDescription = documentTypeLabel(resolved.documentType, {
+    isStudyReport: resolved.isStudyReport,
+  });
+
   const hl7Content = buildHL7Message(resolved.data, request.pdfBuffer, {
-    documentTitle: documentTypeLabel(resolved.documentType, {
-      isStudyReport: resolved.isStudyReport,
-    }),
+    documentTitle: documentDescription,
     documentType: resolved.documentType,
     resultStatus: request.autoFile ? "F" : "P",
     orderingProvider: request.orderingProvider,
@@ -218,6 +245,7 @@ export async function convertPdf(
       ...baseData,
       date: formatDisplayDate(new Date()),
       messageType: messageTypeDisplayLabel(messageType),
+      description: documentDescription,
       carrier: request.carrier || DEFAULT_CARRIER,
     },
     warnings,

@@ -3,7 +3,7 @@
 import type {
   Carrier,
   Doctor,
-  DocumentTypeOption,
+  DocumentTypeSelection,
 } from "@/lib/conversion-config";
 import { SectionHeader } from "./ui/SectionHeader";
 import { CogIcon } from "./ui/icons";
@@ -13,7 +13,7 @@ import {
 } from "./converter/SimulateInboxSelect";
 
 interface ConversionOptionsProps {
-  documentType: DocumentTypeOption;
+  documentType: DocumentTypeSelection;
   detectedType: string | null;
   /** Hide the per-batch Document Type override (true for single-file mode). */
   showDocumentType?: boolean;
@@ -27,7 +27,7 @@ interface ConversionOptionsProps {
   simulatedMailbox: SimulatedMailbox;
   /** Whether the converter is busy — disables the inbox dropdown mid-run. */
   isConverting?: boolean;
-  onDocumentTypeChange: (value: DocumentTypeOption) => void;
+  onDocumentTypeChange: (value: DocumentTypeSelection) => void;
   onCarrierChange: (value: string) => void;
   onAutoFileChange: (value: boolean) => void;
   onSendToDoctorChange: (value: boolean) => void;
@@ -75,13 +75,14 @@ export function ConversionOptions({
           <select
             id="documentType"
             value={documentType}
-            onChange={(e) => onDocumentTypeChange(e.target.value as DocumentTypeOption)}
+            onChange={(e) => onDocumentTypeChange(e.target.value as DocumentTypeSelection)}
             className="select-field w-full"
           >
             <option value="auto">Auto-detect</option>
             <option value="consent_form">Consent Form</option>
             <option value="referral">Referral Letter</option>
             <option value="consult_letter">Consult Letter</option>
+            <option value="study_report">Report (sleep study, nerve conduction, eye exam)</option>
             <option value="pathology_result">Pathology Result</option>
             <option value="radiology_result">Radiology Result</option>
             <option value="generic">Other Document</option>

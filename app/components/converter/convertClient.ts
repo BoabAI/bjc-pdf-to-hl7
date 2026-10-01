@@ -2,10 +2,10 @@
 
 import type { ConvertResponse } from "@/lib/contracts/convert";
 import { isConvertResponse } from "@/lib/contracts/convert";
-import type { DocumentTypeOption } from "@/lib/conversion-config";
+import type { DocumentTypeSelection } from "@/lib/conversion-config";
 
 export interface ConvertOptions {
-  documentType: DocumentTypeOption;
+  documentType: DocumentTypeSelection;
   autoFile: boolean;
   carrier: string;
   orderingProvider?: string;

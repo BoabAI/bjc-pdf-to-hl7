@@ -18,11 +18,11 @@ import { SupportedFormatBadges } from "./components/converter/SupportedFormatBad
 import { useConverterQueue } from "./components/converter/useConverterQueue";
 import { SectionHeader } from "./components/ui/SectionHeader";
 import { FilesIcon } from "./components/ui/icons";
-import type { DocumentTypeOption } from "@/lib/conversion-config";
+import type { DocumentTypeSelection } from "@/lib/conversion-config";
 
 export default function Home() {
   const [isDragging, setIsDragging] = useState(false);
-  const [documentType, setDocumentType] = useState<DocumentTypeOption>("auto");
+  const [documentType, setDocumentType] = useState<DocumentTypeSelection>("auto");
   const [autoFile, setAutoFile] = useState(true);
   const [sendToDoctor, setSendToDoctor] = useState(false);
   const [selectedDoctorId, setSelectedDoctorId] = useState("");

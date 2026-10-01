@@ -1,6 +1,6 @@
 import {
   MAX_PDF_SIZE_BYTES,
-  parseDocumentTypeOption,
+  parseDocumentTypeSelection,
   type DocumentTypeOption,
   type MailboxCategory,
 } from "../conversion-config";
@@ -11,6 +11,10 @@ export interface ConvertRequest {
   pdfBuffer: Buffer;
   detectOnly: boolean;
   documentType: DocumentTypeOption;
+  /** Operator picked "Report" in the Document Type dropdown — force the OBR-4
+   *  description regardless of the model's own `isStudyReport`. Affects the
+   *  description only; routing still follows `documentType`. */
+  forceStudyReport?: boolean;
   autoFile: boolean;
   orderingProvider?: string;
   carrier?: string;
@@ -72,11 +76,14 @@ export async function parseConvertFormData(
     parseDoctorList(formData.get("bjcDoctors")) ??
     parseEnvDoctorList(bjcDoctorsEnv);
 
+  const selection = parseDocumentTypeSelection(formData.get("documentType"));
+
   return {
     data: {
       pdfBuffer: Buffer.from(await file.arrayBuffer()),
       detectOnly: formData.get("detectOnly") === "true",
-      documentType: parseDocumentTypeOption(formData.get("documentType")),
+      documentType: selection.documentType,
+      forceStudyReport: selection.forceStudyReport,
       autoFile: formData.get("autoFile") !== "false",
       // Sanitise the routing provider number the same way extracted ones are:
       // trim, 20-char cap, and drop HL7-separator/control chars that would

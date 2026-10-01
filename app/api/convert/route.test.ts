@@ -405,6 +405,7 @@ describe("POST /api/convert Bedrock flow", () => {
       ...baseFormattedData,
       date: expect.stringMatching(/^\d{2}\/\d{2}\/\d{4}$/),
       messageType: "REF (Referral)",
+      description: "Referral",
       carrier: "SMECAI",
     });
     expect(data.warnings).toEqual(["Using Bedrock vision"]);
@@ -743,6 +744,66 @@ describe("POST /api/convert Bedrock flow", () => {
     expect(obr[4]).toBe("PDF^Consult Letter^L");
   });
 
+  test("selecting 'Report' forces OBR-4 even when the model did not flag it", async () => {
+    // Nicole 22 Sep + 1 Oct: she asked for a selectable "Report". The preset
+    // sends documentType=consult_letter plus the description override.
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "consult_letter",
+      isStudyReport: false,
+      referralInfo: { senderName: "Dr Marcus Hale", addresseeName: "Dr Sarah Smith" },
+    });
+
+    const data = await (
+      await POST(createConvertRequest({ documentType: "study_report" }))
+    ).json();
+    const segments: string[] = data.hl7Content.split("\r");
+    const obr = segments.find((s) => s.startsWith("OBR|"))!.split("|");
+    const msh = segments.find((s) => s.startsWith("MSH|"))!.split("|");
+
+    expect(obr[4]).toBe("PDF^Report^L");
+    expect(data.extractedData.description).toBe("Report");
+    // The override must not move the document between Genie inboxes.
+    expect(obr[24]).toBe("PHY");
+    expect(msh[8]).toBe("REF^I12");
+  });
+
+  test("'Report' on a document the model classified as a lab result warns instead of forcing", async () => {
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "pathology_result",
+      isStudyReport: false,
+      referralInfo: { senderName: "Dr Marcus Hale", addresseeName: "Dr Sarah Smith" },
+    });
+
+    const data = await (
+      await POST(createConvertRequest({ documentType: "study_report" }))
+    ).json();
+    const obr = (data.hl7Content.split("\r") as string[])
+      .find((s) => s.startsWith("OBR|"))!
+      .split("|");
+
+    // Routing follows the model, not the operator's description preset.
+    expect(obr[24]).toBe("LAB");
+    expect(obr[4]).not.toBe("PDF^Report^L");
+    expect(data.warnings.some((w: string) => w.includes("Report"))).toBe(true);
+  });
+
+  test("the resolved description is persisted on the audit row", async () => {
+    extractPatientDataMock.mockResolvedValue({
+      ...baseExtraction,
+      documentType: "consult_letter",
+      isStudyReport: true,
+      referralInfo: { senderName: "Dr Marcus Hale", addresseeName: "Dr Sarah Smith" },
+    });
+
+    await POST(createConvertRequest());
+    const row = recordConversionMock.mock.calls.at(-1)![0];
+
+    expect(row.documentType).toBe("consult_letter");
+    expect(row.documentDescription).toBe("Report");
+  });
+
   test("carrier flows to MSH-3 and extractedData", async () => {
     const response = await POST(
       createConvertRequest({ carrier: "EMAIL" })
@@ -958,6 +1019,10 @@ describe("POST /api/convert audit logging", () => {
       "month",
       "ts",
       "documentType",
+      // Fixed label ("Report" / "Consult Letter" / …), never patient data.
+      // Persisted because a study report and an ordinary consult letter share
+      // a documentType and differ only here.
+      "documentDescription",
       "outcome",
       "source",
       "messageType",
