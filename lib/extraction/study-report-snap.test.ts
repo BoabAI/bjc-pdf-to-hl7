@@ -27,9 +27,17 @@ describe("snapStudyReport", () => {
 
   test("matches on senderName as well as senderClinic", () => {
     const result = snapStudyReport("consult_letter", false, {
-      senderName: "Dr Priya Nair, Sleep Physician",
+      senderName: "Northside Sleep Laboratory",
     });
     expect(result.isStudyReport).toBe(true);
+  });
+
+  test("a clinician's specialty title alone is not enough — sleep physicians write ordinary letters too", () => {
+    const result = snapStudyReport("consult_letter", false, {
+      senderName: "Dr Priya Nair, Sleep Physician",
+      senderClinic: "Chatswood Specialist Rooms",
+    });
+    expect(result.isStudyReport).toBe(false);
   });
 
   test("leaves an already-flagged document alone and adds no warning", () => {

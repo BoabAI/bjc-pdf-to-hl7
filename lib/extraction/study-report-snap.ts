@@ -34,6 +34,22 @@
  * Non-goals: filename matching (`originalFilename` is not plumbed into
  * convertPdf and GoFax names are opaque), OCR, demotion.
  *
+ * COVERAGE IS LOW ON REAL DOCUMENTS — measured, 2 Oct 2026. Run against the
+ * client's three de-identified samples, the model set `isStudyReport` itself
+ * on all three (confidence 92/92/97), but this backstop would have recovered
+ * NONE of them had the model omitted it. Real senders carry brand names, not
+ * service descriptions: "OPSM Parramatta" (optometry), "Northern Neuroscience"
+ * (nerve conduction), "Centurion Healthcare" (sleep). The patterns below were
+ * derived from synthetic fixtures whose clinic names describe the service
+ * ("Sydney Sleep Diagnostics", "NSW Neurophysiology"), which real providers
+ * mostly do not.
+ *
+ * So treat this as a cheap safety net for the service-named minority, not as
+ * coverage. Broadening it to brand names (OPSM, Specsavers, …) would be a
+ * brittle allowlist; widening to bare "neuro"/"eye" would mislabel ordinary
+ * neurology and ophthalmology correspondence, which is the inverse failure.
+ * The durable fix is to persist the flag so a miss is observable at all.
+ *
  * Note: because the flag is not persisted on the audit row, the warning this
  * emits is the only durable trace that the backstop fired.
  */
@@ -54,7 +70,7 @@ export interface SnapStudyReportResult {
  * nerve conduction / EMG studies, and eye / optometry examination reports.
  */
 const STUDY_SERVICE_PATTERNS: RegExp[] = [
-  /\bsleep\s+(stud|diagnos|lab|physician|clinic|centre|center|medicine|disorder)/i,
+  /\bsleep\s+(stud|diagnos|lab|clinic|centre|center)/i,
   /\bpolysomnograph/i,
   /\bnerve\s+conduction/i,
   /\bneurophysiolog/i,
