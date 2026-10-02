@@ -6,7 +6,7 @@ mock.module("../reference-data-store", () => ({
   listDoctors: listDoctorsMock,
 }));
 
-import { loadConversionRoster } from "./doctor-roster";
+import { clearRosterCache, loadConversionRoster } from "./doctor-roster";
 import { DEFAULT_BJC_DOCTORS } from "../conversion-config";
 
 const DDB_DOCTORS = [
@@ -18,6 +18,7 @@ describe("loadConversionRoster", () => {
   beforeEach(() => {
     listDoctorsMock.mockReset();
     listDoctorsMock.mockResolvedValue(DDB_DOCTORS);
+    clearRosterCache();
   });
 
   test("request-supplied names win and skip DynamoDB entirely", async () => {
@@ -43,9 +44,25 @@ describe("loadConversionRoster", () => {
     expect(roster).toEqual(DEFAULT_BJC_DOCTORS.map((d) => d.name));
   });
 
-  test("falls back to the seeded defaults when DynamoDB errors — never throws", async () => {
-    listDoctorsMock.mockRejectedValue(new Error("ddb unavailable"));
+  test("caches the DynamoDB roster so back-to-back conversions query once", async () => {
+    await loadConversionRoster(undefined);
     const roster = await loadConversionRoster(undefined);
-    expect(roster).toEqual(DEFAULT_BJC_DOCTORS.map((d) => d.name));
+    expect(roster).toEqual(["Dr I Lim", "Dr H Lau"]);
+    expect(listDoctorsMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("re-queries after the cache TTL expires", async () => {
+    await loadConversionRoster(undefined, { cacheTtlMs: 0 });
+    await loadConversionRoster(undefined, { cacheTtlMs: 0 });
+    expect(listDoctorsMock).toHaveBeenCalledTimes(2);
+  });
+
+  test("does not cache an empty result, so a DynamoDB blip is retried", async () => {
+    listDoctorsMock.mockResolvedValueOnce([]);
+    expect(await loadConversionRoster(undefined)).toEqual(
+      DEFAULT_BJC_DOCTORS.map((d) => d.name)
+    );
+    expect(await loadConversionRoster(undefined)).toEqual(["Dr I Lim", "Dr H Lau"]);
+    expect(listDoctorsMock).toHaveBeenCalledTimes(2);
   });
 });
