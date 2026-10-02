@@ -326,6 +326,52 @@ describe("PID (Patient Identification) Segment", () => {
     expect(addrParts[3]).toBe("VIC");
   });
 
+  test("escapes HL7 delimiters in Medicare number and IRN (PID-3)", () => {
+    const hl7 = buildHL7Message(
+      { ...fullPatient, medicareNo: "2123|456789", medicareRef: "3^9" },
+      TINY_PDF
+    );
+    const pid = getFields(getSegment(hl7, "PID")!);
+
+    expect(pid[3]).toBe("2123\\F\\456789-3\\S\\9^^^AUSHIC^MC");
+  });
+
+  test("escapes HL7 delimiters in state and postcode (PID-11)", () => {
+    const hl7 = buildHL7Message(
+      { ...fullPatient, state: "N|SW", postcode: "20^00" },
+      TINY_PDF
+    );
+    const pid = getFields(getSegment(hl7, "PID")!);
+    const components = pid[11].split("^");
+
+    expect(components[3]).toBe("N\\F\\SW");
+    expect(components[4]).toBe("20\\S\\00");
+  });
+
+  test("a CR smuggled into state/postcode/IRN cannot inject a segment", () => {
+    const hl7 = buildHL7Message(
+      {
+        ...fullPatient,
+        state: "NSW\rPV1|1|O||||||||^Lau^Herman^^^DR",
+        postcode: "2000\nOBR|1",
+        medicareRef: "3\rPID|2",
+      },
+      TINY_PDF
+    );
+    const segments = getSegments(hl7);
+
+    expect(segments.filter((s) => s.startsWith("PV1|"))).toHaveLength(1);
+    expect(segments.filter((s) => s.startsWith("OBR|"))).toHaveLength(1);
+    expect(segments.filter((s) => s.startsWith("PID|"))).toHaveLength(1);
+    expect(segments.map((s) => s.split("|")[0])).toEqual([
+      "MSH",
+      "PID",
+      "PV1",
+      "OBR",
+      "OBX",
+    ]);
+  });
+
   test("leaves PID-11 empty when no address or suburb", () => {
     const hl7 = buildHL7Message(samplePatient, TINY_PDF);
     const pid = getFields(getSegment(hl7, "PID")!);

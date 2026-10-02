@@ -250,7 +250,7 @@ describe("extractPatientDataWithVision failure handling", () => {
       address: undefined,
       suburb: undefined,
       state: undefined,
-      postcode: "99",
+      postcode: undefined, // "99" is not a 4-digit postcode — dropped by cleanPostcode
       medicareNo: undefined,
       medicareRef: undefined,
     });
