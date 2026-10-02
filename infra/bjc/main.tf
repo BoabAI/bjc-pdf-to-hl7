@@ -289,19 +289,23 @@ resource "aws_amplify_app" "main" {
   # so CloudFront never caches past middleware auth) from customHttp.yml.
 
   environment_variables = {
-    AMPLIFY_DIFF_DEPLOY     = "true"
-    AUTH_ALLOWED_DOMAINS    = "bjchealth.com.au,smecai.au"
-    AUTH_MODE               = "oauth" # SSO only — shared password login removed 2026-08-18
-    NEXT_PUBLIC_AUTH_MODE   = "oauth"
-    AUTH_TRUST_HOST         = "true"
-    AZURE_AD_CLIENT_ID      = "9ca073d3-a123-46b0-a344-3822e51f36dc"
-    AZURE_AD_TENANT_ID      = "common"
-    NEXT_PUBLIC_TEST_MODE   = "false" # unlike SMEC: no auth bypass in BJC prod
-    NEXT_TELEMETRY_DISABLED = "1"
-    PUPPETEER_SKIP_DOWNLOAD = "true"
-    AUTH_SECRET             = var.auth_secret
-    AZURE_AD_CLIENT_SECRET  = var.azure_ad_client_secret
-    PAD_TOKEN               = var.pad_token
+    AMPLIFY_DIFF_DEPLOY      = "true"
+    AUTH_ALLOWED_DOMAINS     = "bjchealth.com.au,smecai.au"
+    # tid allowlist: bjchealth.com.au tenant, smecai.au (Boab AI) tenant. The
+    # app registration is multi-tenant (`common`), so this is what pins sign-in
+    # to the two directories we trust. Empty = deny everyone.
+    AUTH_ALLOWED_TENANT_IDS  = "6ecdd65f-c3dd-4d09-839a-c2357564832a,197609ee-9f62-4b85-b8b0-d3e2b6c1d4b4"
+    AUTH_MODE                = "oauth" # SSO only — shared password login removed 2026-08-18
+    NEXT_PUBLIC_AUTH_MODE    = "oauth"
+    AUTH_TRUST_HOST          = "true"
+    AZURE_AD_CLIENT_ID       = "9ca073d3-a123-46b0-a344-3822e51f36dc"
+    AZURE_AD_TENANT_ID       = "common"
+    NEXT_PUBLIC_TEST_MODE    = "false" # unlike SMEC: no auth bypass in BJC prod
+    NEXT_TELEMETRY_DISABLED  = "1"
+    PUPPETEER_SKIP_DOWNLOAD  = "true"
+    AUTH_SECRET              = var.auth_secret
+    AZURE_AD_CLIENT_SECRET   = var.azure_ad_client_secret
+    PAD_TOKEN                = var.pad_token
   }
 }
 

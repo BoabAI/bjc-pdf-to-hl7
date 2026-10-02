@@ -140,6 +140,11 @@ describe("cleanPhone", () => {
 });
 
 describe("cleanMedicareNumber", () => {
+  test("drops every non-digit, not just whitespace", () => {
+    expect(cleanMedicareNumber("2123|4567^89")).toBe("212345678" + "9");
+    expect(cleanMedicareNumber("|^~&\\")).toBeUndefined();
+  });
+
   test("strips spaces and returns digits-only", () => {
     expect(cleanMedicareNumber("1234 56789 0")).toBe("1234567890");
   });
@@ -258,6 +263,36 @@ describe("normalizeVisionToolInput — happy path", () => {
       addresseeName: "Dr Mark Stevenson",
     });
     expect(result.documentType).toBe("consult_letter");
+  });
+});
+
+describe("normalizeVisionToolInput — PID field hygiene", () => {
+  const base = { documentType: "generic", firstName: "A", lastName: "B" };
+
+  test("state is uppercased and must be a real Australian state", () => {
+    expect(normalizeVisionToolInput({ ...base, state: " nsw " }).data.state).toBe("NSW");
+    expect(normalizeVisionToolInput({ ...base, state: "New South Wales" }).data.state).toBeUndefined();
+    expect(
+      normalizeVisionToolInput({ ...base, state: "NSW\rPV1|1|O" }).data.state
+    ).toBeUndefined();
+  });
+
+  test("an invalid state falls back to postcode inference", () => {
+    const result = normalizeVisionToolInput({ ...base, state: "NSW\rPV1|1", postcode: "3000" });
+    expect(result.data.state).toBe("VIC");
+  });
+
+  test("postcode must be exactly four digits", () => {
+    expect(normalizeVisionToolInput({ ...base, postcode: " 2000 " }).data.postcode).toBe("2000");
+    expect(normalizeVisionToolInput({ ...base, postcode: "2000\nOBR|1" }).data.postcode).toBeUndefined();
+    expect(normalizeVisionToolInput({ ...base, postcode: "20000" }).data.postcode).toBeUndefined();
+    expect(normalizeVisionToolInput({ ...base, postcode: "ABCD" }).data.postcode).toBeUndefined();
+  });
+
+  test("Medicare IRN is digits only", () => {
+    expect(normalizeVisionToolInput({ ...base, medicareRef: " 2 " }).data.medicareRef).toBe("2");
+    expect(normalizeVisionToolInput({ ...base, medicareRef: "3\rPID|2" }).data.medicareRef).toBeUndefined();
+    expect(normalizeVisionToolInput({ ...base, medicareRef: "x" }).data.medicareRef).toBeUndefined();
   });
 });
 

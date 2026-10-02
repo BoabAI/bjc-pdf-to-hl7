@@ -66,11 +66,13 @@ export const EXTRACTION_TOOL = {
           },
           state: {
             type: ["string", "null"],
+            enum: ["NSW", "VIC", "QLD", "SA", "WA", "TAS", "NT", "ACT", null],
             description:
               "Australian state abbreviation: NSW, VIC, QLD, SA, WA, TAS, NT, ACT",
           },
           postcode: {
             type: ["string", "null"],
+            pattern: "^[0-9]{4}$",
             description: "4-digit Australian postcode",
           },
           medicareNo: {
