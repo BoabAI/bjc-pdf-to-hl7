@@ -186,6 +186,7 @@ The vision extractor uses AI to identify sender, addressee, and CC recipients fr
 | Variable | Required | Purpose |
 |----------|----------|---------|
 | `APP_PASSWORD` | No | Shared password login — only used when `AUTH_MODE=password` or `both`. Prod runs `AUTH_MODE=oauth` (SSO only) since 2026-08-18. |
+| `AUTH_ALLOWED_TENANT_IDS` | Yes (SSO) | Comma-separated Entra `tid` GUIDs allowed to sign in. Required because the app registration is multi-tenant (`AZURE_AD_TENANT_ID=common`); unset = everyone is rejected. Set on both Amplify apps (BJC via Terraform, SMEC via CLI). |
 | `BJC_DOCTORS` | No | Comma-separated doctor names — legacy override; when unset the server loads the roster from the DynamoDB reference data |
 | `DYNAMODB_TABLE` | No | Override the audit table name (defaults to `bjc-pdf-to-hl7-audit`). Used by `lib/audit.ts`. |
 
