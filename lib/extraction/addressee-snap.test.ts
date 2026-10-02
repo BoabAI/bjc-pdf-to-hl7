@@ -57,6 +57,33 @@ describe("snapAddressee", () => {
       expect(result.warnings).toHaveLength(1);
       expect(result.warnings[0]).toContain("not matched");
     });
+
+    test("does NOT treat a short real given name as initials", () => {
+      for (const addresseeName of ["Dr Le Nguyen", "DR LE NGUYEN"]) {
+        const result = snapAddressee({ addresseeName }, ["Dr Leanne Nguyen"]);
+        expect(result.referralInfo?.addresseeName).toBe(addresseeName);
+        expect(result.warnings[0]).toContain("not matched");
+      }
+    });
+
+    test("still matches a full given name against a roster initial", () => {
+      const result = snapAddressee({ addresseeName: "Dr Le Nguyen" }, ["Dr L Nguyen"]);
+      expect(result.referralInfo?.addresseeName).toBe("Dr L Nguyen");
+    });
+
+    test("does NOT read a given name that collides with a roster surname as the surname", () => {
+      const result = snapAddressee({ addresseeName: "Dr Lau Nguyen" }, ROSTER);
+      expect(result.referralInfo?.addresseeName).toBe("Dr Lau Nguyen");
+      expect(result.warnings[0]).toContain("not matched");
+    });
+
+    test("does NOT promote a CC whose given name collides with a roster surname", () => {
+      const result = snapAddressee(
+        { addresseeName: "Dr Brendan Cantwell", ccNames: ["Dr Lim Nguyen"] },
+        ROSTER
+      );
+      expect(result.referralInfo?.addresseeName).toBe("Dr Brendan Cantwell");
+    });
   });
 
   describe("CC promotion (issue 2 — external primary, BJC doctor on CC)", () => {
