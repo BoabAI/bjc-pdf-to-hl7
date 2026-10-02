@@ -94,7 +94,30 @@ export function cleanPhone(value: unknown): string | undefined {
 
 export function cleanMedicareNumber(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
-  return value.replace(/\s/g, "") || undefined;
+  return value.replace(/\D/g, "") || undefined;
+}
+
+/** Medicare IRN (card position): digits only, otherwise absent. */
+export function cleanMedicareRef(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const digits = value.trim();
+  return /^\d+$/.test(digits) ? digits : undefined;
+}
+
+/** Australian postcode: exactly four digits, otherwise absent. */
+export function cleanPostcode(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return /^\d{4}$/.test(trimmed) ? trimmed : undefined;
+}
+
+const AUSTRALIAN_STATES = new Set(["NSW", "VIC", "QLD", "SA", "WA", "TAS", "NT", "ACT"]);
+
+/** State abbreviation: one of the eight AU states/territories, otherwise absent. */
+export function cleanState(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const upper = value.trim().toUpperCase();
+  return AUSTRALIAN_STATES.has(upper) ? upper : undefined;
 }
 
 // Provider-number transport hygiene now lives in the shared module so the
@@ -211,10 +234,10 @@ export function normalizeVisionToolInput(
     phone: cleanPhone(raw.phone),
     address: nullableString(raw.address),
     suburb: nullableString(raw.suburb),
-    state: nullableString(raw.state),
-    postcode: nullableString(raw.postcode),
+    state: cleanState(raw.state),
+    postcode: cleanPostcode(raw.postcode),
     medicareNo: cleanMedicareNumber(raw.medicareNo),
-    medicareRef: nullableString(raw.medicareRef),
+    medicareRef: cleanMedicareRef(raw.medicareRef),
   };
 
   if (!data.state && data.postcode) {

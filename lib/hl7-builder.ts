@@ -148,7 +148,7 @@ function buildPID(patient: PatientData): string {
   let patientId = "";
   if (patient.medicareNo) {
     const ref = patient.medicareRef || "1";
-    patientId = `${patient.medicareNo}-${ref}^^^AUSHIC^MC`;
+    patientId = `${escapeHL7(patient.medicareNo)}-${escapeHL7(ref)}^^^AUSHIC^MC`;
   }
 
   // PID-11: Patient Address — street^street2^suburb^state^postcode^country
@@ -158,8 +158,8 @@ function buildPID(patient: PatientData): string {
       escapeHL7(patient.address || ""),
       "", // Street 2
       escapeHL7(patient.suburb || ""),
-      patient.state || "VIC",
-      patient.postcode || "",
+      escapeHL7(patient.state || "VIC"),
+      escapeHL7(patient.postcode || ""),
       "AUS",
     ].join("^");
   }
