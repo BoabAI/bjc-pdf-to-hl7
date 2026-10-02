@@ -77,9 +77,6 @@ docs/test-pdfs/**/*.pdf
 # Claude Code local state (settings, worktrees with vendored node_modules)
 .claude/
 
-# Supabase local
-supabase/.temp/
-
 # AWS Amplify
 amplify-builds/
 aws-exports.js
