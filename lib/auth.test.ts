@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { isAllowedDomain, trustedDomainFromProfile } from "./auth";
+import {
+  isAllowedDomain,
+  isAllowedTenant,
+  tenantIdFromProfile,
+  trustedDomainFromProfile,
+} from "./auth";
 
 describe("trustedDomainFromProfile", () => {
   test("extracts domain from preferred_username (UPN)", () => {
@@ -101,5 +106,41 @@ describe("isAllowedDomain", () => {
     expect(isAllowedDomain("evil.bjchealth.com.au", allowed)).toBe(false);
     // and "bjchealth.com.au.evil.com" must NOT match either
     expect(isAllowedDomain("bjchealth.com.au.evil.com", allowed)).toBe(false);
+  });
+});
+
+describe("tenantIdFromProfile", () => {
+  test("returns the tid claim lowercased", () => {
+    expect(tenantIdFromProfile({ tid: "6ECDD65F-C3DD-4D09-839A-C2357564832A" })).toBe(
+      "6ecdd65f-c3dd-4d09-839a-c2357564832a"
+    );
+  });
+
+  test("returns null when tid is missing, empty or not a string", () => {
+    expect(tenantIdFromProfile({})).toBeNull();
+    expect(tenantIdFromProfile({ tid: "" })).toBeNull();
+    expect(tenantIdFromProfile({ tid: 42 })).toBeNull();
+    expect(tenantIdFromProfile(null)).toBeNull();
+    expect(tenantIdFromProfile(undefined)).toBeNull();
+  });
+});
+
+describe("isAllowedTenant", () => {
+  const allowed = ["6ecdd65f-c3dd-4d09-839a-c2357564832a", "197609ee-9f62-4b85-b8b0-d3e2b6c1d4b4"];
+
+  test("allows a listed tenant", () => {
+    expect(isAllowedTenant("197609ee-9f62-4b85-b8b0-d3e2b6c1d4b4", allowed)).toBe(true);
+  });
+
+  test("rejects an unlisted tenant", () => {
+    expect(isAllowedTenant("00000000-0000-0000-0000-000000000000", allowed)).toBe(false);
+  });
+
+  test("rejects null tid", () => {
+    expect(isAllowedTenant(null, allowed)).toBe(false);
+  });
+
+  test("fails closed when the allowlist is empty", () => {
+    expect(isAllowedTenant("6ecdd65f-c3dd-4d09-839a-c2357564832a", [])).toBe(false);
   });
 });

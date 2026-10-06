@@ -94,7 +94,30 @@ export function cleanPhone(value: unknown): string | undefined {
 
 export function cleanMedicareNumber(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
-  return value.replace(/\s/g, "") || undefined;
+  return value.replace(/\D/g, "") || undefined;
+}
+
+/** Medicare IRN (card position): digits only, otherwise absent. */
+export function cleanMedicareRef(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const digits = value.trim();
+  return /^\d+$/.test(digits) ? digits : undefined;
+}
+
+/** Australian postcode: exactly four digits, otherwise absent. */
+export function cleanPostcode(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return /^\d{4}$/.test(trimmed) ? trimmed : undefined;
+}
+
+const AUSTRALIAN_STATES = new Set(["NSW", "VIC", "QLD", "SA", "WA", "TAS", "NT", "ACT"]);
+
+/** State abbreviation: one of the eight AU states/territories, otherwise absent. */
+export function cleanState(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const upper = value.trim().toUpperCase();
+  return AUSTRALIAN_STATES.has(upper) ? upper : undefined;
 }
 
 // Provider-number transport hygiene now lives in the shared module so the
@@ -132,6 +155,10 @@ export interface NormalizedVisionInput {
    * document. Defaults to `false` when absent or non-boolean (older fixtures /
    * bad input). The urgent-blocking policy (all doc types) lives in the gate. */
   isUrgent: boolean;
+  /** True when the model flagged a consult_letter as a diagnostic study /
+   * examination report. Defaults to `false` when absent or non-boolean. Only
+   * affects the OBR-4 label (see `documentTypeLabel`). */
+  isStudyReport: boolean;
 }
 
 /** Clamp the model's self-reported confidence to a 0-100 integer. Returns 100
@@ -173,6 +200,7 @@ export function normalizeVisionToolInput(
       warnings,
       classificationConfidence: 100,
       isUrgent: false,
+      isStudyReport: false,
     };
   }
 
@@ -211,10 +239,10 @@ export function normalizeVisionToolInput(
     phone: cleanPhone(raw.phone),
     address: nullableString(raw.address),
     suburb: nullableString(raw.suburb),
-    state: nullableString(raw.state),
-    postcode: nullableString(raw.postcode),
+    state: cleanState(raw.state),
+    postcode: cleanPostcode(raw.postcode),
     medicareNo: cleanMedicareNumber(raw.medicareNo),
-    medicareRef: nullableString(raw.medicareRef),
+    medicareRef: cleanMedicareRef(raw.medicareRef),
   };
 
   if (!data.state && data.postcode) {
@@ -254,5 +282,6 @@ export function normalizeVisionToolInput(
     warnings,
     classificationConfidence,
     isUrgent: raw.isUrgent === true,
+    isStudyReport: raw.isStudyReport === true,
   };
 }

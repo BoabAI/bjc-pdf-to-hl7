@@ -22,6 +22,11 @@ export interface AuditRow {
   ts: string;
   /** Document type, e.g. "pathology_result". Never patient-identifying. */
   documentType?: string;
+  /** The OBR-4 description Genie shows, e.g. "Report" vs "Consult Letter".
+   *  Persisted because it is not derivable from `documentType` alone — a
+   *  study report and an ordinary consult letter share a type and differ
+   *  only here, so without this a mislabelling is invisible after the fact. */
+  documentDescription?: string;
   outcome: "ok" | "fail";
   source: "web" | "email";
   /** "ORU^R01" | "REF^I12" | undefined when fail */
@@ -72,6 +77,14 @@ export interface AuditRow {
    * signal — not a rejection. Useful for ops to filter and review.
    */
   mailboxDisagreement?: boolean;
+  /**
+   * Full source mailbox address from the `x-source-mailbox` header, lowercased
+   * (e.g. `gofax.par@bjchealth.com.au`). Identifies WHICH GoFax mailbox a PAD
+   * conversion came from once several are live. Absent on web uploads, on
+   * legacy-enum headers, and on rows written before 2026-09-01. A BJC mailbox
+   * address, not patient data.
+   */
+  mailboxAddress?: string;
   /**
    * Self-reported model confidence in the documentType classification, 0-100.
    * Small integer — not PHI. Persisted to enable dashboard-side filtering of
@@ -360,6 +373,7 @@ function isAuditRow(value: unknown): value is AuditRow {
     typeof v.filenameHash === "string" &&
     typeof v.filenameExt === "string" &&
     (v.contentHash === undefined || typeof v.contentHash === "string") &&
+    (v.mailboxAddress === undefined || typeof v.mailboxAddress === "string") &&
     typeof v.fileSizeBytes === "number" &&
     typeof v.durationMs === "number" &&
     typeof v.warningCount === "number" &&

@@ -66,11 +66,13 @@ export const EXTRACTION_TOOL = {
           },
           state: {
             type: ["string", "null"],
+            enum: ["NSW", "VIC", "QLD", "SA", "WA", "TAS", "NT", "ACT", null],
             description:
               "Australian state abbreviation: NSW, VIC, QLD, SA, WA, TAS, NT, ACT",
           },
           postcode: {
             type: ["string", "null"],
+            pattern: "^[0-9]{4}$",
             description: "4-digit Australian postcode",
           },
           medicareNo: {
@@ -126,6 +128,11 @@ export const EXTRACTION_TOOL = {
             description:
               "true if the word 'urgent'/'URGENT' appears anywhere prominent on the document — a header, stamp, priority field, or in the report body/findings (e.g. 'urgent clinical correlation'). Case-insensitive. When unsure, return true.",
           },
+          isStudyReport: {
+            type: "boolean",
+            description:
+              "true only when documentType is consult_letter AND the document is a diagnostic study / examination report (sleep study, nerve conduction / EMG, eye / optometry examination report, or a similar measurement report) rather than letter-style correspondence. false for every other document.",
+          },
         },
         required: [
           "documentType",
@@ -142,6 +149,7 @@ export const EXTRACTION_TOOL = {
           "medicareRef",
           "classificationConfidence",
           "isUrgent",
+          "isStudyReport",
         ],
         additionalProperties: false,
       },

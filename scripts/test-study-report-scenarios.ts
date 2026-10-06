@@ -1,0 +1,160 @@
+#!/usr/bin/env bun
+/**
+ * Live Bedrock test for study / examination reports (sleep study, nerve
+ * conduction, eye exam) — these must classify as consult_letter (Genie
+ * Incoming Letters), not generic ("Unknown type"). Requires AWS credentials
+ * with bedrock:InvokeModel in BOTH ap-southeast-2 and ap-southeast-4.
+ *
+ * Usage: AWS_PROFILE=your-profile bun scripts/test-study-report-scenarios.ts
+ *
+ * Generate the fixtures first:
+ *   bun scripts/generate-study-report-test-pdfs.ts
+ */
+
+import { readFileSync } from "fs";
+import { join } from "path";
+import { extractPatientDataWithVision } from "../lib/vision-extractor";
+import { snapAddressee } from "../lib/extraction/addressee-snap";
+
+const STUDY_DIR = join(import.meta.dir, "..", "docs", "test-pdfs", "study-reports");
+
+// Genie-format names, mirroring the production reference data.
+const BJC_DOCTORS = [
+  "Dr I Lim",
+  "Dr H Lau",
+  "Dr Q Luu",
+  "Dr V Wong",
+  "Dr A Chung",
+  "Dr K Celkys",
+];
+
+interface Scenario {
+  file: string;
+  description: string;
+  expectedAddressee: string;
+  /** Defaults to false. The urgent-first gate sends these to manual review. */
+  expectedUrgent?: boolean;
+}
+
+const SCENARIOS: Scenario[] = [
+  { file: "sleep_study.pdf", description: "Ambulatory sleep study (Referring Physician line)", expectedAddressee: "Dr Q Luu" },
+  { file: "nerve_conduction.pdf", description: "Nerve conduction study (Referring Physician line)", expectedAddressee: "Dr H Lau" },
+  { file: "eye_exam_report.pdf", description: "Optometry eye examination report (To: block)", expectedAddressee: "Dr V Wong" },
+  // Fax-realistic, image-only variants — bun scripts/generate-study-report-degraded-pdfs.ts
+  { file: "degraded/sleep_study_fax_4p.pdf", description: "Fax: 4-page sleep study", expectedAddressee: "Dr Q Luu" },
+  { file: "degraded/nerve_conduction_fax_2p.pdf", description: "Fax: 2-page nerve conduction study", expectedAddressee: "Dr H Lau" },
+  { file: "degraded/eye_exam_fax.pdf", description: "Fax: eye examination report", expectedAddressee: "Dr V Wong" },
+  { file: "degraded/sleep_study_urgent_fax.pdf", description: "Fax: sleep study stamped URGENT", expectedAddressee: "Dr Q Luu", expectedUrgent: true },
+  { file: "degraded/eye_exam_cc_bjc_fax.pdf", description: "Fax: eye report to external GP, BJC doctor on CC", expectedAddressee: "Dr V Wong" },
+  // Referring physician not on the roster → left as extracted (auto-files unlinked).
+  { file: "degraded/ncs_nonroster_fax.pdf", description: "Fax: NCS with non-roster referring physician", expectedAddressee: "Dr Gregory Tanaka-Wells" },
+];
+
+// Negatives: administrative documents that must stay generic (→ manual review),
+// so the wider consult_letter rule can't auto-file them. Borderline reports are
+// printed for inspection but don't fail the run.
+// Generate with: bun scripts/generate-study-report-negative-pdfs.ts
+const NEG_DIR = join(import.meta.dir, "..", "docs", "test-pdfs", "study-report-negatives");
+const MUST_STAY_GENERIC = [
+  "neg_centrelink_form.pdf",
+  "neg_patient_invoice.pdf",
+  "neg_appointment_letter.pdf",
+  "neg_medication_chart.pdf",
+];
+const BORDERLINE = [
+  "bl_ecg_report.pdf",
+  "bl_echo_report.pdf",
+  "bl_spirometry_report.pdf",
+  "bl_hospital_discharge.pdf",
+  "bl_physio_report.pdf",
+];
+
+console.log("=".repeat(70));
+console.log("Study Report Scenarios — expect consult_letter");
+console.log("=".repeat(70));
+
+let passed = 0;
+let failed = 0;
+
+for (const scenario of SCENARIOS) {
+  const pdfBuffer = readFileSync(join(STUDY_DIR, scenario.file));
+
+  console.log(`\n--- ${scenario.description} ---`);
+  const start = Date.now();
+  const result = await extractPatientDataWithVision(Buffer.from(pdfBuffer), {
+    bjcDoctors: BJC_DOCTORS,
+  });
+  const elapsed = Date.now() - start;
+
+  const snap = snapAddressee(result.referralInfo, BJC_DOCTORS);
+  const addressee = snap.referralInfo?.addresseeName || "";
+
+  console.log(`  Time: ${elapsed}ms`);
+  console.log(`  Document type: ${result.documentType} (confidence ${result.classificationConfidence})`);
+  console.log(`  Patient: ${result.data.firstName} ${result.data.lastName} DOB ${result.data.dob}`);
+  console.log(`  Sender: ${result.referralInfo?.senderName || "N/A"}`);
+  console.log(`  Addressee (snapped): ${addressee || "N/A"}`);
+  if (result.warnings.length) console.log(`  Warnings: ${result.warnings.join(", ")}`);
+
+  const typeOk = result.documentType === "consult_letter";
+  const addresseeOk = addressee === scenario.expectedAddressee;
+  const urgentOk = Boolean(result.isUrgent) === Boolean(scenario.expectedUrgent);
+  // Every study scenario must carry the flag so Genie shows "Report" (OBR-4).
+  const studyOk = result.isStudyReport === true;
+  const ok = result.success && typeOk && addresseeOk && urgentOk && studyOk;
+  if (ok) passed++;
+  else failed++;
+
+  console.log(`  Doc-type check: ${typeOk ? "PASS" : "FAIL"}`);
+  console.log(`  Addressee check: ${addresseeOk ? "PASS" : "FAIL"} (expected "${scenario.expectedAddressee}", got "${addressee}")`);
+  console.log(`  Urgent check: ${urgentOk ? "PASS" : "FAIL"} (expected ${Boolean(scenario.expectedUrgent)}, got ${Boolean(result.isUrgent)})`);
+  console.log(`  Study-report flag: ${studyOk ? "PASS" : "FAIL"} (got ${Boolean(result.isStudyReport)})`);
+  console.log(`  Result: ${ok ? "PASS" : "FAIL"}`);
+}
+
+// Real consult letters (correspondence) must keep "Consult Letter" — flag false.
+const TEST_PDFS = join(import.meta.dir, "..", "docs", "test-pdfs");
+const LETTERS_NOT_REPORTS = [
+  "letter-subtypes/letter_followup.pdf",
+  "letter-subtypes/letter_discharge.pdf",
+  "letter-subtypes/letter_result_commentary.pdf",
+  "referrals/referral_1.pdf",
+  "addressees/addressee_2_bjc_in_cc.pdf",
+];
+
+console.log("\n--- Consult letters (study-report flag must be false) ---");
+for (const file of LETTERS_NOT_REPORTS) {
+  const result = await extractPatientDataWithVision(readFileSync(join(TEST_PDFS, file)), {
+    bjcDoctors: BJC_DOCTORS,
+  });
+  const ok = result.documentType === "consult_letter" && result.isStudyReport !== true;
+  if (ok) passed++;
+  else failed++;
+  console.log(`  ${ok ? "PASS" : "FAIL"} ${file} → ${result.documentType}, isStudyReport=${Boolean(result.isStudyReport)}`);
+}
+
+console.log("\n--- Negatives (must stay generic) ---");
+for (const file of MUST_STAY_GENERIC) {
+  const result = await extractPatientDataWithVision(readFileSync(join(NEG_DIR, file)), {
+    bjcDoctors: BJC_DOCTORS,
+  });
+  const ok = result.documentType === "generic";
+  if (ok) passed++;
+  else failed++;
+  console.log(`  ${ok ? "PASS" : "FAIL"} ${file} → ${result.documentType} (${result.classificationConfidence})`);
+}
+
+console.log("\n--- Borderline (informational) ---");
+for (const file of BORDERLINE) {
+  const result = await extractPatientDataWithVision(readFileSync(join(NEG_DIR, file)), {
+    bjcDoctors: BJC_DOCTORS,
+  });
+  console.log(`  ${file} → ${result.documentType} (${result.classificationConfidence}), isStudyReport=${Boolean(result.isStudyReport)}`);
+}
+
+const total = SCENARIOS.length + LETTERS_NOT_REPORTS.length + MUST_STAY_GENERIC.length;
+console.log("\n" + "=".repeat(70));
+console.log(`Results: ${passed} passed, ${failed} failed out of ${total}`);
+console.log("=".repeat(70));
+
+process.exit(failed > 0 ? 1 : 0);

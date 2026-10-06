@@ -53,6 +53,9 @@ export interface AuditRow {
   /** Mailbox category derived from the new email-address mailbox header
    *  ("results" / "letters"). Absent for `none` (web upload, no header). */
   mailboxCategory?: "results" | "letters";
+  /** Lowercased source mailbox address (e.g. `gofax.par@bjchealth.com.au`).
+   *  Absent on web uploads and PAD rows written before 2026-09-01. */
+  mailboxAddress?: string;
   mailboxDisagreement?: boolean;
   /** Routing decision — "auto_routed" produced HL7, "manual_review" diverted. */
   routingDecision?: "auto_routed" | "manual_review";
@@ -68,6 +71,23 @@ export interface AuditRow {
   suggestedCategory?: string;
   /** Classifier self-reported confidence (0-100). */
   classificationConfidence?: number;
+}
+
+/**
+ * Compact label for the audit log's "Mailbox" column. Prefers the persisted
+ * source address, shown as `Fax · gofax.par` (local part only — the domain is
+ * always bjchealth.com.au); falls back to the legacy category labels, then to
+ * the bare source for rows that predate both.
+ */
+export function mailboxDisplay(row: AuditRow): string {
+  if (row.mailboxAddress) {
+    const localPart = row.mailboxAddress.split("@")[0] || row.mailboxAddress;
+    const kind = row.mailboxCategory === "letters" ? "Admin" : "Fax";
+    return `${kind} · ${localPart}`;
+  }
+  if (row.mailboxCategory === "results") return "Fax (results)";
+  if (row.mailboxCategory === "letters") return "Admin (letters)";
+  return row.source === "email" ? "Email" : "Web";
 }
 
 /** Label + colour palette for routing decision badges (auto / manual). */

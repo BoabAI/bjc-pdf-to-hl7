@@ -46,6 +46,37 @@ export function trustedDomainFromProfile(profile: unknown): string | null {
   return domain || null;
 }
 
+function parseAllowedTenantIds(): string[] {
+  return (process.env.AUTH_ALLOWED_TENANT_IDS ?? "")
+    .split(",")
+    .map((t) => t.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+/**
+ * Extract the home-tenant ID (`tid`) from an Entra profile. The app
+ * registration is multi-tenant (`AZURE_AD_TENANT_ID=common`), so the issuer
+ * cannot pin a tenant; `tid` is the claim that says which directory actually
+ * authenticated the user. `preferred_username` is mutable and must not be
+ * the only trust anchor.
+ */
+export function tenantIdFromProfile(profile: unknown): string | null {
+  if (typeof profile !== "object" || profile === null) return null;
+  const tid = (profile as Record<string, unknown>).tid;
+  if (typeof tid !== "string") return null;
+  const normalized = tid.trim().toLowerCase();
+  return normalized || null;
+}
+
+export function isAllowedTenant(
+  tid: string | null,
+  allowed: string[] = parseAllowedTenantIds()
+): boolean {
+  if (!tid) return false;
+  if (allowed.length === 0) return false;
+  return allowed.includes(tid);
+}
+
 export function isAllowedDomain(
   domain: string | null,
   allowed: string[] = parseAllowedDomains()
@@ -76,16 +107,24 @@ const nextAuth = NextAuth({
   callbacks: {
     async signIn({ profile, account }) {
       const domain = trustedDomainFromProfile(profile);
-      if (!isAllowedDomain(domain)) {
+      const tid = tenantIdFromProfile(profile);
+      const reason = !isAllowedTenant(tid)
+        ? "tenant-not-allowed"
+        : !isAllowedDomain(domain)
+          ? "domain-not-allowed"
+          : null;
+      if (reason) {
         // Structured log for CloudWatch — captures every claim that could
         // explain why a domain check failed (e.g. UPN on .onmicrosoft.com,
         // email vs UPN mismatch, missing claims). Never logs full tokens.
         // `claims.email` is redacted by the logger by default; UPN, tid, oid,
         // iss are preserved as the rejection diagnostic.
         const p = (profile ?? {}) as Record<string, unknown>;
-        logAuthRejection("domain-not-allowed", {
+        logAuthRejection(reason, {
           extractedDomain: domain ?? null,
           allowedDomains: parseAllowedDomains(),
+          extractedTenantId: tid,
+          allowedTenantIds: parseAllowedTenantIds(),
           claims: {
             preferred_username:
               typeof p.preferred_username === "string"
