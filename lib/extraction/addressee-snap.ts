@@ -78,8 +78,9 @@ function parseRosterEntry(name: string): RosterEntry | undefined {
 
 /**
  * Given-name compatibility: either side missing, exact first-given equality,
- * or first-initial equality where the shorter side looks like initials
- * ("I", "I.", "I.G.S." — up to three letters once dots are stripped).
+ * or first-initial equality where either side is initials — a single letter
+ * or dotted ("I", "I.", "I.G.S."). Short undotted names ("Le", "An", "Kim")
+ * are real given names, not initials, and must match in full.
  */
 function givensCompatible(candidate?: string, roster?: string): boolean {
   if (!candidate || !roster) return true;
@@ -88,8 +89,9 @@ function givensCompatible(candidate?: string, roster?: string): boolean {
   if (c === r) return true;
   const cStripped = c.replace(/\./g, "");
   const rStripped = r.replace(/\./g, "");
-  const looksLikeInitials = (s: string) => s.length >= 1 && s.length <= 3;
-  if (looksLikeInitials(cStripped) || looksLikeInitials(rStripped)) {
+  const looksLikeInitials = (raw: string, stripped: string) =>
+    stripped.length === 1 || (raw.includes(".") && stripped.length <= 3);
+  if (looksLikeInitials(c, cStripped) || looksLikeInitials(r, rStripped)) {
     return cStripped[0] === rStripped[0];
   }
   return false;
@@ -108,6 +110,9 @@ function matchRoster(
       (t) => t.toLowerCase() === entry.surname.toLowerCase()
     );
     if (surnameIdx === -1) continue;
+    // A leading token followed by more name tokens is a given name ("Dr Lau
+    // Nguyen"), not the surname — never match on it.
+    if (surnameIdx === 0 && candidateTokens.length > 1) continue;
     // Tokens past the surname are trailing junk ("Level", suite names) —
     // only what precedes the surname counts as given names.
     const candidateGiven =

@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { NextRequest } from "next/server";
 
 import { DEFAULT_BJC_DOCTORS } from "@/lib/conversion-config";
+import { clearRosterCache } from "@/lib/convert/doctor-roster";
 
 const extractPatientDataMock = mock();
 const formatExtractedDataMock = mock();
@@ -184,6 +185,7 @@ beforeEach(() => {
   formatExtractedDataMock.mockReturnValue(baseFormattedData);
   recordConversionMock.mockResolvedValue(undefined);
   listDoctorsMock.mockResolvedValue(ddbRosterDoctors);
+  clearRosterCache();
   console.error = (() => {}) as typeof console.error;
   console.warn = (() => {}) as typeof console.warn;
 });
@@ -889,7 +891,8 @@ describe("POST /api/convert doctor roster + addressee snap", () => {
   });
 
   test("falls back to the seeded default roster when DynamoDB fails", async () => {
-    listDoctorsMock.mockRejectedValue(new Error("ddb unavailable"));
+    // listDoctors() logs DynamoDB errors and resolves to [] — it never rejects.
+    listDoctorsMock.mockResolvedValue([]);
 
     const response = await POST(createConvertRequest());
 
