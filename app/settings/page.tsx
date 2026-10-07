@@ -3,6 +3,7 @@
 import { AppFooter } from "../components/AppFooter";
 import { AppNav } from "../components/AppNav";
 import { LogoStrip } from "../components/LogoStrip";
+import { MailboxesPanel } from "../components/dashboard/MailboxesPanel";
 import { SettingsPanel } from "../components/dashboard/SettingsPanel";
 
 export default function SettingsPage(): JSX.Element {
@@ -26,6 +27,18 @@ export default function SettingsPage(): JSX.Element {
 
             <div className="px-7 py-6">
               <SettingsPanel />
+            </div>
+          </div>
+
+          <div className="card animate-fade-in-up">
+            <div className="px-7 pt-7 pb-5 border-b border-[var(--border-light)]">
+              <h2 className="text-xl font-bold tracking-tight text-[var(--text-primary)]">
+                Input mailboxes
+              </h2>
+            </div>
+
+            <div className="px-7 py-6">
+              <MailboxesPanel />
             </div>
           </div>
 
