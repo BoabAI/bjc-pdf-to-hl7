@@ -45,8 +45,10 @@ try {
         -H "Authorization: Bearer $token" `
         -H "X-Source: email"
     if ($LASTEXITCODE -ne 0) { throw "pad-config HTTP failure ($LASTEXITCODE)" }
-    # 200 with an empty body = everything disabled on purpose: print nothing.
-    Write-Output (($body -join "`r`n").Trim())
+    # 200 with an empty body = everything disabled on purpose: print NOTHING
+    # (not a blank line — PAD would split that into one empty mailbox).
+    $text = ($body -join "`r`n").Trim()
+    if ($text) { Write-Output $text }
 } catch {
     Write-Output ($Fallback -join "`r`n")
 }
@@ -58,7 +60,8 @@ try {
 
 1. Replace `Variables.CreateNewList` + the four `AddItemToList` lines with:
    *Run PowerShell script* `get-mailboxes.ps1` → `%MailboxConfigText%`, then
-   *Split text* `%MailboxConfigText%` by new line → `%MailboxList%`.
+   *Split text* `%MailboxConfigText%` by new line → `%MailboxList%`, then skip blank
+   items (an `IF MailboxLine IS EMPTY → NEXT LOOP` guard at the top of the loop).
 2. Inside `LOOP FOREACH MailboxLine IN MailboxList`: *Split text* `%MailboxLine%` by
    custom delimiter `|` → `%MailboxParts%`; set
    `Mailbox = %MailboxParts[0]%`, `SourceFolder = %MailboxParts[1]%`,
