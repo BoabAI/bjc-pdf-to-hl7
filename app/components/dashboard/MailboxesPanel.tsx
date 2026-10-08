@@ -15,6 +15,11 @@ import {
 import { PencilIcon, TrashIcon } from "../ui/icons";
 import { Toast, type ToastMessage } from "../ui/Toast";
 
+// Well above the 64-char folder-name limit, so an over-long paste shows the
+// validation error instead of being silently cut to a valid-looking name.
+const FOLDER_INPUT_MAX = 200;
+const EDIT_OPEN_HINT = "Save or cancel the open edit first";
+
 const LABEL_CLASS =
   "block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1";
 
@@ -84,13 +89,27 @@ function MailboxEditor({ initial, all, saving, onSave, onCancel }: EditorProps):
   const warnings = next && !blockError && !unchanged ? mailboxWarnings(previous, next) : [];
   const shownError = serverError ?? (address || initial ? blockError : null);
 
+  const canSave = next !== null && blockError === null && !unchanged && !saving;
+
   const submit = async (): Promise<void> => {
-    if (!next || blockError) return;
+    if (!next || !canSave) return;
     setServerError(await onSave(next));
   };
 
+  // Escape cancels. Enter saves only a warning-free change: with warnings
+  // showing, the user has to click "Save anyway" deliberately.
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>): void => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      onCancel();
+    } else if (e.key === "Enter" && e.target instanceof HTMLInputElement) {
+      e.preventDefault();
+      if (warnings.length === 0) void submit();
+    }
+  };
+
   return (
-    <div className="px-3 py-3 bg-[var(--bg-card)] space-y-2.5">
+    <div className="px-3 py-3 bg-[var(--bg-card)] space-y-2.5" onKeyDown={onKeyDown}>
       <label className="block">
         <span className={LABEL_CLASS}>Mailbox address</span>
         <input
@@ -112,7 +131,7 @@ function MailboxEditor({ initial, all, saving, onSave, onCancel }: EditorProps):
           onChange={(e) => setSourceFolder(e.target.value)}
           className="input-field w-full text-sm font-mono py-1.5"
           placeholder="Inbox/HL7"
-          maxLength={70}
+          maxLength={FOLDER_INPUT_MAX}
           aria-label="Source folder"
         />
       </label>
@@ -124,7 +143,7 @@ function MailboxEditor({ initial, all, saving, onSave, onCancel }: EditorProps):
           onChange={(e) => setLinkedFolder(e.target.value)}
           className="input-field w-full text-sm font-mono py-1.5"
           placeholder={DEFAULT_LINKED_FOLDER}
-          maxLength={70}
+          maxLength={FOLDER_INPUT_MAX}
           aria-label="Linked folder"
         />
       </label>
@@ -164,7 +183,7 @@ function MailboxEditor({ initial, all, saving, onSave, onCancel }: EditorProps):
         </button>
         <button
           onClick={() => void submit()}
-          disabled={!next || blockError !== null || unchanged || saving}
+          disabled={!canSave}
           className="btn-primary text-[12px] px-3 py-1 disabled:opacity-40"
         >
           {saving ? "Saving…" : warnings.length > 0 ? "Save anyway" : "Save"}
@@ -343,8 +362,9 @@ export function MailboxesPanel(): JSX.Element {
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <button
                     onClick={() => setEditing(m.id)}
-                    className="icon-btn"
-                    title="Edit"
+                    disabled={editing !== null}
+                    className="icon-btn disabled:opacity-30 disabled:cursor-not-allowed"
+                    title={editing !== null ? EDIT_OPEN_HINT : "Edit"}
                     aria-label={`Edit ${m.address}`}
                   >
                     <PencilIcon />
@@ -374,15 +394,20 @@ export function MailboxesPanel(): JSX.Element {
         )}
       </div>
 
+      <Toast toast={toast} onDismiss={dismissToast} />
+
       {editing !== "new" && (
-        <button onClick={() => setEditing("new")} className="btn-primary text-sm px-4 py-1.5">
+        <button
+          onClick={() => setEditing("new")}
+          disabled={editing !== null}
+          title={editing !== null ? EDIT_OPEN_HINT : undefined}
+          className="btn-primary text-sm px-4 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
           Add mailbox
         </button>
       )}
 
       {error && <p className="text-xs text-[var(--error)]">{error}</p>}
-
-      <Toast toast={toast} onDismiss={dismissToast} />
     </div>
   );
 }

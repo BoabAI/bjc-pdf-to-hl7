@@ -65,6 +65,13 @@ describe("validateMailboxInput", () => {
     expect(validateMailboxInput({ ...base, linkedFolder: "Inbox/a/b" }).ok).toBe(false);
   });
 
+  test("folder errors spell out the naming rule, so an over-long name is explained", () => {
+    const long = validateMailboxInput({ ...base, sourceFolder: `Inbox/${"a".repeat(65)}` });
+    expect(!long.ok && long.error).toContain("up to 64 letters, numbers, spaces, _ or -");
+    const linked = validateMailboxInput({ ...base, linkedFolder: "Inbox/a|b" });
+    expect(!linked.ok && linked.error).toContain("up to 64 letters, numbers, spaces, _ or -");
+  });
+
   test("rejects a linked folder equal to the source folder", () => {
     const result = validateMailboxInput({ ...base, linkedFolder: "Inbox/HL7" });
     expect(result.ok).toBe(false);

@@ -56,6 +56,7 @@ const MAX_ADDRESS_LEN = 254;
 // nesting caught us out at Bondi). The character set is deliberately narrow:
 // the value is pasted into PAD action parameters and a PowerShell pipe format.
 const SUBFOLDER_PATTERN = /^Inbox\/[A-Za-z0-9 _-]{1,64}$/;
+const FOLDER_NAME_RULE = " (name of up to 64 letters, numbers, spaces, _ or -).";
 
 export function isValidMailFolder(folder: string): boolean {
   return folder === INBOX_FOLDER || SUBFOLDER_PATTERN.test(folder);
@@ -106,13 +107,17 @@ export function validateMailboxInput(value: unknown): ValidatedMailbox {
   if (!isValidMailFolder(sourceFolder)) {
     return {
       ok: false,
-      error: 'Source folder must be "Inbox" or a folder directly under it, e.g. "Inbox/HL7".',
+      error:
+        'Source folder must be "Inbox" or a folder directly under it, e.g. "Inbox/HL7"' +
+        FOLDER_NAME_RULE,
     };
   }
   if (!isValidMailFolder(linkedFolder) || linkedFolder === INBOX_FOLDER) {
     return {
       ok: false,
-      error: 'Linked folder must be a folder directly under Inbox, e.g. "Inbox/HL7_linked".',
+      error:
+        'Linked folder must be a folder directly under Inbox, e.g. "Inbox/HL7_linked"' +
+        FOLDER_NAME_RULE,
     };
   }
   if (linkedFolder === sourceFolder) {
