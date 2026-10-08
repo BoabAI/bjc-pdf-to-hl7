@@ -51,15 +51,23 @@ export const DEFAULT_MAILBOXES: MailboxConfig[] = [
 const ADDRESS_PATTERN = /^[a-z0-9._%+-]+@[a-z0-9-]+(\.[a-z0-9-]+)+$/;
 const MAX_ADDRESS_LEN = 254;
 
-// PAD's O365 actions resolve folder paths from the Inbox well-known root, so we
-// only allow the Inbox itself or ONE subfolder directly under it (a deeper
-// nesting caught us out at Bondi). The character set is deliberately narrow:
-// the value is pasted into PAD action parameters and a PowerShell pipe format.
-const SUBFOLDER_PATTERN = /^Inbox\/[A-Za-z0-9 _-]{1,64}$/;
-const FOLDER_NAME_RULE = " (name of up to 64 letters, numbers, spaces, _ or -).";
+// PAD's O365 actions resolve folder paths from the Inbox well-known root, so
+// every path must start at the Inbox (a same-named folder at the mailbox root
+// caught us out at Bondi). Any depth is allowed. The character set is
+// deliberately narrow: the value is pasted into PAD action parameters and a
+// PowerShell pipe format.
+const SUBFOLDER_PATTERN = /^Inbox(\/[A-Za-z0-9 _-]{1,64})+$/;
+const MAX_FOLDER_LEN = 255;
+const FOLDER_NAME_RULE = " (each folder name up to 64 letters, numbers, spaces, _ or -).";
 
 export function isValidMailFolder(folder: string): boolean {
-  return folder === INBOX_FOLDER || SUBFOLDER_PATTERN.test(folder);
+  if (folder === INBOX_FOLDER) return true;
+  return folder.length <= MAX_FOLDER_LEN && SUBFOLDER_PATTERN.test(folder);
+}
+
+/** Only one level under the Inbox (`Inbox/HL7_linked`) has been proven live in PAD. */
+function isNestedFolder(folder: string): boolean {
+  return folder.split("/").length > 2;
 }
 
 export function isMailboxConfig(value: unknown): value is MailboxConfig {
@@ -108,7 +116,7 @@ export function validateMailboxInput(value: unknown): ValidatedMailbox {
     return {
       ok: false,
       error:
-        'Source folder must be "Inbox" or a folder directly under it, e.g. "Inbox/HL7"' +
+        'Source folder must be "Inbox" or a folder inside it, e.g. "Inbox/HL7"' +
         FOLDER_NAME_RULE,
     };
   }
@@ -116,7 +124,7 @@ export function validateMailboxInput(value: unknown): ValidatedMailbox {
     return {
       ok: false,
       error:
-        'Linked folder must be a folder directly under Inbox, e.g. "Inbox/HL7_linked"' +
+        'Linked folder must be a folder inside the Inbox, e.g. "Inbox/HL7_linked"' +
         FOLDER_NAME_RULE,
     };
   }
@@ -206,9 +214,19 @@ export function mailboxWarnings(previous: MailboxConfig | undefined, next: Mailb
       `Check ${next.sourceFolder} exists in the mailbox first. The converter skips the mailbox if it doesn't.`
     );
   }
-  if (previous?.linkedFolder !== next.linkedFolder) {
+  const linkedChanged = previous?.linkedFolder !== next.linkedFolder;
+  if (linkedChanged) {
     warnings.push(
       `Check ${next.linkedFolder} exists in the mailbox first. If it doesn't, filed emails will stay in ${next.sourceFolder}.`
+    );
+  }
+  const nested = [
+    sourceChanged ? next.sourceFolder : null,
+    linkedChanged ? next.linkedFolder : null,
+  ].filter((f): f is string => f !== null && isNestedFolder(f));
+  for (const folder of nested) {
+    warnings.push(
+      `${folder} is more than one level inside the Inbox. Nested folders like this haven't been tested with the converter yet, so check emails are picked up and moved on the first run.`
     );
   }
   return warnings;

@@ -93,7 +93,8 @@ serves the staging mailbox list. `convert.ps1` still posts to prod.
 | Source folder `Inbox` | `GetEmailsV3 @folderPath: 'Inbox'` | ✅ identical string |
 | Source folder `Inbox/HL7` | the same `Inbox/<name>` path format `MoveV2` already resolves live | ⚠️ never tested for **GetEmailsV3** |
 | Linked folder `Inbox/HL7_linked` | `MoveV2 @folderPath: 'Inbox/HL7_linked'` | ✅ identical string |
-| Folder charset `[A-Za-z0-9 _-]`, one level | no `|` (the line delimiter), no `%` (PAD variable marker), no quotes | ✅ |
+| Folder charset `[A-Za-z0-9 _-]`, any depth under `Inbox` | no `|` (the line delimiter), no `%` (PAD variable marker), no quotes | ✅ |
+| Nested folder, e.g. `Inbox/HL7_linked/done` | only one level (`Inbox/HL7_linked`) has been seen to resolve | ⚠️ never tested for **either** action. The Settings page warns when one is saved |
 | Disabled / removed mailbox | not in the list → loop never visits it | ✅ |
 
 **Behaviours the team needs to know for Doctor@** (they come from the flow as built, not

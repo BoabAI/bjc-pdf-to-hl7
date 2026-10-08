@@ -15,9 +15,9 @@ import {
 import { PencilIcon, TrashIcon } from "../ui/icons";
 import { Toast, type ToastMessage } from "../ui/Toast";
 
-// Well above the 64-char folder-name limit, so an over-long paste shows the
+// Above the 255-char path limit, so an over-long paste shows the
 // validation error instead of being silently cut to a valid-looking name.
-const FOLDER_INPUT_MAX = 200;
+const FOLDER_INPUT_MAX = 400;
 const EDIT_OPEN_HINT = "Save or cancel the open edit first";
 
 const LABEL_CLASS =
@@ -159,7 +159,7 @@ function MailboxEditor({ initial, all, saving, onSave, onCancel }: EditorProps):
       <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
         Use <span className="font-mono">Inbox</span> for fax mailboxes, or{" "}
         <span className="font-mono">Inbox/HL7</span> where the team chooses what to upload.
-        Folders must sit directly under the Inbox and already exist in the mailbox.
+        Folders must be inside the Inbox and already exist in the mailbox.
       </p>
       {change && !unchanged && !blockError && (
         <p className="text-[11px] text-[var(--text-secondary)]">

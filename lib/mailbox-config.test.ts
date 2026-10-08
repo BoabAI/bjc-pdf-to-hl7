@@ -10,6 +10,20 @@ import {
 } from "./mailbox-config";
 
 describe("isValidMailFolder", () => {
+  test("accepts folders nested any number of levels under Inbox", () => {
+    expect(isValidMailFolder("Inbox/HL7_linked/fgdsghfd")).toBe(true);
+    expect(isValidMailFolder("Inbox/a/b/c/d/e")).toBe(true);
+    expect(isValidMailFolder("Inbox/HL7/sub folder")).toBe(true);
+  });
+
+  test("rejects empty levels and over-long nested paths", () => {
+    expect(isValidMailFolder("Inbox/HL7/")).toBe(false);
+    expect(isValidMailFolder("Inbox//HL7")).toBe(false);
+    expect(isValidMailFolder("Inbox/HL7/../Sent")).toBe(false);
+    expect(isValidMailFolder(`Inbox/HL7/${"a".repeat(65)}`)).toBe(false);
+    expect(isValidMailFolder(`Inbox${"/abcdefghij".repeat(30)}`)).toBe(false);
+  });
+
   test("accepts Inbox and a single subfolder under Inbox", () => {
     expect(isValidMailFolder("Inbox")).toBe(true);
     expect(isValidMailFolder("Inbox/HL7")).toBe(true);
@@ -17,11 +31,11 @@ describe("isValidMailFolder", () => {
     expect(isValidMailFolder("Inbox/HL7 Testing")).toBe(true);
   });
 
-  test("rejects folders outside Inbox, nested deeper, or with odd characters", () => {
+  test("rejects folders outside Inbox or with odd characters", () => {
     expect(isValidMailFolder("")).toBe(false);
     expect(isValidMailFolder("HL7")).toBe(false);
     expect(isValidMailFolder("Inbox/")).toBe(false);
-    expect(isValidMailFolder("Inbox/HL7/sub")).toBe(false);
+    expect(isValidMailFolder("Sent Items/HL7")).toBe(false);
     expect(isValidMailFolder("Inbox/../Sent")).toBe(false);
     expect(isValidMailFolder("Inbox/HL7|x")).toBe(false);
     expect(isValidMailFolder(`Inbox/${"a".repeat(65)}`)).toBe(false);
@@ -62,7 +76,7 @@ describe("validateMailboxInput", () => {
 
   test("rejects an invalid source or linked folder", () => {
     expect(validateMailboxInput({ ...base, sourceFolder: "Sent" }).ok).toBe(false);
-    expect(validateMailboxInput({ ...base, linkedFolder: "Inbox/a/b" }).ok).toBe(false);
+    expect(validateMailboxInput({ ...base, linkedFolder: "Inbox/a//b" }).ok).toBe(false);
   });
 
   test("folder errors spell out the naming rule, so an over-long name is explained", () => {
@@ -208,6 +222,13 @@ describe("mailboxWarnings", () => {
     expect(source).toEqual([
       "Check Inbox/Upload exists in the mailbox first. The converter skips the mailbox if it doesn't.",
     ]);
+  });
+
+  test("flags nested folders as untested with the converter", () => {
+    const nested = mailboxWarnings(doctorAt, { ...doctorAt, linkedFolder: "Inbox/HL7_linked/done" });
+    expect(nested.some((m) => m.includes("Inbox/HL7_linked/done") && m.includes("haven't been tested"))).toBe(true);
+    const oneLevel = mailboxWarnings(doctorAt, { ...doctorAt, linkedFolder: "Inbox/Done" });
+    expect(oneLevel.some((m) => m.includes("haven't been tested"))).toBe(false);
   });
 
   test("never asks to check that the Inbox itself exists", () => {
