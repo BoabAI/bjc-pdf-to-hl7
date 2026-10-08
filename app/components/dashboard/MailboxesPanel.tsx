@@ -74,7 +74,7 @@ function MailboxEditor({ initial, saving, onSave, onCancel }: EditorProps): JSX.
           aria-label="Source folder"
         >
           <option value={INBOX_FOLDER}>Inbox — every email that arrives (fax mailboxes)</option>
-          <option value={HL7_FOLDER}>Inbox › HL7 — only emails the team drags in</option>
+          <option value={HL7_FOLDER}>Inbox › HL7</option>
           <option value={CUSTOM}>Another folder under Inbox…</option>
         </select>
       </label>
