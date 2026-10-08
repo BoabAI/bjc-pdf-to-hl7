@@ -124,3 +124,81 @@ export function validateMailboxInput(value: unknown): ValidatedMailbox {
     value: { id: address, address, sourceFolder, linkedFolder, enabled: v.enabled },
   };
 }
+
+function describeMailbox(m: MailboxConfig): string {
+  return `source ${m.sourceFolder}, linked ${m.linkedFolder}, ${m.enabled ? "enabled" : "disabled"}`;
+}
+
+/** One-line summary of a change — shown in the editor and toast, and written to the audit log. */
+export function describeMailboxChange(previous: MailboxConfig | undefined, next: MailboxConfig): string {
+  if (!previous) return `mailbox ${next.address} added (${describeMailbox(next)})`;
+  const changes: string[] = [];
+  if (previous.sourceFolder !== next.sourceFolder) {
+    changes.push(`source ${previous.sourceFolder} → ${next.sourceFolder}`);
+  }
+  if (previous.linkedFolder !== next.linkedFolder) {
+    changes.push(`linked ${previous.linkedFolder} → ${next.linkedFolder}`);
+  }
+  if (previous.enabled !== next.enabled) {
+    changes.push(next.enabled ? "enabled" : "disabled");
+  }
+  return `mailbox ${next.address}: ${changes.length > 0 ? changes.join(", ") : "no change"}`;
+}
+
+export type MailboxChange = { type: "put"; value: MailboxConfig } | { type: "delete"; id: string };
+
+export const LAST_ENABLED_ERROR =
+  "At least one mailbox must stay enabled, otherwise the converter checks nothing.";
+
+/**
+ * True when `change` would take the list from at least one enabled mailbox to
+ * none — PAD would then poll nothing, silently. A list that already had none
+ * enabled isn't made worse, so tidying it up is allowed.
+ */
+export function leavesNoEnabledMailbox(all: MailboxConfig[], change: MailboxChange): boolean {
+  if (!all.some((m) => m.enabled)) return false;
+  const id = change.type === "put" ? change.value.id : change.id;
+  const after = all.filter((m) => m.id !== id);
+  if (change.type === "put") after.push(change.value);
+  return !after.some((m) => m.enabled);
+}
+
+const BJC_DOMAIN = "@bjchealth.com.au";
+
+function isFaxMailbox(address: string): boolean {
+  return address.startsWith("gofax.");
+}
+
+/**
+ * Soft warnings for a change that is valid but easy to get wrong. The UI shows
+ * them before saving; they don't block the save.
+ */
+export function mailboxWarnings(previous: MailboxConfig | undefined, next: MailboxConfig): string[] {
+  const warnings: string[] = [];
+  const fax = isFaxMailbox(next.address);
+  const sourceChanged = previous?.sourceFolder !== next.sourceFolder;
+
+  if (!next.address.endsWith(BJC_DOMAIN)) {
+    warnings.push("This isn't a BJC Health address. The converter can only read BJC mailboxes.");
+  }
+  if (!fax && next.sourceFolder === INBOX_FOLDER && sourceChanged) {
+    warnings.push(
+      "Every email with a PDF attachment in this Inbox will be converted and filed into Genie. " +
+        "Use Inbox/HL7 if the team chooses what to upload."
+    );
+  }
+  if (fax && next.sourceFolder !== INBOX_FOLDER && sourceChanged) {
+    warnings.push("Faxes arrive in the Inbox. The converter will stop picking them up.");
+  }
+  if (previous?.enabled && !next.enabled) {
+    warnings.push("The converter will stop checking this mailbox.");
+  }
+  const folders = [
+    sourceChanged ? next.sourceFolder : null,
+    previous?.linkedFolder !== next.linkedFolder ? next.linkedFolder : null,
+  ].filter((f): f is string => f !== null && f !== INBOX_FOLDER);
+  for (const folder of folders) {
+    warnings.push(`Check ${folder} exists in the mailbox first. The converter skips the mailbox if it doesn't.`);
+  }
+  return warnings;
+}

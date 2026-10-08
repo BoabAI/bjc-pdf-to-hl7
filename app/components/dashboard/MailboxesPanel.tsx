@@ -4,11 +4,16 @@ import { useCallback, useEffect, useState } from "react";
 import {
   DEFAULT_LINKED_FOLDER,
   INBOX_FOLDER,
+  LAST_ENABLED_ERROR,
+  describeMailboxChange,
+  leavesNoEnabledMailbox,
+  mailboxWarnings,
   validateMailboxInput,
   type MailboxConfig,
   type MailboxesResponse,
 } from "@/lib/mailbox-config";
 import { PencilIcon, TrashIcon } from "../ui/icons";
+import { Toast, type ToastMessage } from "../ui/Toast";
 
 const LABEL_CLASS =
   "block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1";
@@ -18,29 +23,70 @@ function folderLabel(folder: string): string {
   return folder.split("/").join(" › ");
 }
 
+/** "mailbox x@y: source A → B" → "source A → B" for display under the row. */
+function changeSummary(text: string): string {
+  return text.replace(/^mailbox [^:]+: /, "");
+}
+
+async function putMailboxRequest(mailbox: MailboxConfig): Promise<string | null> {
+  try {
+    const res = await fetch("/api/mailboxes", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(mailbox),
+    });
+    const data = (await res.json()) as MailboxesResponse;
+    return res.ok && data.success ? null : data.error ?? `Save failed (${res.status})`;
+  } catch {
+    return "Save failed — check your connection and try again.";
+  }
+}
+
+async function deleteMailboxRequest(id: string): Promise<string | null> {
+  try {
+    const res = await fetch(`/api/mailboxes?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    const data = (await res.json()) as MailboxesResponse;
+    return res.ok && data.success ? null : data.error ?? `Remove failed (${res.status})`;
+  } catch {
+    return "Remove failed — check your connection and try again.";
+  }
+}
+
 interface EditorProps {
   initial: MailboxConfig | null;
+  all: MailboxConfig[];
   saving: boolean;
-  onSave: (input: unknown) => Promise<string | null>;
+  onSave: (mailbox: MailboxConfig) => Promise<string | null>;
   onCancel: () => void;
 }
 
-function MailboxEditor({ initial, saving, onSave, onCancel }: EditorProps): JSX.Element {
+function MailboxEditor({ initial, all, saving, onSave, onCancel }: EditorProps): JSX.Element {
   const [address, setAddress] = useState(initial?.address ?? "");
   const [sourceFolder, setSourceFolder] = useState(initial?.sourceFolder ?? INBOX_FOLDER);
   const [linkedFolder, setLinkedFolder] = useState(initial?.linkedFolder ?? DEFAULT_LINKED_FOLDER);
   const [enabled, setEnabled] = useState(initial?.enabled ?? true);
-  const [error, setError] = useState<string | null>(null);
+  const [serverError, setServerError] = useState<string | null>(null);
 
-  const input = { address, sourceFolder, linkedFolder, enabled };
-  const check = validateMailboxInput(input);
+  const check = validateMailboxInput({ address, sourceFolder, linkedFolder, enabled });
+  const next = check.ok ? check.value : null;
+  const previous = initial ?? undefined;
+
+  let blockError: string | null = null;
+  if (!check.ok) blockError = check.error;
+  else if (!initial && all.some((m) => m.id === check.value.id)) {
+    blockError = "This mailbox is already in the list. Edit it instead.";
+  } else if (leavesNoEnabledMailbox(all, { type: "put", value: check.value })) {
+    blockError = LAST_ENABLED_ERROR;
+  }
+
+  const change = next && previous ? changeSummary(describeMailboxChange(previous, next)) : null;
+  const unchanged = change === "no change";
+  const warnings = next && !blockError && !unchanged ? mailboxWarnings(previous, next) : [];
+  const shownError = serverError ?? (address || initial ? blockError : null);
 
   const submit = async (): Promise<void> => {
-    if (!check.ok) {
-      setError(check.error);
-      return;
-    }
-    setError(await onSave(input));
+    if (!next || blockError) return;
+    setServerError(await onSave(next));
   };
 
   return (
@@ -96,11 +142,19 @@ function MailboxEditor({ initial, saving, onSave, onCancel }: EditorProps): JSX.
         <span className="font-mono">Inbox/HL7</span> where the team chooses what to upload.
         Folders must sit directly under the Inbox and already exist in the mailbox.
       </p>
-      {(error ?? (!check.ok && address ? check.error : null)) && (
-        <p className="text-[11px] text-[var(--error)]">
-          {error ?? (!check.ok ? check.error : null)}
+      {change && !unchanged && !blockError && (
+        <p className="text-[11px] text-[var(--text-secondary)]">
+          <span className="font-semibold">Changes:</span> {change}
         </p>
       )}
+      {warnings.length > 0 && (
+        <ul className="rounded-md border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-2 space-y-1 text-[11px] text-[var(--warning)] leading-relaxed list-disc list-inside">
+          {warnings.map((w) => (
+            <li key={w}>{w}</li>
+          ))}
+        </ul>
+      )}
+      {shownError && <p className="text-[11px] text-[var(--error)]">{shownError}</p>}
       <div className="flex items-center justify-end gap-2 pt-1">
         <button
           onClick={onCancel}
@@ -110,10 +164,10 @@ function MailboxEditor({ initial, saving, onSave, onCancel }: EditorProps): JSX.
         </button>
         <button
           onClick={() => void submit()}
-          disabled={!check.ok || saving}
+          disabled={!next || blockError !== null || unchanged || saving}
           className="btn-primary text-[12px] px-3 py-1 disabled:opacity-40"
         >
-          {saving ? "Saving…" : "Save"}
+          {saving ? "Saving…" : warnings.length > 0 ? "Save anyway" : "Save"}
         </button>
       </div>
     </div>
@@ -133,6 +187,9 @@ export function MailboxesPanel(): JSX.Element {
   // null = not editing, "new" = adding, otherwise the id being edited.
   const [editing, setEditing] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+
+  const dismissToast = useCallback(() => setToast(null), []);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -157,42 +214,61 @@ export function MailboxesPanel(): JSX.Element {
     return () => controller.abort();
   }, [load]);
 
-  const save = useCallback(
-    async (input: unknown): Promise<string | null> => {
-      setSaving(true);
-      try {
-        const res = await fetch("/api/mailboxes", {
-          method: "PUT",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(input),
-        });
-        const data = (await res.json()) as MailboxesResponse;
-        if (!res.ok || !data.success) return data.error ?? `Save failed (${res.status})`;
-        setEditing(null);
-        await load();
-        return null;
-      } catch {
-        return "Save failed — check your connection and try again.";
-      } finally {
-        setSaving(false);
-      }
+  /** Runs an undo request, then reloads and confirms — or shows why it failed. */
+  const runUndo = useCallback(
+    async (request: () => Promise<string | null>) => {
+      setToast(null);
+      const failure = await request();
+      await load();
+      if (failure) setError(`Undo failed: ${failure}`);
+      else setToast({ id: Date.now(), text: "Undone." });
     },
     [load]
   );
 
-  const remove = useCallback(
-    async (id: string) => {
-      setConfirmRemove(null);
-      try {
-        const res = await fetch(`/api/mailboxes?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-        const data = (await res.json()) as MailboxesResponse;
-        if (!res.ok || !data.success) throw new Error(data.error ?? `Failed (${res.status})`);
-        await load();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to remove mailbox");
-      }
+  const save = useCallback(
+    async (mailbox: MailboxConfig): Promise<string | null> => {
+      const previous = mailboxes.find((m) => m.id === mailbox.id);
+      setSaving(true);
+      const failure = await putMailboxRequest(mailbox);
+      setSaving(false);
+      if (failure) return failure;
+      setEditing(null);
+      await load();
+      setToast({
+        id: Date.now(),
+        text: previous
+          ? `${mailbox.address} saved: ${changeSummary(describeMailboxChange(previous, mailbox))}.`
+          : `${mailbox.address} added.`,
+        action: {
+          label: "Undo",
+          onClick: () =>
+            void runUndo(() =>
+              previous ? putMailboxRequest(previous) : deleteMailboxRequest(mailbox.id)
+            ),
+        },
+      });
+      return null;
     },
-    [load]
+    [mailboxes, load, runUndo]
+  );
+
+  const remove = useCallback(
+    async (mailbox: MailboxConfig) => {
+      setConfirmRemove(null);
+      const failure = await deleteMailboxRequest(mailbox.id);
+      if (failure) {
+        setError(failure);
+        return;
+      }
+      await load();
+      setToast({
+        id: Date.now(),
+        text: `${mailbox.address} removed.`,
+        action: { label: "Undo", onClick: () => void runUndo(() => putMailboxRequest(mailbox)) },
+      });
+    },
+    [load, runUndo]
   );
 
   if (loading) {
@@ -210,16 +286,21 @@ export function MailboxesPanel(): JSX.Element {
       </p>
 
       <div className="card-inner divide-y divide-[var(--border-light)]">
-        {mailboxes.map((m) =>
-          editing === m.id ? (
-            <MailboxEditor
-              key={m.id}
-              initial={m}
-              saving={saving}
-              onSave={save}
-              onCancel={() => setEditing(null)}
-            />
-          ) : (
+        {mailboxes.map((m) => {
+          if (editing === m.id) {
+            return (
+              <MailboxEditor
+                key={m.id}
+                initial={m}
+                all={mailboxes}
+                saving={saving}
+                onSave={save}
+                onCancel={() => setEditing(null)}
+              />
+            );
+          }
+          const isLastEnabled = leavesNoEnabledMailbox(mailboxes, { type: "delete", id: m.id });
+          return (
             <div key={m.id} className="flex items-center gap-3 px-3 py-2.5">
               <div className="flex-1 min-w-0">
                 <div
@@ -252,7 +333,7 @@ export function MailboxesPanel(): JSX.Element {
                     Keep
                   </button>
                   <button
-                    onClick={() => void remove(m.id)}
+                    onClick={() => void remove(m)}
                     className="text-[12px] text-[var(--error)] font-semibold px-2 py-1 rounded-md hover:bg-[var(--bg-inner)]"
                   >
                     Remove
@@ -270,8 +351,9 @@ export function MailboxesPanel(): JSX.Element {
                   </button>
                   <button
                     onClick={() => setConfirmRemove(m.id)}
-                    className="icon-btn icon-btn-danger"
-                    title="Remove"
+                    disabled={isLastEnabled}
+                    className="icon-btn icon-btn-danger disabled:opacity-30 disabled:cursor-not-allowed"
+                    title={isLastEnabled ? LAST_ENABLED_ERROR : "Remove"}
                     aria-label={`Remove ${m.address}`}
                   >
                     <TrashIcon />
@@ -279,10 +361,16 @@ export function MailboxesPanel(): JSX.Element {
                 </div>
               )}
             </div>
-          )
-        )}
+          );
+        })}
         {editing === "new" && (
-          <MailboxEditor initial={null} saving={saving} onSave={save} onCancel={() => setEditing(null)} />
+          <MailboxEditor
+            initial={null}
+            all={mailboxes}
+            saving={saving}
+            onSave={save}
+            onCancel={() => setEditing(null)}
+          />
         )}
       </div>
 
@@ -293,6 +381,8 @@ export function MailboxesPanel(): JSX.Element {
       )}
 
       {error && <p className="text-xs text-[var(--error)]">{error}</p>}
+
+      <Toast toast={toast} onDismiss={dismissToast} />
     </div>
   );
 }

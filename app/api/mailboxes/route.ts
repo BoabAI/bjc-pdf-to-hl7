@@ -12,6 +12,9 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { deleteMailbox, listMailboxes, putMailbox } from "@/lib/reference-data-store";
 import {
+  describeMailboxChange,
+  LAST_ENABLED_ERROR,
+  leavesNoEnabledMailbox,
   validateMailboxInput,
   type MailboxConfig,
   type MailboxesResponse,
@@ -25,23 +28,10 @@ function json(body: MailboxesResponse, status = 200): NextResponse {
   return NextResponse.json(body, { status });
 }
 
-function describeMailbox(m: MailboxConfig): string {
-  return `source ${m.sourceFolder}, linked ${m.linkedFolder}, ${m.enabled ? "enabled" : "disabled"}`;
-}
-
-function describeChange(previous: MailboxConfig | undefined, next: MailboxConfig): string {
-  if (!previous) return `mailbox ${next.address} added (${describeMailbox(next)})`;
-  const changes: string[] = [];
-  if (previous.sourceFolder !== next.sourceFolder) {
-    changes.push(`source ${previous.sourceFolder} → ${next.sourceFolder}`);
-  }
-  if (previous.linkedFolder !== next.linkedFolder) {
-    changes.push(`linked ${previous.linkedFolder} → ${next.linkedFolder}`);
-  }
-  if (previous.enabled !== next.enabled) {
-    changes.push(next.enabled ? "enabled" : "disabled");
-  }
-  return `mailbox ${next.address}: ${changes.length > 0 ? changes.join(", ") : "no change"}`;
+// A failed list read must not lock the settings: the guard is skipped and the
+// change goes ahead (it is still audited).
+async function currentMailboxes(): Promise<MailboxConfig[] | null> {
+  return listMailboxes().catch(() => null);
 }
 
 // Same audit-row shape as /api/settings so the Log page shows both alike.
@@ -91,13 +81,16 @@ export const PUT = auth(async (request) => {
   }
 
   try {
-    // Read the previous value for the audit message only; a failed read must
-    // not block the save.
-    const previous = await listMailboxes()
-      .then((all) => all.find((m) => m.id === result.value.id))
-      .catch(() => undefined);
+    const all = await currentMailboxes();
+    if (all && leavesNoEnabledMailbox(all, { type: "put", value: result.value })) {
+      return json({ success: false, error: LAST_ENABLED_ERROR }, 409);
+    }
+    const previous = all?.find((m) => m.id === result.value.id);
     await putMailbox(result.value);
-    auditSettingsChange(request.auth.user?.email ?? undefined, describeChange(previous, result.value));
+    auditSettingsChange(
+      request.auth.user?.email ?? undefined,
+      describeMailboxChange(previous, result.value)
+    );
     return json({ success: true, mailboxes: [result.value] });
   } catch (error) {
     logOperationalError("mailboxes", error, { op: "PUT" });
@@ -112,6 +105,10 @@ export const DELETE = auth(async (request) => {
   if (!id) return json({ success: false, error: "Missing id parameter" }, 400);
 
   try {
+    const all = await currentMailboxes();
+    if (all && leavesNoEnabledMailbox(all, { type: "delete", id })) {
+      return json({ success: false, error: LAST_ENABLED_ERROR }, 409);
+    }
     await deleteMailbox(id);
     auditSettingsChange(request.auth.user?.email ?? undefined, `mailbox ${id} removed`);
     return json({ success: true });

@@ -141,6 +141,24 @@ describe("PUT /api/mailboxes", () => {
     expect((await PUT(req)).status).toBe(400);
   });
 
+  test("409 when disabling the last enabled mailbox, nothing persisted", async () => {
+    const res = await PUT(makeRequest("", { method: "PUT", body: { ...doctorAt, enabled: false } }));
+    expect(res.status).toBe(409);
+    expect(putMailboxMock).not.toHaveBeenCalled();
+  });
+
+  test("allows disabling while another mailbox stays enabled", async () => {
+    listMailboxesMock.mockResolvedValue([doctorAt, { ...doctorAt, id: "x@bjchealth.com.au" }]);
+    const res = await PUT(makeRequest("", { method: "PUT", body: { ...doctorAt, enabled: false } }));
+    expect(res.status).toBe(200);
+  });
+
+  test("allows the save when the list read fails (no lock-out)", async () => {
+    listMailboxesMock.mockRejectedValue(new Error("ddb"));
+    const res = await PUT(makeRequest("", { method: "PUT", body: { ...doctorAt, enabled: false } }));
+    expect(res.status).toBe(200);
+  });
+
   test("500 when the store write fails", async () => {
     putMailboxMock.mockRejectedValue(new Error("ddb"));
     expect((await PUT(makeRequest("", { method: "PUT", body: doctorAt }))).status).toBe(500);
@@ -154,6 +172,7 @@ describe("DELETE /api/mailboxes", () => {
   });
 
   test("deletes by lowercased id and audits", async () => {
+    listMailboxesMock.mockResolvedValue([doctorAt, { ...doctorAt, id: "x@bjchealth.com.au" }]);
     const res = await DELETE(makeRequest("?id=Doctor@BJCHealth.com.au", { method: "DELETE" }));
     expect(res.status).toBe(200);
     expect(deleteMailboxMock).toHaveBeenCalledWith("doctor@bjchealth.com.au");
@@ -162,5 +181,17 @@ describe("DELETE /api/mailboxes", () => {
 
   test("400 on missing id", async () => {
     expect((await DELETE(makeRequest("", { method: "DELETE" }))).status).toBe(400);
+  });
+
+  test("409 when removing the last enabled mailbox, nothing deleted", async () => {
+    const res = await DELETE(makeRequest("?id=doctor@bjchealth.com.au", { method: "DELETE" }));
+    expect(res.status).toBe(409);
+    expect(deleteMailboxMock).not.toHaveBeenCalled();
+  });
+
+  test("allows the delete when the list read fails (no lock-out)", async () => {
+    listMailboxesMock.mockRejectedValue(new Error("ddb"));
+    const res = await DELETE(makeRequest("?id=doctor@bjchealth.com.au", { method: "DELETE" }));
+    expect(res.status).toBe(200);
   });
 });
