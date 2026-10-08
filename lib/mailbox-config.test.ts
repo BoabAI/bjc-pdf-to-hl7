@@ -192,6 +192,17 @@ describe("mailboxWarnings", () => {
     expect(added.some((m) => m.includes("Inbox/HL7") && m.includes("exists"))).toBe(true);
   });
 
+  test("explains each missing-folder consequence accurately", () => {
+    const linked = mailboxWarnings(doctorAt, { ...doctorAt, linkedFolder: "Inbox/Done" });
+    expect(linked).toEqual([
+      "Check Inbox/Done exists in the mailbox first. If it doesn't, filed emails will stay in Inbox/HL7.",
+    ]);
+    const source = mailboxWarnings(doctorAt, { ...doctorAt, sourceFolder: "Inbox/Upload" });
+    expect(source).toEqual([
+      "Check Inbox/Upload exists in the mailbox first. The converter skips the mailbox if it doesn't.",
+    ]);
+  });
+
   test("never asks to check that the Inbox itself exists", () => {
     const addr = "gofax.new@bjchealth.com.au";
     const w = mailboxWarnings(undefined, { ...fax, id: addr, address: addr });

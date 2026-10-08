@@ -193,12 +193,18 @@ export function mailboxWarnings(previous: MailboxConfig | undefined, next: Mailb
   if (previous?.enabled && !next.enabled) {
     warnings.push("The converter will stop checking this mailbox.");
   }
-  const folders = [
-    sourceChanged ? next.sourceFolder : null,
-    previous?.linkedFolder !== next.linkedFolder ? next.linkedFolder : null,
-  ].filter((f): f is string => f !== null && f !== INBOX_FOLDER);
-  for (const folder of folders) {
-    warnings.push(`Check ${folder} exists in the mailbox first. The converter skips the mailbox if it doesn't.`);
+  // A missing source folder makes PAD skip the mailbox (GetEmailsV3 ON ERROR →
+  // Next loop); a missing linked folder only fails the move (MoveV2's ON ERROR
+  // is empty), so the email is still filed but stays where it was.
+  if (sourceChanged && next.sourceFolder !== INBOX_FOLDER) {
+    warnings.push(
+      `Check ${next.sourceFolder} exists in the mailbox first. The converter skips the mailbox if it doesn't.`
+    );
+  }
+  if (previous?.linkedFolder !== next.linkedFolder) {
+    warnings.push(
+      `Check ${next.linkedFolder} exists in the mailbox first. If it doesn't, filed emails will stay in ${next.sourceFolder}.`
+    );
   }
   return warnings;
 }
