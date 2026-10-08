@@ -66,12 +66,52 @@ try {
    custom delimiter `|` → `%MailboxParts%`; set
    `Mailbox = %MailboxParts[0]%`, `SourceFolder = %MailboxParts[1]%`,
    `LinkedFolder = %MailboxParts[2]%`.
-3. `GetEmailsV3 @folderPath: SourceFolder` (was the literal `'Inbox'`).
-4. `MoveV2 @folderPath: LinkedFolder` (was `'Inbox/HL7_linked'`).
+3. `GetEmailsV3 @folderPath: SourceFolder` (was the literal `'Inbox'`). **Add
+   `ON ERROR → Next loop`** to this action (it has no error handling today). Without
+   it, a missing folder or no mailbox access on one mailbox aborts the whole run.
+   `doctor@` sorts *before* `gofax.*` in the config, so a Doctor@ problem would stop
+   all four fax mailboxes.
+4. `MoveV2 @folderPath: LinkedFolder` (was `'Inbox/HL7_linked'`). It already has an
+   empty `ON ERROR`, so a missing linked folder fails silently and the email stays put.
 5. Ride along PR #24: call `convert.ps1 -Mailbox "%Mailbox%"` so the Log page labels
-   each location correctly.
+   each location correctly. (Today `convert.ps1` hardcodes `gofax.par`, so Doctor@
+   rows would be logged as Parramatta.)
 
-Paste rules from the bon/bow go-live still apply: paste tiny chunks, never the whole flow.
+Build steps 1–2 by dragging the actions in the designer (Text → *Split text*, Loops →
+*Next loop*), not by pasting Robin: the Split text and ON ERROR syntax has never been
+pasted on this server. Paste rules from the bon/bow go-live still apply for anything
+pasted (tiny chunks, never the whole flow). You can test the Copy **before PR #33
+reaches prod** by pointing `$BaseUrl` in `get-mailboxes.ps1` at
+`https://staging.d20i409xquw7x3.amplifyapp.com`. Staging accepts the same PAD token and
+serves the staging mailbox list. `convert.ps1` still posts to prod.
+
+## PAD compatibility review (8 Oct 2026, against the 16 Sep live export)
+
+| Setting | PAD today | OK? |
+|---|---|---|
+| Mailbox address | `@mailboxAddress: Mailbox`, already a variable | ✅ same variable name reused |
+| Source folder `Inbox` | `GetEmailsV3 @folderPath: 'Inbox'` | ✅ identical string |
+| Source folder `Inbox/HL7` | the same `Inbox/<name>` path format `MoveV2` already resolves live | ⚠️ never tested for **GetEmailsV3** |
+| Linked folder `Inbox/HL7_linked` | `MoveV2 @folderPath: 'Inbox/HL7_linked'` | ✅ identical string |
+| Folder charset `[A-Za-z0-9 _-]`, one level | no `|` (the line delimiter), no `%` (PAD variable marker), no quotes | ✅ |
+| Disabled / removed mailbox | not in the list → loop never visits it | ✅ |
+
+**Behaviours the team needs to know for Doctor@** (they come from the flow as built, not
+from the new setting):
+
+- **Only the newest 25 emails in the folder are checked** (`@top: 25`, newest first by
+  *received* date). A dragged-in email keeps its original received date. So if more
+  than 25 newer emails sit in `HL7` (manual-review or no-PDF leftovers), an older email
+  dragged in later is never seen. The team must clear leftovers out of `HL7`.
+- **Dragging an email back into `HL7` does not reconvert it.** `processed.log` remembers
+  every assessed `internetMessageId` (filed, manual review, or no PDF). Only service
+  errors are retried. ⚠️ The 7 Oct reply draft to Nicole says the opposite ("would
+  convert and file it into Genie a second time"). Correct it before sending.
+- **Only attachments whose name contains `pdf` are converted.** A forwarded email
+  attached as an item (`.msg`), or a PDF inside one, is skipped. The email is logged as
+  "no PDF" and left in `HL7`.
+- **Unfiled emails stay in `HL7`** (manual review, urgent, no PDF), as they stay in the
+  Inbox for fax today, until the parked Unlinked change ships.
 
 ## Must verify before go-live (none of this is proven yet)
 
