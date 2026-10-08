@@ -135,7 +135,7 @@ function MailboxEditor({ initial, all, saving, onSave, onCancel }: EditorProps):
           onChange={(e) => setEnabled(e.target.checked)}
           className="accent-[var(--bjc-blue)]"
         />
-        Enabled — the converter polls this mailbox
+        Enabled
       </label>
       <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
         Use <span className="font-mono">Inbox</span> for fax mailboxes, or{" "}
