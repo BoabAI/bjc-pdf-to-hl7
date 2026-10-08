@@ -1,5 +1,7 @@
 # PAD Integration Guide: PDF-to-HL7
 
+> **October 2026:** the mailbox list and per-mailbox polled folder (`Inbox` vs `Inbox/HL7`) now come from the Settings page via `GET /api/pad-config` — see `docs/operations/pad-mailbox-config.md`. Sections below that hardcode a single mailbox/folder predate that.
+
 Technical reference for building the Power Automate Desktop flow that connects the BJC Health monitored mailboxes to the SMEC AI conversion service. Also covers server setup requirements for Medihost.
 
 > **Rewritten July 2026.** The March 2026 version of this guide described an `X-API-Key` / dashboard-managed-key design that was never built, plus `/api/health` and `/api/doctors` endpoints that do not exist. This version matches the shipped API: shared bearer token auth, the `auto_routed` / `manual_review` response contract, and the BJC-account production URL. The authoritative wire contract lives in code at `lib/contracts/convert.ts`; PAD-side header/credential traps are covered in `docs/engineering/pad-bearer-token-gotchas.md` — read that before editing the flow.

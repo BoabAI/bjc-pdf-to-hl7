@@ -3,7 +3,8 @@ import { auth } from "@/lib/auth";
 import { isPadAuthenticated } from "@/lib/pad-auth";
 
 const PUBLIC_PATH_PREFIXES = ["/api/auth", "/login"];
-const PAD_PATH = "/api/convert";
+// Exact paths the PAD pipeline may call with its bearer token.
+const PAD_PATHS = new Set(["/api/convert", "/api/pad-config"]);
 const API_PATH_PREFIX = "/api/";
 
 export function isPublicPath(pathname: string): boolean {
@@ -25,11 +26,12 @@ export function isApiPath(pathname: string): boolean {
 /**
  * The PAD email pipeline is a service-to-service caller and has no Auth.js
  * session cookie. It authenticates with a shared bearer token instead.
- * If a request to /api/convert presents valid PAD credentials, treat it
- * as authenticated for routing purposes — the route handler re-validates.
+ * If a request to a PAD path (/api/convert, /api/pad-config) presents valid
+ * PAD credentials, treat it as authenticated for routing purposes — the route
+ * handler re-validates.
  */
 export function isPadRequestAuthenticated(request: NextRequest): boolean {
-  if (request.nextUrl.pathname !== PAD_PATH) return false;
+  if (!PAD_PATHS.has(request.nextUrl.pathname)) return false;
   return isPadAuthenticated(request.headers);
 }
 
