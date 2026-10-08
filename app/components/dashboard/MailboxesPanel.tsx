@@ -10,9 +10,6 @@ import {
 } from "@/lib/mailbox-config";
 import { PencilIcon, TrashIcon } from "../ui/icons";
 
-const HL7_FOLDER = "Inbox/HL7";
-const CUSTOM = "__custom__";
-
 const LABEL_CLASS =
   "block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-1";
 
@@ -29,16 +26,12 @@ interface EditorProps {
 }
 
 function MailboxEditor({ initial, saving, onSave, onCancel }: EditorProps): JSX.Element {
-  const initialSource = initial?.sourceFolder ?? INBOX_FOLDER;
-  const isPreset = initialSource === INBOX_FOLDER || initialSource === HL7_FOLDER;
   const [address, setAddress] = useState(initial?.address ?? "");
-  const [sourceChoice, setSourceChoice] = useState(isPreset ? initialSource : CUSTOM);
-  const [customSource, setCustomSource] = useState(isPreset ? "Inbox/" : initialSource);
+  const [sourceFolder, setSourceFolder] = useState(initial?.sourceFolder ?? INBOX_FOLDER);
   const [linkedFolder, setLinkedFolder] = useState(initial?.linkedFolder ?? DEFAULT_LINKED_FOLDER);
   const [enabled, setEnabled] = useState(initial?.enabled ?? true);
   const [error, setError] = useState<string | null>(null);
 
-  const sourceFolder = sourceChoice === CUSTOM ? customSource : sourceChoice;
   const input = { address, sourceFolder, linkedFolder, enabled };
   const check = validateMailboxInput(input);
 
@@ -67,31 +60,16 @@ function MailboxEditor({ initial, saving, onSave, onCancel }: EditorProps): JSX.
       </label>
       <label className="block">
         <span className={LABEL_CLASS}>Poll emails from</span>
-        <select
-          value={sourceChoice}
-          onChange={(e) => setSourceChoice(e.target.value)}
-          className="input-field w-full text-sm py-1.5"
+        <input
+          type="text"
+          value={sourceFolder}
+          onChange={(e) => setSourceFolder(e.target.value)}
+          className="input-field w-full text-sm font-mono py-1.5"
+          placeholder="Inbox/HL7"
+          maxLength={70}
           aria-label="Source folder"
-        >
-          <option value={INBOX_FOLDER}>Inbox — every email that arrives (fax mailboxes)</option>
-          <option value={HL7_FOLDER}>Inbox › HL7</option>
-          <option value={CUSTOM}>Another folder under Inbox…</option>
-        </select>
+        />
       </label>
-      {sourceChoice === CUSTOM && (
-        <label className="block">
-          <span className={LABEL_CLASS}>Custom source folder</span>
-          <input
-            type="text"
-            value={customSource}
-            onChange={(e) => setCustomSource(e.target.value)}
-            className="input-field w-full text-sm font-mono py-1.5"
-            placeholder="Inbox/FolderName"
-            maxLength={70}
-            aria-label="Custom source folder"
-          />
-        </label>
-      )}
       <label className="block">
         <span className={LABEL_CLASS}>Move filed emails to</span>
         <input
@@ -114,6 +92,8 @@ function MailboxEditor({ initial, saving, onSave, onCancel }: EditorProps): JSX.
         Enabled — the converter polls this mailbox
       </label>
       <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+        Use <span className="font-mono">Inbox</span> for fax mailboxes, or{" "}
+        <span className="font-mono">Inbox/HL7</span> where the team chooses what to upload.
         Folders must sit directly under the Inbox and already exist in the mailbox.
       </p>
       {(error ?? (!check.ok && address ? check.error : null)) && (
