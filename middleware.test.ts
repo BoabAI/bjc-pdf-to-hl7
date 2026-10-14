@@ -172,6 +172,27 @@ describe("isPadRequestAuthenticated", () => {
     expect(isPadRequestAuthenticated(request)).toBe(false);
   });
 
+  test("accepts /api/pad-config with X-Source: email + valid bearer token", () => {
+    const request = padRequest("/api/pad-config", {
+      source: "email",
+      auth: `Bearer ${VALID_TOKEN}`,
+    });
+    expect(isPadRequestAuthenticated(request)).toBe(true);
+  });
+
+  test("rejects /api/pad-config without a bearer token", () => {
+    const request = padRequest("/api/pad-config", { source: "email" });
+    expect(isPadRequestAuthenticated(request)).toBe(false);
+  });
+
+  test("does not open the session-only /api/mailboxes route to PAD credentials", () => {
+    const request = padRequest("/api/mailboxes", {
+      source: "email",
+      auth: `Bearer ${VALID_TOKEN}`,
+    });
+    expect(isPadRequestAuthenticated(request)).toBe(false);
+  });
+
   test("rejects when PAD_TOKEN is unset (no implicit pass-through)", () => {
     delete process.env.PAD_TOKEN;
     const request = padRequest("/api/convert", {

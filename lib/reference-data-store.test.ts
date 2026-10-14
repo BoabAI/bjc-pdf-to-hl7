@@ -70,7 +70,11 @@ const {
   putCarrier,
   deleteDoctor,
   deleteCarrier,
+  listMailboxes,
+  putMailbox,
+  deleteMailbox,
 } = await import("./reference-data-store");
+import { DEFAULT_MAILBOXES, type MailboxConfig } from "./mailbox-config";
 import {
   DEFAULT_BJC_DOCTORS,
   DEFAULT_CARRIERS,
@@ -312,5 +316,80 @@ describe("custom table name override", () => {
     const command = sendMock.mock.calls[0][0] as QueryCommandMock;
     const input = command.input as { TableName: string };
     expect(input.TableName).toBe("custom-table");
+  });
+});
+
+describe("mailboxes", () => {
+  const doctorAt: MailboxConfig = {
+    id: "doctor@bjchealth.com.au",
+    address: "doctor@bjchealth.com.au",
+    sourceFolder: "Inbox/HL7",
+    linkedFolder: "Inbox/HL7_linked",
+    enabled: true,
+  };
+
+  test("listMailboxes queries kind=MAILBOX and strips meta", async () => {
+    sendMock.mockResolvedValue({
+      Items: [{ ...doctorAt, kind: "MAILBOX", updatedAt: "2026-10-08T00:00:00Z" }],
+    });
+
+    const result = await listMailboxes();
+
+    const input = (sendMock.mock.calls[0][0] as QueryCommandMock).input as {
+      ExpressionAttributeValues: Record<string, string>;
+    };
+    expect(input.ExpressionAttributeValues[":kind"]).toBe("MAILBOX");
+    expect(result).toEqual([doctorAt]);
+  });
+
+  test("seeding an empty MAILBOX partition writes ONLY mailbox rows (never re-seeds doctors/carriers)", async () => {
+    sendMock.mockResolvedValueOnce({ Items: [] }).mockResolvedValue({});
+
+    const result = await listMailboxes();
+
+    const batchCall = sendMock.mock.calls.find((c) => c[0] instanceof BatchWriteCommandMock);
+    expect(batchCall).toBeDefined();
+    const requests = ((batchCall![0] as BatchWriteCommandMock).input as {
+      RequestItems: Record<string, Array<{ PutRequest: { Item: { kind: string } } }>>;
+    }).RequestItems[TABLE];
+    expect(requests).toHaveLength(DEFAULT_MAILBOXES.length);
+    expect(requests.every((r) => r.PutRequest.Item.kind === "MAILBOX")).toBe(true);
+    expect(result).toEqual(DEFAULT_MAILBOXES);
+  });
+
+  test("listMailboxes throws on DynamoDB failure so PAD can fall back instead of seeing an empty list", async () => {
+    sendMock.mockRejectedValue(new Error("ddb down"));
+
+    await expect(listMailboxes()).rejects.toThrow("ddb down");
+  });
+
+  test("listMailboxes drops malformed rows", async () => {
+    sendMock.mockResolvedValue({ Items: [doctorAt, { kind: "MAILBOX", id: "x" }] });
+
+    expect(await listMailboxes()).toEqual([doctorAt]);
+  });
+
+  test("putMailbox forces kind and updatedAt after the spread", async () => {
+    sendMock.mockResolvedValue({});
+
+    await putMailbox({ ...doctorAt, kind: "DOCTOR" } as MailboxConfig);
+
+    const item = ((sendMock.mock.calls[0][0] as PutCommandMock).input as {
+      Item: Record<string, unknown>;
+    }).Item;
+    expect(item.kind).toBe("MAILBOX");
+    expect(typeof item.updatedAt).toBe("string");
+    expect(item.sourceFolder).toBe("Inbox/HL7");
+  });
+
+  test("deleteMailbox deletes by kind=MAILBOX + id", async () => {
+    sendMock.mockResolvedValue({});
+
+    await deleteMailbox("doctor@bjchealth.com.au");
+
+    const input = (sendMock.mock.calls[0][0] as DeleteCommandMock).input as {
+      Key: { kind: string; id: string };
+    };
+    expect(input.Key).toEqual({ kind: "MAILBOX", id: "doctor@bjchealth.com.au" });
   });
 });

@@ -169,6 +169,8 @@ OBR-24 (Diagnostic Service Section) drives which Genie inbox the document lands 
 - `/api/auth` (POST/DELETE) - Login/logout
 - `/api/convert` (GET/POST) - Service health / PDF conversion (accepts optional `X-Source: email` header from PAD pipeline; defaults to `web`)
 - `/api/logs` (GET) - `?month=YYYY-MM` returns the month's audit rows (cookie-protected)
+- `/api/mailboxes` (GET/PUT/DELETE) - Input mailboxes + per-mailbox source folder (`Inbox` or `Inbox/HL7`), edited on `/settings`; stored as `kind=MAILBOX` rows in the reference-data table; edits write `settings_updated` audit rows
+- `/api/pad-config` (GET) - PAD bearer-auth read of the enabled mailboxes (`?format=lines` → `address|source|linked`); 503 = config unavailable, PAD falls back. See `docs/operations/pad-mailbox-config.md`
 
 ### Addressee Resolution
 

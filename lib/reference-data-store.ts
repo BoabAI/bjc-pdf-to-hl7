@@ -12,12 +12,17 @@ import {
   type Carrier,
   type Doctor,
 } from "./conversion-config";
+import {
+  DEFAULT_MAILBOXES,
+  isMailboxConfig,
+  type MailboxConfig,
+} from "./mailbox-config";
 import { logOperationalError } from "./server/logging";
 
 const REGION = "ap-southeast-2";
 const DEFAULT_TABLE = "bjc-pdf-to-hl7-reference-data";
 
-type Kind = "DOCTOR" | "CARRIER";
+type Kind = "DOCTOR" | "CARRIER" | "MAILBOX";
 
 interface DoctorRow extends Doctor {
   kind: "DOCTOR";
@@ -26,6 +31,11 @@ interface DoctorRow extends Doctor {
 
 interface CarrierRow extends Carrier {
   kind: "CARRIER";
+  updatedAt: string;
+}
+
+interface MailboxRow extends MailboxConfig {
+  kind: "MAILBOX";
   updatedAt: string;
 }
 
@@ -180,6 +190,58 @@ export async function deleteCarrier(id: string): Promise<void> {
     new DeleteCommand({
       TableName: getTableName(),
       Key: { kind: "CARRIER", id },
+    })
+  );
+}
+
+/**
+ * Seeds ONLY the mailbox partition. Deliberately separate from `seedDefaults`:
+ * the mailbox partition is new on tables that already hold curated doctors and
+ * carriers, and the shared seed would overwrite those with code defaults.
+ */
+async function seedMailboxes(client: DynamoDBDocumentClient): Promise<void> {
+  const ts = nowIso();
+  await client.send(
+    new BatchWriteCommand({
+      RequestItems: {
+        [getTableName()]: DEFAULT_MAILBOXES.map((m) => ({
+          PutRequest: { Item: { ...m, kind: "MAILBOX", updatedAt: ts } satisfies MailboxRow },
+        })),
+      },
+    })
+  );
+}
+
+/**
+ * Returns all configured input mailboxes, seeding the fax-mailbox defaults on
+ * an empty partition. Unlike the doctor/carrier lists this THROWS on DynamoDB
+ * failure: PAD must be able to tell "no mailboxes" from "config unavailable"
+ * so it can fall back to its built-in list instead of polling nothing.
+ */
+export async function listMailboxes(): Promise<MailboxConfig[]> {
+  const client = buildDocClient();
+  const items = await queryByKind<MailboxRow>(client, "MAILBOX");
+  if (items.length === 0) {
+    await seedMailboxes(client);
+    return DEFAULT_MAILBOXES;
+  }
+  return items.filter(isMailboxConfig).map(stripMeta);
+}
+
+/** Upsert a single mailbox. Throws on DDB failure; caller is responsible for handling. */
+export async function putMailbox(mailbox: MailboxConfig): Promise<void> {
+  const client = buildDocClient();
+  const item: MailboxRow = { ...mailbox, kind: "MAILBOX", updatedAt: nowIso() };
+  await client.send(new PutCommand({ TableName: getTableName(), Item: item }));
+}
+
+/** Remove a mailbox by id (its lowercased address). Throws on DDB failure. */
+export async function deleteMailbox(id: string): Promise<void> {
+  const client = buildDocClient();
+  await client.send(
+    new DeleteCommand({
+      TableName: getTableName(),
+      Key: { kind: "MAILBOX", id },
     })
   );
 }
