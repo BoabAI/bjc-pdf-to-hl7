@@ -5,7 +5,7 @@ LOOP FOREACH MailboxLine IN MailboxList
     IF (NOT Contains(MailboxLine, $'''@''', True)) = True THEN
         NEXT LOOP
     END
-    Text.SplitText.SplitWithCustomDelimiter Text: MailboxLine CustomDelimiter: $'''|''' IsRegEx: False Result=> MailboxParts
+    Text.SplitText.SplitWithDelimiter Text: MailboxLine CustomDelimiter: $'''|''' IsRegEx: False Result=> MailboxParts
     SET Mailbox TO MailboxParts[0]
     SET SourceFolder TO MailboxParts[1]
     SET LinkedFolder TO MailboxParts[2]
