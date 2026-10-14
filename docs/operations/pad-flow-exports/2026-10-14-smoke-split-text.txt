@@ -1,0 +1,3 @@
+Scripting.RunPowershellScript.RunScript Script: $'''& \"C:\\SMEC AI\\pdf-to-hl7\\get-mailboxes.ps1\"''' ScriptOutput=> MailboxConfigText
+Text.SplitText.Split Text: MailboxConfigText StandardDelimiter: Text.StandardDelimiter.NewLine DelimiterTimes: 1 Result=> MailboxList
+Text.SplitText.SplitWithDelimiter Text: $'''a|b|c''' CustomDelimiter: $'''|''' IsRegEx: False Result=> MailboxParts
