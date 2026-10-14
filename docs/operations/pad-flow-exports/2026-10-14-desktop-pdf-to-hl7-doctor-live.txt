@@ -17,6 +17,9 @@ LOOP FOREACH MailboxLine IN MailboxList
     @@folderPath: '%SourceFolder%'
 @@connectionDisplayName: 'Office 365 Outlook pdftodirectory-09a24'
 External.InvokeCloudConnector Connection: 'ad6d3c86-98fa-435c-bc66-3759564f18c1' ConnectorId: '/providers/Microsoft.PowerApps/apis/shared_office365' OperationId: 'GetEmailsV3' @folderPath: SourceFolder @fetchOnlyWithAttachment: True @fetchOnlyUnread: False @mailboxAddress: Mailbox @includeAttachments: True @top: 25 @GetEmailsV3Response=> GetEmailsV3Response
+    ON ERROR
+        GOTO SkipMailbox
+    END
     LOOP FOREACH CurrentEmail IN GetEmailsV3Response.value
         IF (NOT Contains(ProcessedIds, CurrentEmail.internetMessageId, False)) = True THEN
             SET HasPdf TO $'''no'''
@@ -54,6 +57,7 @@ External.InvokeCloudConnector Connection: 'ad6d3c86-98fa-435c-bc66-3759564f18c1'
             END
         END
     END
+    LABEL SkipMailbox
 END
 
 # [ControlRepository][PowerAutomateDesktop]
