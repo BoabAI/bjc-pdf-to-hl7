@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mailboxDisplay, type AuditRow } from "./auditShared";
+import { docTypeDisplay, mailboxDisplay, type AuditRow } from "./auditShared";
 
 const base: AuditRow = {
   month: "2026-08",
@@ -42,5 +42,37 @@ describe("mailboxDisplay", () => {
   test("falls back to Email / Web when nothing else is known", () => {
     expect(mailboxDisplay(base)).toBe("Email");
     expect(mailboxDisplay({ ...base, source: "web" })).toBe("Web");
+  });
+});
+
+describe("docTypeDisplay", () => {
+  test("shows Report for a consult_letter stored with the Report description", () => {
+    expect(
+      docTypeDisplay({
+        ...base,
+        documentType: "consult_letter",
+        documentDescription: "Report",
+      })
+    ).toBe("Report");
+  });
+
+  test("keeps Consult letter for ordinary consult letters and legacy rows", () => {
+    expect(
+      docTypeDisplay({
+        ...base,
+        documentType: "consult_letter",
+        documentDescription: "Consult Letter",
+      })
+    ).toBe("Consult letter");
+    expect(docTypeDisplay({ ...base, documentType: "consult_letter" })).toBe(
+      "Consult letter"
+    );
+  });
+
+  test("falls back to the type label for other types and missing types", () => {
+    expect(docTypeDisplay({ ...base, documentType: "pathology_result" })).toBe(
+      "Pathology result"
+    );
+    expect(docTypeDisplay(base)).toBe("Unknown");
   });
 });

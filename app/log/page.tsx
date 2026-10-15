@@ -11,8 +11,8 @@ import {
   currentSydneyDate,
   firstOfCurrentSydneyMonth,
   formatSydneyTimestamp,
+  docTypeDisplay,
   mailboxDisplay,
-  prettifyDocType,
   prettifyOutcome,
   ROUTING_DECISION_LABELS,
   ROUTING_REASON_STYLE,
@@ -343,7 +343,7 @@ export default function LogPage(): JSX.Element {
                             {row.patientInitials ?? "—"}
                           </td>
                           <td className="py-2 pr-4 text-[var(--text-primary)]">
-                            {row.documentType ? prettifyDocType(row.documentType) : "—"}
+                            {row.documentType ? docTypeDisplay(row) : "—"}
                           </td>
                           <td className="py-2 pr-4 text-[var(--text-primary)]">
                             {mailboxLabel}

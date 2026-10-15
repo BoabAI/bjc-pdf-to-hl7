@@ -10,8 +10,8 @@ import {
   type AuditRow,
   currentSydneyDate,
   firstOfCurrentSydneyMonth,
+  docTypeDisplay,
   mailboxDisplay,
-  prettifyDocType,
   prettifyOutcome,
   ROUTING_REASON_STYLE,
   useAuditDataRange,
@@ -193,7 +193,7 @@ export default function StatsPage(): JSX.Element {
   );
 
   const docTypeData = useMemo(
-    () => groupBy(rows, (r) => prettifyDocType(r.documentType)),
+    () => groupBy(rows, (r) => docTypeDisplay(r)),
     [rows]
   );
   const outcomeData = useMemo(
