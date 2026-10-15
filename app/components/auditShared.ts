@@ -29,6 +29,8 @@ export interface AuditRow {
   month: string;
   ts: string;
   documentType?: string;
+  /** OBR-4 description Genie shows ("Report" vs "Consult Letter"). */
+  documentDescription?: string;
   outcome: "ok" | "fail";
   source: "web" | "email";
   messageType?: string;
@@ -179,6 +181,20 @@ export function prettifyOutcome(raw: string): string {
 export function prettifyDocType(raw: string | null | undefined): string {
   if (!raw) return "Unknown";
   return DOC_TYPE_LABELS[raw.toLowerCase()] ?? raw;
+}
+
+/**
+ * Label for the Doc Type column / chart. A study report shares the
+ * `consult_letter` type with ordinary consult letters and differs only in the
+ * stored OBR-4 description, so show what Genie shows.
+ */
+export function docTypeDisplay(
+  row: Pick<AuditRow, "documentType" | "documentDescription">
+): string {
+  if (row.documentType === "consult_letter" && row.documentDescription === "Report") {
+    return "Report";
+  }
+  return prettifyDocType(row.documentType);
 }
 
 export interface LogsResponse {
